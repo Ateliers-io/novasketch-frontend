@@ -1,12 +1,14 @@
 import { Stage, Layer, Line } from 'react-konva';
 import { useRef, useState, useEffect } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
+import Toolbar from '../Toolbar';
 import './Whiteboard.css';
 
 const GRID_SIZE = 40; // px between grid lines
 const GRID_COLOR = '#e0e0e0';
 const STROKE_TENSION = 0.4; // bezier curve smoothing (0 = sharp, 1 = very smooth)
 const MIN_POINT_DISTANCE = 3; // skip points closer than this to reduce jitter
+const DEFAULT_BRUSH_SIZE = 3;
 
 interface StrokeLine {
   id: string;
@@ -54,6 +56,7 @@ export default function Whiteboard() {
 
   const [lines, setLines] = useState<StrokeLine[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
 
   useEffect(() => {
     function handleResize() {
@@ -83,7 +86,7 @@ export default function Whiteboard() {
         id: `stroke-${Date.now()}`,
         points: [pos.x, pos.y],
         color: '#000000',
-        strokeWidth: 3,
+        strokeWidth: brushSize,
       },
     ]);
   };
@@ -126,6 +129,7 @@ export default function Whiteboard() {
 
   return (
     <div className="whiteboard-container" ref={containerRef}>
+      <Toolbar brushSize={brushSize} onBrushSizeChange={setBrushSize} />
       <Stage
         width={dimensions.width}
         height={dimensions.height}

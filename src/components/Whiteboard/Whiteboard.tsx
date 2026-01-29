@@ -57,8 +57,10 @@ export default function Whiteboard() {
 
   const [lines, setLines] = useState<StrokeLine[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Drawing context - stores current tool settings
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
-  const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR);
+  const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR); // hex code
 
   useEffect(() => {
     function handleResize() {

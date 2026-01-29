@@ -20,6 +20,7 @@ export default function Toolbar({
             <div className="toolbar-group">
                 <label>Color</label>
                 <div className="color-input-wrapper">
+                    {/* Updates context state with selected hex code */}
                     <input
                         type="color"
                         value={strokeColor}

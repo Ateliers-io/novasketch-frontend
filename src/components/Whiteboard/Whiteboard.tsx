@@ -3,8 +3,10 @@ import { useRef, useState, useEffect } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import './Whiteboard.css';
 
-const GRID_SIZE = 40;
+const GRID_SIZE = 40; // px between grid lines
 const GRID_COLOR = '#e0e0e0';
+const STROKE_TENSION = 0.4; // bezier curve smoothing (0 = sharp, 1 = very smooth)
+const MIN_POINT_DISTANCE = 3; // skip points closer than this to reduce jitter
 
 interface StrokeLine {
   id: string;
@@ -68,6 +70,7 @@ export default function Whiteboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Start a new stroke
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
@@ -85,6 +88,7 @@ export default function Whiteboard() {
     ]);
   };
 
+  // Add points to current stroke while drawing
   const handlePointerMove = (e: KonvaEventObject<PointerEvent>) => {
     if (!isDrawing) return;
 
@@ -96,9 +100,20 @@ export default function Whiteboard() {
       const lastLine = prevLines[prevLines.length - 1];
       if (!lastLine) return prevLines;
 
+      const points = lastLine.points;
+      const lastX = points[points.length - 2];
+      const lastY = points[points.length - 1];
+
+      // Distance check for point simplification
+      const dx = pos.x - lastX;
+      const dy = pos.y - lastY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < MIN_POINT_DISTANCE) return prevLines;
+
       const updatedLine = {
         ...lastLine,
-        points: [...lastLine.points, pos.x, pos.y],
+        points: [...points, pos.x, pos.y],
       };
 
       return [...prevLines.slice(0, -1), updatedLine];
@@ -131,7 +146,7 @@ export default function Whiteboard() {
               strokeWidth={line.strokeWidth}
               lineCap="round"
               lineJoin="round"
-              tension={0}
+              tension={STROKE_TENSION}
             />
           ))}
         </Layer>

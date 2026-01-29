@@ -77,7 +77,7 @@ export default function Whiteboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Start a new stroke
+  // Start a new stroke with current tool settings
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
@@ -89,7 +89,7 @@ export default function Whiteboard() {
       {
         id: `stroke-${Date.now()}`,
         points: [pos.x, pos.y],
-        color: strokeColor,
+        color: strokeColor, // Apply selected color to new stroke
         strokeWidth: brushSize,
       },
     ]);
@@ -150,12 +150,13 @@ export default function Whiteboard() {
         <Layer>
           <Grid width={dimensions.width} height={dimensions.height} />
         </Layer>
+        {/* Render strokes with their stored color */}
         <Layer>
           {lines.map((line) => (
             <Line
               key={line.id}
               points={line.points}
-              stroke={line.color}
+              stroke={line.color} // Each stroke uses its own color
               strokeWidth={line.strokeWidth}
               lineCap="round"
               lineJoin="round"

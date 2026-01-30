@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import './Toolbar.css';
+import { useState } from 'react';
 import { ToolType } from '../../types/shapes';
 
 // Update your ToolType enum in your types file to include 'text' and 'select' if not present,

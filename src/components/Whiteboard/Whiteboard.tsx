@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { Stage, Layer, Line } from 'react-konva';
 import { useRef, useState, useEffect } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
@@ -638,8 +639,19 @@ export default function Whiteboard() {
     setPreviewShape(null);
   };
 
-  const handleTextSubmit = (text: string) => {
+const handleTextSubmit = (text: string) => {
+    // 1. Basic validation
     if (!activeTextInput || !text.trim()) {
+      setActiveTextInput(null);
+      return;
+    }
+
+    // 2. SANITIZATION (Security Requirement 2.3.2)
+    // This strips out <script>, <img> onerror attributes, and other XSS vectors.
+    const sanitizedText = DOMPurify.sanitize(text.trim());
+
+    // 3. Prevent saving if sanitization resulted in an empty string
+    if (!sanitizedText) {
       setActiveTextInput(null);
       return;
     }
@@ -650,7 +662,7 @@ export default function Whiteboard() {
           annotation.id === activeTextInput.editingId
             ? {
               ...annotation,
-              text: text.trim(),
+              text: sanitizedText, // Use sanitized text
               fontSize: activeFontSize,
               color: strokeColor,
               fontFamily: activeFontFamily,
@@ -666,7 +678,7 @@ export default function Whiteboard() {
         id: `text-${Date.now()}`,
         x: activeTextInput.x,
         y: activeTextInput.y,
-        text: text.trim(),
+        text: sanitizedText, // Use sanitized text
         fontSize: activeFontSize,
         color: strokeColor,
         fontFamily: activeFontFamily,

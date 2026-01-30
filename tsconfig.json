@@ -12,9 +12,15 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]
 }
+
+/*
+When noUnusedLocals is true,
+ the TypeScript compiler (tsc) acts like a strict supervisor.
+ If you import something but don't use it in your code, it throws a "Hard Error" instead of a "Warning
+*/

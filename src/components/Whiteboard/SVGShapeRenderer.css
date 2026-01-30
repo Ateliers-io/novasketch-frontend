@@ -1,0 +1,88 @@
+.svg-shape-renderer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.svg-shape {
+    pointer-events: auto;
+    transition: filter 0.15s ease-in-out, transform 0.1s ease-out;
+}
+
+.svg-shape:hover {
+    filter: brightness(1.05);
+}
+
+.svg-shape--selected {
+    filter: url(#selection-glow);
+    stroke-dasharray: none !important;
+}
+
+.svg-rectangle:hover,
+.svg-circle:hover,
+.svg-ellipse:hover,
+.svg-triangle:hover {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.svg-line:hover,
+.svg-arrow:hover {
+    stroke-width: calc(var(--stroke-width, 2px) + 1px);
+}
+
+.svg-shape[data-shape-id] {
+    cursor: pointer;
+}
+
+@keyframes shape-appear {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.svg-shape-new {
+    animation: shape-appear 0.2s ease-out forwards;
+}
+
+.svg-selection-handles {
+    pointer-events: auto;
+}
+
+.svg-selection-handle {
+    fill: #ffffff;
+    stroke: #3B82F6;
+    stroke-width: 2;
+    cursor: grab;
+    transition: transform 0.1s ease;
+}
+
+.svg-selection-handle:hover {
+    transform: scale(1.2);
+}
+
+.svg-selection-handle:active {
+    cursor: grabbing;
+}
+
+.svg-rotation-handle {
+    fill: #3B82F6;
+    stroke: #1E40AF;
+    stroke-width: 1;
+    cursor: grab;
+}
+
+.svg-selection-box {
+    fill: none;
+    stroke: #3B82F6;
+    stroke-width: 1;
+    stroke-dasharray: 5, 5;
+    pointer-events: none;
+}

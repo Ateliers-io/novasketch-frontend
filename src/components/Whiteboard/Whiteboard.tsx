@@ -11,6 +11,7 @@ import {
   createCircle,
   Position,
 } from '../../types/shapes';
+import SVGShapeRenderer from './SVGShapeRenderer';
 
 const GRID_SIZE = 40;
 const GRID_COLOR = '#e0e0e0';
@@ -72,9 +73,15 @@ export default function Whiteboard() {
   const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR);
   const [fillColor, setFillColor] = useState('#3B82F6');
 
-  // Tracks drag start for shape creation
   const [dragStart, setDragStart] = useState<Position | null>(null);
   const [previewShape, setPreviewShape] = useState<Shape | null>(null);
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+
+  const handleShapeClick = (shape: Shape) => {
+    if (activeTool === ToolType.SELECT) {
+      setSelectedShapeId(shape.id);
+    }
+  };
 
   useEffect(() => {
     function handleResize() {
@@ -255,6 +262,9 @@ export default function Whiteboard() {
     return null;
   };
 
+  // Combine shapes with preview for SVG rendering
+  const allShapesForSVG = previewShape ? [...shapes, previewShape] : shapes;
+
   return (
     <div className="whiteboard-container" ref={containerRef}>
       <Toolbar
@@ -296,6 +306,14 @@ export default function Whiteboard() {
           {previewShape && renderShape(previewShape)}
         </Layer>
       </Stage>
+
+      <SVGShapeRenderer
+        shapes={allShapesForSVG}
+        width={dimensions.width}
+        height={dimensions.height}
+        onShapeClick={handleShapeClick}
+        selectedShapeId={selectedShapeId}
+      />
     </div>
   );
 }

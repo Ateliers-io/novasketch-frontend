@@ -1,4 +1,4 @@
-import { Stage, Layer, Line, Rect, Circle } from 'react-konva';
+import { Stage, Layer, Line } from 'react-konva';
 import { useRef, useState, useEffect } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import Toolbar from '../Toolbar';
@@ -229,40 +229,6 @@ export default function Whiteboard() {
     setPreviewShape(null);
   };
 
-  const renderShape = (shape: Shape) => {
-    if (shape.type === ShapeType.RECTANGLE) {
-      return (
-        <Rect
-          key={shape.id}
-          x={shape.position.x}
-          y={shape.position.y}
-          width={shape.width}
-          height={shape.height}
-          fill={shape.style.hasFill ? shape.style.fill : undefined}
-          stroke={shape.style.stroke}
-          strokeWidth={shape.style.strokeWidth}
-          cornerRadius={shape.cornerRadius}
-          opacity={shape.opacity}
-        />
-      );
-    } else if (shape.type === ShapeType.CIRCLE) {
-      return (
-        <Circle
-          key={shape.id}
-          x={shape.position.x}
-          y={shape.position.y}
-          radius={shape.radius}
-          fill={shape.style.hasFill ? shape.style.fill : undefined}
-          stroke={shape.style.stroke}
-          strokeWidth={shape.style.strokeWidth}
-          opacity={shape.opacity}
-        />
-      );
-    }
-    return null;
-  };
-
-  // Combine shapes with preview for SVG rendering
   const allShapesForSVG = previewShape ? [...shapes, previewShape] : shapes;
 
   return (
@@ -300,10 +266,6 @@ export default function Whiteboard() {
               tension={STROKE_TENSION}
             />
           ))}
-        </Layer>
-        <Layer>
-          {shapes.map(renderShape)}
-          {previewShape && renderShape(previewShape)}
         </Layer>
       </Stage>
 

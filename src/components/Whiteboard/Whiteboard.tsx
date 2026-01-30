@@ -25,6 +25,10 @@ interface TextAnnotation {
   text: string;
   fontSize: number;
   color: string;
+  fontFamily: string;
+  fontWeight: string;
+  fontStyle: string;
+  textDecoration: string;
 }
 
 type Tool = 'draw' | 'text' | 'select';
@@ -67,9 +71,18 @@ interface TextInputProps {
   y: number;
   onSubmit: (text: string) => void;
   initialValue?: string;
+  fontSize: number;
+  color: string;
+  fontFamily: string;
+  fontWeight: string;
+  fontStyle: string;
+  textDecoration: string;
 }
 
-function TextInput({ x, y, onSubmit, initialValue = '' }: TextInputProps) {
+function TextInput({
+  x, y, onSubmit, initialValue = '',
+  fontSize, color, fontFamily, fontWeight, fontStyle, textDecoration
+}: TextInputProps) {
   const [value, setValue] = useState(initialValue);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -85,7 +98,14 @@ function TextInput({ x, y, onSubmit, initialValue = '' }: TextInputProps) {
     }
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    // Check if the new focused element is inside the toolbar
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (relatedTarget && relatedTarget.closest('.toolbar')) {
+      // Keep focus on the textarea if interacting with toolbar
+      e.target.focus();
+      return;
+    }
     onSubmit(value);
   };
 
@@ -101,15 +121,20 @@ function TextInput({ x, y, onSubmit, initialValue = '' }: TextInputProps) {
         left: `${x}px`,
         top: `${y}px`,
         minWidth: '200px',
-        minHeight: '30px',
+        minHeight: `${fontSize * 1.5}px`, // Adjust height based on font size
         padding: '4px 8px',
-        fontSize: '16px',
-        fontFamily: 'Arial',
+        fontSize: `${fontSize}px`,
+        color: color,
+        fontFamily: fontFamily,
+        fontWeight: fontWeight,
+        fontStyle: fontStyle,
+        textDecoration: textDecoration,
         border: '2px solid #4a90e2',
         borderRadius: '4px',
         outline: 'none',
         resize: 'both',
         zIndex: 1000,
+        background: 'transparent', // Make background transparent to blend with canvas
       }}
       placeholder="Type text here..."
     />
@@ -139,6 +164,13 @@ export default function Whiteboard() {
   // Drawing context - stores current tool settings
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR); // hex code
+
+  // Text formatting state
+  const [activeFontFamily, setActiveFontFamily] = useState('Arial');
+  const [activeFontSize, setActiveFontSize] = useState(16);
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+  const [isUnderline, setIsUnderline] = useState(false);
 
   useEffect(() => {
     function handleResize() {
@@ -232,7 +264,16 @@ export default function Whiteboard() {
       setTextAnnotations(
         textAnnotations.map((annotation) =>
           annotation.id === activeTextInput.editingId
-            ? { ...annotation, text: text.trim() }
+            ? {
+              ...annotation,
+              text: text.trim(),
+              fontSize: activeFontSize,
+              color: strokeColor, // Update color from toolbar state
+              fontFamily: activeFontFamily,
+              fontWeight: isBold ? 'bold' : 'normal',
+              fontStyle: isItalic ? 'italic' : 'normal',
+              textDecoration: isUnderline ? 'underline' : 'none',
+            }
             : annotation
         )
       );
@@ -243,8 +284,12 @@ export default function Whiteboard() {
         x: activeTextInput.x,
         y: activeTextInput.y,
         text: text.trim(),
-        fontSize: 16, // Default font size for now
+        fontSize: activeFontSize,
         color: strokeColor,
+        fontFamily: activeFontFamily,
+        fontWeight: isBold ? 'bold' : 'normal',
+        fontStyle: isItalic ? 'italic' : 'normal',
+        textDecoration: isUnderline ? 'underline' : 'none',
       };
       setTextAnnotations([...textAnnotations, newTextAnnotation]);
     }
@@ -272,6 +317,14 @@ export default function Whiteboard() {
   const handleTextClick = (textAnnotation: TextAnnotation) => {
     if (tool !== 'select') return;
 
+    // Sync toolbar state
+    setActiveFontSize(textAnnotation.fontSize);
+    setActiveFontFamily(textAnnotation.fontFamily || 'Arial');
+    setIsBold(textAnnotation.fontWeight === 'bold');
+    setIsItalic(textAnnotation.fontStyle === 'italic');
+    setIsUnderline(textAnnotation.textDecoration === 'underline');
+    setStrokeColor(textAnnotation.color);
+
     setActiveTextInput({
       x: textAnnotation.x,
       y: textAnnotation.y,
@@ -279,6 +332,37 @@ export default function Whiteboard() {
       editingId: textAnnotation.id,
       initialText: textAnnotation.text,
     });
+  };
+
+  // Helper to update text style for both state and active selection
+  const updateTextStyle = (
+    key: keyof TextAnnotation,
+    value: string | number | boolean
+  ) => {
+    // Update local state helpers
+    if (key === 'fontFamily') setActiveFontFamily(value as string);
+    if (key === 'fontSize') setActiveFontSize(value as number);
+    if (key === 'fontWeight') setIsBold(value === 'bold');
+    if (key === 'fontStyle') setIsItalic(value === 'italic');
+    if (key === 'textDecoration') setIsUnderline(value === 'underline');
+
+    // If editing, update the annotation immediately
+    if (activeTextInput?.editingId) {
+      setTextAnnotations((prev) =>
+        prev.map((t) => {
+          if (t.id === activeTextInput.editingId) {
+            // For boolean toggles, we need to map true/false to CSS values
+            let newValue = value;
+            if (key === 'fontWeight') newValue = value ? 'bold' : 'normal';
+            if (key === 'fontStyle') newValue = value ? 'italic' : 'normal';
+            if (key === 'textDecoration') newValue = value ? 'underline' : 'none';
+
+            return { ...t, [key]: newValue };
+          }
+          return t;
+        })
+      );
+    }
   };
 
   return (
@@ -294,6 +378,17 @@ export default function Whiteboard() {
         onBrushSizeChange={setBrushSize}
         strokeColor={strokeColor}
         onColorChange={setStrokeColor}
+        // Text formatting
+        fontFamily={activeFontFamily}
+        onFontFamilyChange={(val) => updateTextStyle('fontFamily', val)}
+        fontSize={activeFontSize}
+        onFontSizeChange={(val) => updateTextStyle('fontSize', val)}
+        isBold={isBold}
+        onBoldChange={(val) => updateTextStyle('fontWeight', val ? 'bold' : 'normal')}
+        isItalic={isItalic}
+        onItalicChange={(val) => updateTextStyle('fontStyle', val ? 'italic' : 'normal')}
+        isUnderline={isUnderline}
+        onUnderlineChange={(val) => updateTextStyle('textDecoration', val ? 'underline' : 'none')}
       />
       <Stage
         width={dimensions.width}
@@ -340,11 +435,15 @@ export default function Whiteboard() {
             y={textAnnotation.y}
             fontSize={textAnnotation.fontSize}
             fill={textAnnotation.color}
-            fontFamily="Arial"
+            fontFamily={textAnnotation.fontFamily || 'Arial'}
+            fontWeight={textAnnotation.fontWeight}
+            fontStyle={textAnnotation.fontStyle}
+            textDecoration={textAnnotation.textDecoration}
             dominantBaseline="hanging"
             style={{
               pointerEvents: 'auto',
               cursor: tool === 'select' ? 'pointer' : 'default',
+              visibility: activeTextInput?.editingId === textAnnotation.id ? 'hidden' : 'visible',
             }}
             onClick={() => handleTextClick(textAnnotation)}
           >
@@ -359,6 +458,12 @@ export default function Whiteboard() {
           y={activeTextInput.y}
           onSubmit={handleTextSubmit}
           initialValue={activeTextInput.initialText}
+          fontSize={activeFontSize}
+          color={strokeColor}
+          fontFamily={activeFontFamily}
+          fontWeight={isBold ? 'bold' : 'normal'}
+          fontStyle={isItalic ? 'italic' : 'normal'}
+          textDecoration={isUnderline ? 'underline' : 'none'}
         />
       )}
     </div>

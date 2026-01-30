@@ -3,14 +3,25 @@ import { useRef, useState, useEffect } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import Toolbar from '../Toolbar';
 import './Whiteboard.css';
+import {
+  ToolType,
+  Shape,
+  ShapeType,
+  createRectangle,
+  createCircle,
+  Position,
+} from '../../types/shapes';
+import SVGShapeRenderer from './SVGShapeRenderer';
 
-const GRID_SIZE = 40; // px between grid lines
+// --- Constants ---
+const GRID_SIZE = 40;
 const GRID_COLOR = '#e0e0e0';
-const STROKE_TENSION = 0.4; // bezier curve smoothing (0 = sharp, 1 = very smooth)
-const MIN_POINT_DISTANCE = 3; // skip points closer than this to reduce jitter
+const STROKE_TENSION = 0.4;
+const MIN_POINT_DISTANCE = 3;
 const DEFAULT_BRUSH_SIZE = 3;
 const DEFAULT_STROKE_COLOR = '#000000';
 
+// --- Types ---
 interface StrokeLine {
   id: string;
   points: number[];
@@ -31,16 +42,18 @@ interface TextAnnotation {
   textDecoration: string;
 }
 
-type Tool = 'draw' | 'text' | 'select';
+// Union type for tools to support both Enums (Shapes/Pen) and Strings (Text/Select)
+type ActiveTool = ToolType | 'text' | 'select';
 
 interface GridProps {
   width: number;
   height: number;
 }
 
+// --- Helper Components ---
+
 function Grid({ width, height }: GridProps) {
   const lines = [];
-
   for (let x = 0; x <= width; x += GRID_SIZE) {
     lines.push(
       <Line
@@ -51,7 +64,6 @@ function Grid({ width, height }: GridProps) {
       />
     );
   }
-
   for (let y = 0; y <= height; y += GRID_SIZE) {
     lines.push(
       <Line
@@ -62,7 +74,6 @@ function Grid({ width, height }: GridProps) {
       />
     );
   }
-
   return <>{lines}</>;
 }
 
@@ -87,7 +98,6 @@ function TextInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    // Auto-focus when component mounts
     textareaRef.current?.focus();
   }, []);
 
@@ -99,10 +109,8 @@ function TextInput({
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    // Check if the new focused element is inside the toolbar
     const relatedTarget = e.relatedTarget as HTMLElement;
     if (relatedTarget && relatedTarget.closest('.toolbar')) {
-      // Keep focus on the textarea if interacting with toolbar
       e.target.focus();
       return;
     }
@@ -121,7 +129,7 @@ function TextInput({
         left: `${x}px`,
         top: `${y}px`,
         minWidth: '200px',
-        minHeight: `${fontSize * 1.5}px`, // Adjust height based on font size
+        minHeight: `${fontSize * 1.5}px`,
         padding: '4px 8px',
         fontSize: `${fontSize}px`,
         color: color,
@@ -134,25 +142,34 @@ function TextInput({
         outline: 'none',
         resize: 'both',
         zIndex: 1000,
-        background: 'transparent', // Make background transparent to blend with canvas
+        background: 'transparent',
       }}
       placeholder="Type text here..."
     />
   );
 }
 
+// --- Main Component ---
+
 export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
+  // -- State: Content --
   const [lines, setLines] = useState<StrokeLine[]>([]);
-  const [isDrawing, setIsDrawing] = useState(false);
-
-  // Tool mode state
-  const [tool, setTool] = useState<Tool>('draw');
-
-  // Text annotations state
+  const [shapes, setShapes] = useState<Shape[]>([]);
   const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([]);
+
+  // -- State: Interaction --
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [activeTool, setActiveTool] = useState<ActiveTool>(ToolType.PEN);
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+
+  // -- State: Shape Drawing --
+  const [dragStart, setDragStart] = useState<Position | null>(null);
+  const [previewShape, setPreviewShape] = useState<Shape | null>(null);
+
+  // -- State: Text Editing --
   const [activeTextInput, setActiveTextInput] = useState<{
     x: number;
     y: number;
@@ -161,17 +178,19 @@ export default function Whiteboard() {
     initialText?: string;
   } | null>(null);
 
-  // Drawing context - stores current tool settings
+  // -- State: Styles --
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
-  const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR); // hex code
+  const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR);
+  const [fillColor, setFillColor] = useState('#3B82F6');
 
-  // Text formatting state
+  // Text Styles
   const [activeFontFamily, setActiveFontFamily] = useState('Arial');
   const [activeFontSize, setActiveFontSize] = useState(16);
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
 
+  // -- Lifecycle --
   useEffect(() => {
     function handleResize() {
       if (containerRef.current) {
@@ -181,42 +200,95 @@ export default function Whiteboard() {
         });
       }
     }
-
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Start a new stroke with current tool settings (draw mode) or show text input (text mode)
+  // -- Helpers --
+  const isShapeTool = (tool: ActiveTool) => {
+    return tool === ToolType.RECTANGLE || tool === ToolType.CIRCLE;
+  };
+
+  const updateTextStyle = (
+    key: keyof TextAnnotation,
+    value: string | number | boolean
+  ) => {
+    if (key === 'fontFamily') setActiveFontFamily(value as string);
+    if (key === 'fontSize') setActiveFontSize(value as number);
+    if (key === 'fontWeight') setIsBold(value === 'bold');
+    if (key === 'fontStyle') setIsItalic(value === 'italic');
+    if (key === 'textDecoration') setIsUnderline(value === 'underline');
+
+    if (activeTextInput?.editingId) {
+      setTextAnnotations((prev) =>
+        prev.map((t) => {
+          if (t.id === activeTextInput.editingId) {
+            let newValue = value;
+            if (key === 'fontWeight') newValue = value ? 'bold' : 'normal';
+            if (key === 'fontStyle') newValue = value ? 'italic' : 'normal';
+            if (key === 'textDecoration') newValue = value ? 'underline' : 'none';
+            return { ...t, [key]: newValue };
+          }
+          return t;
+        })
+      );
+    }
+  };
+
+  // -- Event Handlers --
+
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
-    if (tool === 'text') {
-      // Show text input at click position
+    // 1. Handle Text Tool Click
+    if (activeTool === 'text') {
       setActiveTextInput({ x: pos.x, y: pos.y, visible: true });
       return;
     }
 
-    if (tool === 'select') {
+    // 2. Handle Select Tool (Logic handled by onClick on elements)
+    if (activeTool === 'select') {
       return;
     }
 
-    // Draw mode - start a new stroke
+    // 3. Handle Drawing/Shapes
     setIsDrawing(true);
-    setLines([
-      ...lines,
-      {
-        id: `stroke-${Date.now()}`,
-        points: [pos.x, pos.y],
-        color: strokeColor, // Apply selected color to new stroke
+
+    if (isShapeTool(activeTool)) {
+      setDragStart({ x: pos.x, y: pos.y });
+
+      const commonStyle = {
+        fill: fillColor,
+        hasFill: true,
+        stroke: strokeColor,
         strokeWidth: brushSize,
-      },
-    ]);
+        lineCap: 'round' as const,
+        lineJoin: 'round' as const,
+      };
+
+      if (activeTool === ToolType.RECTANGLE) {
+        const rect = createRectangle(pos.x, pos.y, 0, 0, { style: commonStyle });
+        setPreviewShape(rect);
+      } else if (activeTool === ToolType.CIRCLE) {
+        const circle = createCircle(pos.x, pos.y, 0, { style: commonStyle });
+        setPreviewShape(circle);
+      }
+    } else if (activeTool === ToolType.PEN) {
+      setLines([
+        ...lines,
+        {
+          id: `stroke-${Date.now()}`,
+          points: [pos.x, pos.y],
+          color: strokeColor,
+          strokeWidth: brushSize,
+        },
+      ]);
+    }
   };
 
-  // Add points to current stroke while drawing
   const handlePointerMove = (e: KonvaEventObject<PointerEvent>) => {
     if (!isDrawing) return;
 
@@ -224,35 +296,67 @@ export default function Whiteboard() {
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
-    setLines((prevLines) => {
-      const lastLine = prevLines[prevLines.length - 1];
-      if (!lastLine) return prevLines;
+    if (isShapeTool(activeTool) && dragStart && previewShape) {
+      const width = pos.x - dragStart.x;
+      const height = pos.y - dragStart.y;
 
-      const points = lastLine.points;
-      const lastX = points[points.length - 2];
-      const lastY = points[points.length - 1];
+      if (activeTool === ToolType.RECTANGLE) {
+        const x = width < 0 ? pos.x : dragStart.x;
+        const y = height < 0 ? pos.y : dragStart.y;
+        setPreviewShape({
+          ...previewShape,
+          type: ShapeType.RECTANGLE,
+          position: { x, y },
+          width: Math.abs(width),
+          height: Math.abs(height),
+        } as Shape);
+      } else if (activeTool === ToolType.CIRCLE) {
+        const radius = Math.sqrt(width * width + height * height);
+        setPreviewShape({
+          ...previewShape,
+          type: ShapeType.CIRCLE,
+          position: dragStart,
+          radius,
+        } as Shape);
+      }
+    } else if (activeTool === ToolType.PEN) {
+      setLines((prevLines) => {
+        const lastLine = prevLines[prevLines.length - 1];
+        if (!lastLine) return prevLines;
 
-      // Distance check for point simplification
-      const dx = pos.x - lastX;
-      const dy = pos.y - lastY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+        const points = lastLine.points;
+        const lastX = points[points.length - 2];
+        const lastY = points[points.length - 1];
+        const dx = pos.x - lastX;
+        const dy = pos.y - lastY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (distance < MIN_POINT_DISTANCE) return prevLines;
+        if (distance < MIN_POINT_DISTANCE) return prevLines;
 
-      const updatedLine = {
-        ...lastLine,
-        points: [...points, pos.x, pos.y],
-      };
-
-      return [...prevLines.slice(0, -1), updatedLine];
-    });
+        const updatedLine = {
+          ...lastLine,
+          points: [...points, pos.x, pos.y],
+        };
+        return [...prevLines.slice(0, -1), updatedLine];
+      });
+    }
   };
 
   const handlePointerUp = () => {
+    if (isShapeTool(activeTool) && previewShape) {
+      const hasSize =
+        (previewShape.type === ShapeType.RECTANGLE && (previewShape as any).width > 5) ||
+        (previewShape.type === ShapeType.CIRCLE && (previewShape as any).radius > 5);
+
+      if (hasSize) {
+        setShapes([...shapes, previewShape]);
+      }
+    }
     setIsDrawing(false);
+    setDragStart(null);
+    setPreviewShape(null);
   };
 
-  // Handle text input submission
   const handleTextSubmit = (text: string) => {
     if (!activeTextInput || !text.trim()) {
       setActiveTextInput(null);
@@ -260,7 +364,6 @@ export default function Whiteboard() {
     }
 
     if (activeTextInput.editingId) {
-      // Update existing text annotation
       setTextAnnotations(
         textAnnotations.map((annotation) =>
           annotation.id === activeTextInput.editingId
@@ -268,7 +371,7 @@ export default function Whiteboard() {
               ...annotation,
               text: text.trim(),
               fontSize: activeFontSize,
-              color: strokeColor, // Update color from toolbar state
+              color: strokeColor,
               fontFamily: activeFontFamily,
               fontWeight: isBold ? 'bold' : 'normal',
               fontStyle: isItalic ? 'italic' : 'normal',
@@ -278,7 +381,6 @@ export default function Whiteboard() {
         )
       );
     } else {
-      // Create new text annotation
       const newTextAnnotation: TextAnnotation = {
         id: `text-${Date.now()}`,
         x: activeTextInput.x,
@@ -293,16 +395,13 @@ export default function Whiteboard() {
       };
       setTextAnnotations([...textAnnotations, newTextAnnotation]);
     }
-
     setActiveTextInput(null);
   };
 
-  // Handle container clicks for text mode (fallback if Konva events don't fire)
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (tool !== 'text') return;
+    if (activeTool !== 'text') return;
     if (!containerRef.current) return;
 
-    // Don't handle if clicking on toolbar or existing text input
     const target = e.target as HTMLElement;
     if (target.closest('.toolbar') || target.tagName === 'TEXTAREA') return;
 
@@ -310,14 +409,13 @@ export default function Whiteboard() {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    // Only create input if we didn't just click an existing text (handled by bubble up)
     setActiveTextInput({ x, y, visible: true });
   };
 
-  // Handle clicking on existing text to edit it (only in select mode)
   const handleTextClick = (textAnnotation: TextAnnotation) => {
-    if (tool !== 'select') return;
+    if (activeTool !== 'select') return;
 
-    // Sync toolbar state
     setActiveFontSize(textAnnotation.fontSize);
     setActiveFontFamily(textAnnotation.fontFamily || 'Arial');
     setIsBold(textAnnotation.fontWeight === 'bold');
@@ -334,36 +432,13 @@ export default function Whiteboard() {
     });
   };
 
-  // Helper to update text style for both state and active selection
-  const updateTextStyle = (
-    key: keyof TextAnnotation,
-    value: string | number | boolean
-  ) => {
-    // Update local state helpers
-    if (key === 'fontFamily') setActiveFontFamily(value as string);
-    if (key === 'fontSize') setActiveFontSize(value as number);
-    if (key === 'fontWeight') setIsBold(value === 'bold');
-    if (key === 'fontStyle') setIsItalic(value === 'italic');
-    if (key === 'textDecoration') setIsUnderline(value === 'underline');
-
-    // If editing, update the annotation immediately
-    if (activeTextInput?.editingId) {
-      setTextAnnotations((prev) =>
-        prev.map((t) => {
-          if (t.id === activeTextInput.editingId) {
-            // For boolean toggles, we need to map true/false to CSS values
-            let newValue = value;
-            if (key === 'fontWeight') newValue = value ? 'bold' : 'normal';
-            if (key === 'fontStyle') newValue = value ? 'italic' : 'normal';
-            if (key === 'textDecoration') newValue = value ? 'underline' : 'none';
-
-            return { ...t, [key]: newValue };
-          }
-          return t;
-        })
-      );
+  const handleShapeClick = (shape: Shape) => {
+    if (activeTool === 'select') {
+      setSelectedShapeId(shape.id);
     }
   };
+
+  const allShapesForSVG = previewShape ? [...shapes, previewShape] : shapes;
 
   return (
     <div
@@ -372,13 +447,14 @@ export default function Whiteboard() {
       onClick={handleContainerClick}
     >
       <Toolbar
-        tool={tool}
-        onToolChange={setTool}
+        activeTool={activeTool}
+        onToolChange={setActiveTool}
         brushSize={brushSize}
         onBrushSizeChange={setBrushSize}
         strokeColor={strokeColor}
         onColorChange={setStrokeColor}
-        // Text formatting
+        fillColor={fillColor}
+        onFillColorChange={setFillColor}
         fontFamily={activeFontFamily}
         onFontFamilyChange={(val) => updateTextStyle('fontFamily', val)}
         fontSize={activeFontSize}
@@ -390,6 +466,8 @@ export default function Whiteboard() {
         isUnderline={isUnderline}
         onUnderlineChange={(val) => updateTextStyle('textDecoration', val ? 'underline' : 'none')}
       />
+
+      {/* Canvas Layer */}
       <Stage
         width={dimensions.width}
         height={dimensions.height}
@@ -401,13 +479,12 @@ export default function Whiteboard() {
         <Layer>
           <Grid width={dimensions.width} height={dimensions.height} />
         </Layer>
-        {/* Render strokes with their stored color */}
         <Layer>
           {lines.map((line) => (
             <Line
               key={line.id}
               points={line.points}
-              stroke={line.color} // Each stroke uses its own color
+              stroke={line.color}
               strokeWidth={line.strokeWidth}
               lineCap="round"
               lineJoin="round"
@@ -416,7 +493,17 @@ export default function Whiteboard() {
           ))}
         </Layer>
       </Stage>
-      {/* SVG overlay for text annotations */}
+
+      {/* SVG Shapes Layer */}
+      <SVGShapeRenderer
+        shapes={allShapesForSVG}
+        width={dimensions.width}
+        height={dimensions.height}
+        onShapeClick={handleShapeClick}
+        selectedShapeId={selectedShapeId}
+      />
+
+      {/* Text Annotations Layer */}
       <svg
         style={{
           position: 'absolute',
@@ -442,16 +529,20 @@ export default function Whiteboard() {
             dominantBaseline="hanging"
             style={{
               pointerEvents: 'auto',
-              cursor: tool === 'select' ? 'pointer' : 'default',
+              cursor: activeTool === 'select' ? 'pointer' : 'default',
               visibility: activeTextInput?.editingId === textAnnotation.id ? 'hidden' : 'visible',
             }}
-            onClick={() => handleTextClick(textAnnotation)}
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent creation of new text box
+              handleTextClick(textAnnotation);
+            }}
           >
             {textAnnotation.text}
           </text>
         ))}
       </svg>
-      {/* Text input overlay */}
+
+      {/* Active Text Input */}
       {activeTextInput?.visible && (
         <TextInput
           x={activeTextInput.x}

@@ -1,13 +1,25 @@
+import React from 'react';
 import './Toolbar.css';
+import { ToolType } from '../../types/shapes';
+
+// Update your ToolType enum in your types file to include 'text' and 'select' if not present,
+// or we treat activeTool as a union type here for safety.
+export type ActiveTool = ToolType | 'text' | 'select';
 
 interface ToolbarProps {
-    tool: 'draw' | 'text' | 'select';
-    onToolChange: (tool: 'draw' | 'text' | 'select') => void;
+    // State
+    activeTool: ActiveTool;
+    onToolChange: (tool: ActiveTool) => void;
+
+    // Draw & Shape Props
     brushSize: number;
     onBrushSizeChange: (size: number) => void;
     strokeColor: string;
     onColorChange: (color: string) => void;
-    // Text formatting props
+    fillColor: string;
+    onFillColorChange: (color: string) => void;
+
+    // Text Formatting Props
     fontFamily: string;
     onFontFamilyChange: (font: string) => void;
     fontSize: number;
@@ -20,14 +32,15 @@ interface ToolbarProps {
     onUnderlineChange: (underline: boolean) => void;
 }
 
-// Floating toolbar for drawing controls
 export default function Toolbar({
-    tool,
+    activeTool,
     onToolChange,
     brushSize,
     onBrushSizeChange,
     strokeColor,
     onColorChange,
+    fillColor,
+    onFillColorChange,
     fontFamily,
     onFontFamilyChange,
     fontSize,
@@ -39,46 +52,66 @@ export default function Toolbar({
     isUnderline,
     onUnderlineChange,
 }: ToolbarProps) {
+
+    // Helper to determine if we are in a drawing/shape mode
+    const isDrawMode = activeTool === ToolType.PEN || activeTool === ToolType.RECTANGLE || activeTool === ToolType.CIRCLE;
+    const isTextMode = activeTool === 'text';
+
     return (
         <div className="toolbar">
-            {/* Tool selection */}
+            {/* --- Tool Selection --- */}
             <div className="toolbar-group">
-                <button
-                    className={`tool-button ${tool === 'draw' ? 'active' : ''}`}
-                    onClick={() => onToolChange('draw')}
-                    title="Draw Mode"
-                >
-                    <span style={{ fontSize: '20px' }}>✎</span>
-                </button>
-                <button
-                    className={`tool-button ${tool === 'text' ? 'active' : ''}`}
-                    onClick={() => onToolChange('text')}
-                    title="Text Mode"
-                >
-                    <span style={{ fontSize: '18px', fontWeight: 'bold' }}>T</span>
-                </button>
-                <button
-                    className={`tool-button ${tool === 'select' ? 'active' : ''}`}
-                    onClick={() => onToolChange('select')}
-                    title="Select Mode"
-                >
-                    <span style={{ fontSize: '20px' }}>↗</span>
-                </button>
+                <label>Tools</label>
+                <div className="tool-buttons">
+                    <button
+                        className={`tool-btn ${activeTool === 'select' ? 'active' : ''}`}
+                        onClick={() => onToolChange('select')}
+                        title="Select"
+                    >
+                        ↗
+                    </button>
+                    <button
+                        className={`tool-btn ${activeTool === ToolType.PEN ? 'active' : ''}`}
+                        onClick={() => onToolChange(ToolType.PEN)}
+                        title="Pen"
+                    >
+                        ✏️
+                    </button>
+                    <button
+                        className={`tool-btn ${activeTool === ToolType.RECTANGLE ? 'active' : ''}`}
+                        onClick={() => onToolChange(ToolType.RECTANGLE)}
+                        title="Rectangle"
+                    >
+                        ▢
+                    </button>
+                    <button
+                        className={`tool-btn ${activeTool === ToolType.CIRCLE ? 'active' : ''}`}
+                        onClick={() => onToolChange(ToolType.CIRCLE)}
+                        title="Circle"
+                    >
+                        ○
+                    </button>
+                    <button
+                        className={`tool-btn ${activeTool === 'text' ? 'active' : ''}`}
+                        onClick={() => onToolChange('text')}
+                        title="Text"
+                    >
+                        <span style={{ fontWeight: 'bold' }}>T</span>
+                    </button>
+                </div>
             </div>
 
-            {/* Color picker - native input for color wheel */}
-            {/* Color picker - native input for color wheel */}
+            {/* --- General Styling (Color) --- */}
             <div className="toolbar-group">
-                <label>Color</label>
+                <label>Stroke</label>
                 <div className="color-input-wrapper">
-                    {/* Updates context state with selected hex code */}
                     <input
                         type="color"
                         value={strokeColor}
                         onChange={(e) => onColorChange(e.target.value)}
                         className="color-input"
+                        title="Stroke Color"
                     />
-                    {/* Circle overlay showing current color */}
                     <div
                         className="color-circle"
                         style={{ backgroundColor: strokeColor }}
@@ -86,9 +119,47 @@ export default function Toolbar({
                 </div>
             </div>
 
-            {/* Text Styling Controls (Visible in Text or Select Mode) */}
-            {(tool === 'text' || tool === 'select') && (
+            {/* Show Fill only for Shapes (not Text or Pen usually, but keeping logic flexible) */}
+            {!isTextMode && (
+                <div className="toolbar-group">
+                    <label>Fill</label>
+                    <div className="color-input-wrapper">
+                        <input
+                            type="color"
+                            value={fillColor}
+                            onChange={(e) => onFillColorChange(e.target.value)}
+                            className="color-input"
+                            title="Fill Color"
+                        />
+                        <div
+                            className="color-circle"
+                            style={{ backgroundColor: fillColor }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* --- Drawing Specific Controls --- */}
+            {isDrawMode && (
+                <div className="toolbar-group">
+                    <label htmlFor="brush-size">Size</label>
+                    <input
+                        id="brush-size"
+                        type="range"
+                        min={1}
+                        max={20}
+                        value={brushSize}
+                        onChange={(e) => onBrushSizeChange(Number(e.target.value))}
+                    />
+                    <span className="brush-size-value">{brushSize}px</span>
+                </div>
+            )}
+
+            {/* --- Text Specific Controls --- */}
+            {(isTextMode || activeTool === 'select') && (
                 <>
+                    <div className="toolbar-separator" />
+                    
                     <div className="toolbar-group">
                         <select
                             value={fontFamily}
@@ -97,8 +168,8 @@ export default function Toolbar({
                             title="Font Family"
                         >
                             <option value="Arial">Arial</option>
-                            <option value="Times New Roman">Times New Roman</option>
-                            <option value="Courier New">Courier New</option>
+                            <option value="Times New Roman">Times</option>
+                            <option value="Courier New">Courier</option>
                             <option value="Georgia">Georgia</option>
                             <option value="Verdana">Verdana</option>
                         </select>
@@ -117,49 +188,31 @@ export default function Toolbar({
                         <span className="brush-size-value">px</span>
                     </div>
 
-                    <div className="toolbar-group">
+                    <div className="toolbar-group tool-buttons">
                         <button
-                            className={`tool-button ${isBold ? 'active' : ''}`}
+                            className={`tool-btn ${isBold ? 'active' : ''}`}
                             onClick={() => onBoldChange(!isBold)}
                             title="Bold"
                         >
-                            <span style={{ fontWeight: 'bold' }}>B</span>
+                            <strong style={{ fontFamily: 'serif' }}>B</strong>
                         </button>
                         <button
-                            className={`tool-button ${isItalic ? 'active' : ''}`}
+                            className={`tool-btn ${isItalic ? 'active' : ''}`}
                             onClick={() => onItalicChange(!isItalic)}
                             title="Italic"
                         >
-                            <span style={{ fontStyle: 'italic' }}>I</span>
+                            <em style={{ fontFamily: 'serif' }}>I</em>
                         </button>
                         <button
-                            className={`tool-button ${isUnderline ? 'active' : ''}`}
+                            className={`tool-btn ${isUnderline ? 'active' : ''}`}
                             onClick={() => onUnderlineChange(!isUnderline)}
                             title="Underline"
                         >
-                            <span style={{ textDecoration: 'underline' }}>U</span>
+                            <span style={{ textDecoration: 'underline', fontFamily: 'serif' }}>U</span>
                         </button>
                     </div>
                 </>
             )}
-
-            {/* Brush size control */}
-            {/* Brush size control (Hidden in Text/Select Mode) */}
-            {tool === 'draw' && (
-                <div className="toolbar-group">
-                    <label htmlFor="brush-size">Brush</label>
-                    <input
-                        id="brush-size"
-                        type="range"
-                        min={1}
-                        max={20}
-                        value={brushSize}
-                        onChange={(e) => onBrushSizeChange(Number(e.target.value))}
-                    />
-                    <span className="brush-size-value">{brushSize}px</span>
-                </div>
-            )}
         </div>
     );
 }
-

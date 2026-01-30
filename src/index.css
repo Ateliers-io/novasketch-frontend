@@ -1,0 +1,74 @@
+/**
+ * Global index.css - Base styles and font imports
+ */
+
+/* Import Inter font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Base reset */
+html,
+body,
+#root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Remove default margins */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+    margin: 0;
+}
+
+/* Remove list styles */
+ul,
+ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Links reset */
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Button reset */
+button {
+    font-family: inherit;
+    cursor: pointer;
+}
+
+/* Image reset */
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Form elements */
+input,
+textarea,
+select {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* Accessible hiding */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

@@ -11,7 +11,7 @@
     align-items: center;
     gap: 16px;
     z-index: 100;
-    flex-wrap: wrap; /* Prevents breaking on small screens */
+    flex-wrap: wrap;
 }
 
 .toolbar-separator {
@@ -49,6 +49,38 @@
     text-align: center;
 }
 
+/* --- Buttons (Tools & Formatting) --- */
+.tool-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.tool-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #444;
+}
+
+.tool-btn:hover {
+    background: #f0f4f8;
+    color: #4a90e2;
+}
+
+.tool-btn.active {
+    background: #e1effe;
+    color: #1a73e8;
+    border-color: #cce0ff;
+}
+
 /* --- Color Picker --- */
 .color-input-wrapper {
     position: relative;
@@ -81,36 +113,70 @@
     pointer-events: none;
 }
 
-/* --- Buttons (Tools & Formatting) --- */
-.tool-buttons {
-    display: flex;
-    gap: 4px;
+/* --- Eraser Dropdown --- */
+.eraser-wrapper {
+    position: relative;
 }
 
-.tool-btn {
-    width: 32px;
-    height: 32px;
-    border: 1px solid transparent;
+.eraser-dropdown {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    min-width: 160px;
+    z-index: 200;
+}
+
+.eraser-modes {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.eraser-mode-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
     border-radius: 6px;
-    background: transparent;
+    background: #fff;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 12px;
+    transition: all 0.15s;
+}
+
+.eraser-mode-btn:hover {
+    background: #f5f5f5;
+}
+
+.eraser-mode-btn.active {
+    background: #333;
+    color: #fff;
+    border-color: #333;
+}
+
+.eraser-size {
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    color: #444;
+    gap: 8px;
 }
 
-.tool-btn:hover {
-    background: #f0f4f8;
-    color: #4a90e2;
+.eraser-size label {
+    font-size: 12px;
+    color: #666;
 }
 
-.tool-btn.active {
-    background: #e1effe;
-    color: #1a73e8;
-    border-color: #cce0ff;
+.eraser-size input[type="range"] {
+    flex: 1;
+    width: 80px;
+}
+
+.eraser-size span {
+    font-size: 11px;
+    color: #666;
+    min-width: 35px;
 }
 
 /* --- Text Specific Inputs --- */

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Toolbar.css';
 import { ToolType } from '../../types/shapes';
 
 // Update your ToolType enum in your types file to include 'text' and 'select' if not present,
 // or we treat activeTool as a union type here for safety.
-export type ActiveTool = ToolType | 'text' | 'select';
+export type ActiveTool = ToolType | 'text' | 'select' | 'eraser';
+export type EraserMode = 'partial' | 'stroke';
 
 interface ToolbarProps {
     // State
@@ -30,6 +31,12 @@ interface ToolbarProps {
     onItalicChange: (italic: boolean) => void;
     isUnderline: boolean;
     onUnderlineChange: (underline: boolean) => void;
+
+    // Eraser Props
+    eraserMode: EraserMode;
+    onEraserModeChange: (mode: EraserMode) => void;
+    eraserSize: number;
+    onEraserSizeChange: (size: number) => void;
 }
 
 export default function Toolbar({
@@ -51,11 +58,17 @@ export default function Toolbar({
     onItalicChange,
     isUnderline,
     onUnderlineChange,
+    eraserMode,
+    onEraserModeChange,
+    eraserSize,
+    onEraserSizeChange,
 }: ToolbarProps) {
+    const [showEraserMenu, setShowEraserMenu] = useState(false);
 
     // Helper to determine if we are in a drawing/shape mode
     const isDrawMode = activeTool === ToolType.PEN || activeTool === ToolType.RECTANGLE || activeTool === ToolType.CIRCLE;
     const isTextMode = activeTool === 'text';
+    const isEraserMode = activeTool === 'eraser';
 
     return (
         <div className="toolbar">
@@ -77,6 +90,63 @@ export default function Toolbar({
                     >
                         ✏️
                     </button>
+
+                    {/* Eraser with dropdown */}
+                    <div className="eraser-wrapper">
+                        <button
+                            className={`tool-btn ${isEraserMode ? 'active' : ''}`}
+                            onClick={() => {
+                                onToolChange('eraser');
+                                setShowEraserMenu(!showEraserMenu);
+                            }}
+                            title="Eraser tool"
+                        >
+                            🧽
+                        </button>
+
+                        {/* Eraser options dropdown */}
+                        {showEraserMenu && isEraserMode && (
+                            <div className="eraser-dropdown">
+                                <div className="eraser-modes">
+                                    <button
+                                        className={`eraser-mode-btn ${eraserMode === 'partial' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            onEraserModeChange('partial');
+                                            setShowEraserMenu(false);
+                                        }}
+                                        title="Partial eraser - erase parts of strokes"
+                                    >
+                                        ✂️ Partial
+                                    </button>
+                                    <button
+                                        className={`eraser-mode-btn ${eraserMode === 'stroke' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            onEraserModeChange('stroke');
+                                            setShowEraserMenu(false);
+                                        }}
+                                        title="Stroke eraser - delete entire stroke"
+                                    >
+                                        🗑️ Stroke
+                                    </button>
+                                </div>
+
+                                {eraserMode === 'partial' && (
+                                    <div className="eraser-size">
+                                        <label>Size</label>
+                                        <input
+                                            type="range"
+                                            min={5}
+                                            max={50}
+                                            value={eraserSize}
+                                            onChange={(e) => onEraserSizeChange(Number(e.target.value))}
+                                        />
+                                        <span>{eraserSize}px</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     <button
                         className={`tool-btn ${activeTool === ToolType.RECTANGLE ? 'active' : ''}`}
                         onClick={() => onToolChange(ToolType.RECTANGLE)}
@@ -102,25 +172,27 @@ export default function Toolbar({
             </div>
 
             {/* --- General Styling (Color) --- */}
-            <div className="toolbar-group">
-                <label>Stroke</label>
-                <div className="color-input-wrapper">
-                    <input
-                        type="color"
-                        value={strokeColor}
-                        onChange={(e) => onColorChange(e.target.value)}
-                        className="color-input"
-                        title="Stroke Color"
-                    />
-                    <div
-                        className="color-circle"
-                        style={{ backgroundColor: strokeColor }}
-                    />
+            {!isEraserMode && (
+                <div className="toolbar-group">
+                    <label>Stroke</label>
+                    <div className="color-input-wrapper">
+                        <input
+                            type="color"
+                            value={strokeColor}
+                            onChange={(e) => onColorChange(e.target.value)}
+                            className="color-input"
+                            title="Stroke Color"
+                        />
+                        <div
+                            className="color-circle"
+                            style={{ backgroundColor: strokeColor }}
+                        />
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {/* Show Fill only for Shapes (not Text or Pen usually, but keeping logic flexible) */}
-            {!isTextMode && (
+            {/* Show Fill only for Shapes (not Text, Pen, or Eraser) */}
+            {!isTextMode && !isEraserMode && (
                 <div className="toolbar-group">
                     <label>Fill</label>
                     <div className="color-input-wrapper">
@@ -159,7 +231,7 @@ export default function Toolbar({
             {(isTextMode || activeTool === 'select') && (
                 <>
                     <div className="toolbar-separator" />
-                    
+
                     <div className="toolbar-group">
                         <select
                             value={fontFamily}

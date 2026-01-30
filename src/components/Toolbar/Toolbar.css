@@ -73,21 +73,25 @@
     background: #fff;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 16px;
-    font-weight: bold;
     transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #555;
+    /* Default icon color */
 }
 
 .tool-button:hover {
     border-color: #4a90e2;
     background: #f0f8ff;
+    color: #4a90e2;
 }
 
 .tool-button.active {
     border-color: #4a90e2;
     background: #4a90e2;
     color: #fff;
+    /* Active icon color */
 }
+
+/* Removed SVG specific styles as we switched to text icons for reliability */

@@ -27,7 +27,7 @@ interface TextAnnotation {
   color: string;
 }
 
-type Tool = 'draw' | 'text';
+type Tool = 'draw' | 'text' | 'select';
 
 interface GridProps {
   width: number;
@@ -66,10 +66,11 @@ interface TextInputProps {
   x: number;
   y: number;
   onSubmit: (text: string) => void;
+  initialValue?: string;
 }
 
-function TextInput({ x, y, onSubmit }: TextInputProps) {
-  const [value, setValue] = useState('');
+function TextInput({ x, y, onSubmit, initialValue = '' }: TextInputProps) {
+  const [value, setValue] = useState(initialValue);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -131,6 +132,8 @@ export default function Whiteboard() {
     x: number;
     y: number;
     visible: boolean;
+    editingId?: string;
+    initialText?: string;
   } | null>(null);
 
   // Drawing context - stores current tool settings
@@ -161,6 +164,10 @@ export default function Whiteboard() {
     if (tool === 'text') {
       // Show text input at click position
       setActiveTextInput({ x: pos.x, y: pos.y, visible: true });
+      return;
+    }
+
+    if (tool === 'select') {
       return;
     }
 
@@ -220,16 +227,28 @@ export default function Whiteboard() {
       return;
     }
 
-    const newTextAnnotation: TextAnnotation = {
-      id: `text-${Date.now()}`,
-      x: activeTextInput.x,
-      y: activeTextInput.y,
-      text: text.trim(),
-      fontSize: 16, // Default font size for now
-      color: strokeColor,
-    };
+    if (activeTextInput.editingId) {
+      // Update existing text annotation
+      setTextAnnotations(
+        textAnnotations.map((annotation) =>
+          annotation.id === activeTextInput.editingId
+            ? { ...annotation, text: text.trim() }
+            : annotation
+        )
+      );
+    } else {
+      // Create new text annotation
+      const newTextAnnotation: TextAnnotation = {
+        id: `text-${Date.now()}`,
+        x: activeTextInput.x,
+        y: activeTextInput.y,
+        text: text.trim(),
+        fontSize: 16, // Default font size for now
+        color: strokeColor,
+      };
+      setTextAnnotations([...textAnnotations, newTextAnnotation]);
+    }
 
-    setTextAnnotations([...textAnnotations, newTextAnnotation]);
     setActiveTextInput(null);
   };
 
@@ -247,6 +266,19 @@ export default function Whiteboard() {
     const y = e.clientY - rect.top;
 
     setActiveTextInput({ x, y, visible: true });
+  };
+
+  // Handle clicking on existing text to edit it (only in select mode)
+  const handleTextClick = (textAnnotation: TextAnnotation) => {
+    if (tool !== 'select') return;
+
+    setActiveTextInput({
+      x: textAnnotation.x,
+      y: textAnnotation.y,
+      visible: true,
+      editingId: textAnnotation.id,
+      initialText: textAnnotation.text,
+    });
   };
 
   return (
@@ -310,7 +342,11 @@ export default function Whiteboard() {
             fill={textAnnotation.color}
             fontFamily="Arial"
             dominantBaseline="hanging"
-            style={{ pointerEvents: 'auto' }}
+            style={{
+              pointerEvents: 'auto',
+              cursor: tool === 'select' ? 'pointer' : 'default',
+            }}
+            onClick={() => handleTextClick(textAnnotation)}
           >
             {textAnnotation.text}
           </text>
@@ -322,6 +358,7 @@ export default function Whiteboard() {
           x={activeTextInput.x}
           y={activeTextInput.y}
           onSubmit={handleTextSubmit}
+          initialValue={activeTextInput.initialText}
         />
       )}
     </div>

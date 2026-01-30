@@ -1,8 +1,8 @@
 import './Toolbar.css';
 
 interface ToolbarProps {
-    tool: 'draw' | 'text';
-    onToolChange: (tool: 'draw' | 'text') => void;
+    tool: 'draw' | 'text' | 'select';
+    onToolChange: (tool: 'draw' | 'text' | 'select') => void;
     brushSize: number;
     onBrushSizeChange: (size: number) => void;
     strokeColor: string;
@@ -27,14 +27,21 @@ export default function Toolbar({
                     onClick={() => onToolChange('draw')}
                     title="Draw Mode"
                 >
-                    ✏️
+                    <span style={{ fontSize: '20px' }}>✎</span>
                 </button>
                 <button
                     className={`tool-button ${tool === 'text' ? 'active' : ''}`}
                     onClick={() => onToolChange('text')}
                     title="Text Mode"
                 >
-                    T
+                    <span style={{ fontSize: '18px', fontWeight: 'bold' }}>T</span>
+                </button>
+                <button
+                    className={`tool-button ${tool === 'select' ? 'active' : ''}`}
+                    onClick={() => onToolChange('select')}
+                    title="Select Mode"
+                >
+                    <span style={{ fontSize: '20px' }}>↗</span>
                 </button>
             </div>
 

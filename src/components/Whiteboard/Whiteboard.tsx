@@ -1,13 +1,21 @@
-import { Stage, Layer, Line } from 'react-konva';
+import { Stage, Layer, Line, Rect, Circle } from 'react-konva';
 import { useRef, useState, useEffect } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import Toolbar from '../Toolbar';
 import './Whiteboard.css';
+import {
+  ToolType,
+  Shape,
+  ShapeType,
+  createRectangle,
+  createCircle,
+  Position,
+} from '../../types/shapes';
 
-const GRID_SIZE = 40; // px between grid lines
+const GRID_SIZE = 40;
 const GRID_COLOR = '#e0e0e0';
-const STROKE_TENSION = 0.4; // bezier curve smoothing (0 = sharp, 1 = very smooth)
-const MIN_POINT_DISTANCE = 3; // skip points closer than this to reduce jitter
+const STROKE_TENSION = 0.4;
+const MIN_POINT_DISTANCE = 3;
 const DEFAULT_BRUSH_SIZE = 3;
 const DEFAULT_STROKE_COLOR = '#000000';
 
@@ -56,11 +64,17 @@ export default function Whiteboard() {
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
   const [lines, setLines] = useState<StrokeLine[]>([]);
+  const [shapes, setShapes] = useState<Shape[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // Drawing context - stores current tool settings
+  const [activeTool, setActiveTool] = useState<ToolType>(ToolType.PEN);
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
-  const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR); // hex code
+  const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR);
+  const [fillColor, setFillColor] = useState('#3B82F6');
+
+  // Tracks drag start for shape creation
+  const [dragStart, setDragStart] = useState<Position | null>(null);
+  const [previewShape, setPreviewShape] = useState<Shape | null>(null);
 
   useEffect(() => {
     function handleResize() {
@@ -77,25 +91,58 @@ export default function Whiteboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Start a new stroke with current tool settings
+  const isShapeTool = (tool: ToolType) => {
+    return tool === ToolType.RECTANGLE || tool === ToolType.CIRCLE;
+  };
+
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
     setIsDrawing(true);
-    setLines([
-      ...lines,
-      {
-        id: `stroke-${Date.now()}`,
-        points: [pos.x, pos.y],
-        color: strokeColor, // Apply selected color to new stroke
-        strokeWidth: brushSize,
-      },
-    ]);
+
+    if (isShapeTool(activeTool)) {
+      setDragStart({ x: pos.x, y: pos.y });
+
+      if (activeTool === ToolType.RECTANGLE) {
+        const rect = createRectangle(pos.x, pos.y, 0, 0, {
+          style: {
+            fill: fillColor,
+            hasFill: true,
+            stroke: strokeColor,
+            strokeWidth: brushSize,
+            lineCap: 'round',
+            lineJoin: 'round',
+          },
+        });
+        setPreviewShape(rect);
+      } else if (activeTool === ToolType.CIRCLE) {
+        const circle = createCircle(pos.x, pos.y, 0, {
+          style: {
+            fill: fillColor,
+            hasFill: true,
+            stroke: strokeColor,
+            strokeWidth: brushSize,
+            lineCap: 'round',
+            lineJoin: 'round',
+          },
+        });
+        setPreviewShape(circle);
+      }
+    } else if (activeTool === ToolType.PEN) {
+      setLines([
+        ...lines,
+        {
+          id: `stroke-${Date.now()}`,
+          points: [pos.x, pos.y],
+          color: strokeColor,
+          strokeWidth: brushSize,
+        },
+      ]);
+    }
   };
 
-  // Add points to current stroke while drawing
   const handlePointerMove = (e: KonvaEventObject<PointerEvent>) => {
     if (!isDrawing) return;
 
@@ -103,41 +150,122 @@ export default function Whiteboard() {
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
-    setLines((prevLines) => {
-      const lastLine = prevLines[prevLines.length - 1];
-      if (!lastLine) return prevLines;
+    if (isShapeTool(activeTool) && dragStart && previewShape) {
+      // Calculate dimensions from drag
+      const width = pos.x - dragStart.x;
+      const height = pos.y - dragStart.y;
 
-      const points = lastLine.points;
-      const lastX = points[points.length - 2];
-      const lastY = points[points.length - 1];
+      if (activeTool === ToolType.RECTANGLE) {
+        // Handle negative drag (dragging left/up)
+        const x = width < 0 ? pos.x : dragStart.x;
+        const y = height < 0 ? pos.y : dragStart.y;
 
-      // Distance check for point simplification
-      const dx = pos.x - lastX;
-      const dy = pos.y - lastY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+        setPreviewShape({
+          ...previewShape,
+          type: ShapeType.RECTANGLE,
+          position: { x, y },
+          width: Math.abs(width),
+          height: Math.abs(height),
+        } as Shape);
+      } else if (activeTool === ToolType.CIRCLE) {
+        // Radius is distance from start point
+        const radius = Math.sqrt(width * width + height * height);
+        setPreviewShape({
+          ...previewShape,
+          type: ShapeType.CIRCLE,
+          position: dragStart,
+          radius,
+        } as Shape);
+      }
+    } else if (activeTool === ToolType.PEN) {
+      setLines((prevLines) => {
+        const lastLine = prevLines[prevLines.length - 1];
+        if (!lastLine) return prevLines;
 
-      if (distance < MIN_POINT_DISTANCE) return prevLines;
+        const points = lastLine.points;
+        const lastX = points[points.length - 2];
+        const lastY = points[points.length - 1];
 
-      const updatedLine = {
-        ...lastLine,
-        points: [...points, pos.x, pos.y],
-      };
+        const dx = pos.x - lastX;
+        const dy = pos.y - lastY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-      return [...prevLines.slice(0, -1), updatedLine];
-    });
+        if (distance < MIN_POINT_DISTANCE) return prevLines;
+
+        const updatedLine = {
+          ...lastLine,
+          points: [...points, pos.x, pos.y],
+        };
+
+        return [...prevLines.slice(0, -1), updatedLine];
+      });
+    }
   };
 
   const handlePointerUp = () => {
+    if (isShapeTool(activeTool) && previewShape) {
+      // Only add shape if it has dimensions
+      const hasSize =
+        (previewShape.type === ShapeType.RECTANGLE &&
+          (previewShape as any).width > 5 &&
+          (previewShape as any).height > 5) ||
+        (previewShape.type === ShapeType.CIRCLE &&
+          (previewShape as any).radius > 5);
+
+      if (hasSize) {
+        setShapes([...shapes, previewShape]);
+      }
+    }
+
     setIsDrawing(false);
+    setDragStart(null);
+    setPreviewShape(null);
+  };
+
+  const renderShape = (shape: Shape) => {
+    if (shape.type === ShapeType.RECTANGLE) {
+      return (
+        <Rect
+          key={shape.id}
+          x={shape.position.x}
+          y={shape.position.y}
+          width={shape.width}
+          height={shape.height}
+          fill={shape.style.hasFill ? shape.style.fill : undefined}
+          stroke={shape.style.stroke}
+          strokeWidth={shape.style.strokeWidth}
+          cornerRadius={shape.cornerRadius}
+          opacity={shape.opacity}
+        />
+      );
+    } else if (shape.type === ShapeType.CIRCLE) {
+      return (
+        <Circle
+          key={shape.id}
+          x={shape.position.x}
+          y={shape.position.y}
+          radius={shape.radius}
+          fill={shape.style.hasFill ? shape.style.fill : undefined}
+          stroke={shape.style.stroke}
+          strokeWidth={shape.style.strokeWidth}
+          opacity={shape.opacity}
+        />
+      );
+    }
+    return null;
   };
 
   return (
     <div className="whiteboard-container" ref={containerRef}>
       <Toolbar
+        activeTool={activeTool}
+        onToolChange={setActiveTool}
         brushSize={brushSize}
         onBrushSizeChange={setBrushSize}
         strokeColor={strokeColor}
         onColorChange={setStrokeColor}
+        fillColor={fillColor}
+        onFillColorChange={setFillColor}
       />
       <Stage
         width={dimensions.width}
@@ -150,19 +278,22 @@ export default function Whiteboard() {
         <Layer>
           <Grid width={dimensions.width} height={dimensions.height} />
         </Layer>
-        {/* Render strokes with their stored color */}
         <Layer>
           {lines.map((line) => (
             <Line
               key={line.id}
               points={line.points}
-              stroke={line.color} // Each stroke uses its own color
+              stroke={line.color}
               strokeWidth={line.strokeWidth}
               lineCap="round"
               lineJoin="round"
               tension={STROKE_TENSION}
             />
           ))}
+        </Layer>
+        <Layer>
+          {shapes.map(renderShape)}
+          {previewShape && renderShape(previewShape)}
         </Layer>
       </Stage>
     </div>

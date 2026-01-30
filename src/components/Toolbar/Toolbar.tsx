@@ -1,6 +1,8 @@
 import './Toolbar.css';
 
 interface ToolbarProps {
+    tool: 'draw' | 'text';
+    onToolChange: (tool: 'draw' | 'text') => void;
     brushSize: number;
     onBrushSizeChange: (size: number) => void;
     strokeColor: string;
@@ -9,6 +11,8 @@ interface ToolbarProps {
 
 // Floating toolbar for drawing controls
 export default function Toolbar({
+    tool,
+    onToolChange,
     brushSize,
     onBrushSizeChange,
     strokeColor,
@@ -16,6 +20,24 @@ export default function Toolbar({
 }: ToolbarProps) {
     return (
         <div className="toolbar">
+            {/* Tool selection */}
+            <div className="toolbar-group">
+                <button
+                    className={`tool-button ${tool === 'draw' ? 'active' : ''}`}
+                    onClick={() => onToolChange('draw')}
+                    title="Draw Mode"
+                >
+                    ✏️
+                </button>
+                <button
+                    className={`tool-button ${tool === 'text' ? 'active' : ''}`}
+                    onClick={() => onToolChange('text')}
+                    title="Text Mode"
+                >
+                    T
+                </button>
+            </div>
+
             {/* Color picker - native input for color wheel */}
             <div className="toolbar-group">
                 <label>Color</label>

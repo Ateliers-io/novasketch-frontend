@@ -64,3 +64,30 @@
 .color-input-wrapper:hover .color-circle {
     transform: scale(1.1);
 }
+
+/* Tool mode buttons */
+.tool-button {
+    width: 36px;
+    height: 36px;
+    border: 2px solid #ddd;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tool-button:hover {
+    border-color: #4a90e2;
+    background: #f0f8ff;
+}
+
+.tool-button.active {
+    border-color: #4a90e2;
+    background: #4a90e2;
+    color: #fff;
+}

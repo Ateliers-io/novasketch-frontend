@@ -18,6 +18,17 @@ interface StrokeLine {
   strokeWidth: number;
 }
 
+interface TextAnnotation {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  fontSize: number;
+  color: string;
+}
+
+type Tool = 'draw' | 'text';
+
 interface GridProps {
   width: number;
   height: number;
@@ -51,12 +62,76 @@ function Grid({ width, height }: GridProps) {
   return <>{lines}</>;
 }
 
+interface TextInputProps {
+  x: number;
+  y: number;
+  onSubmit: (text: string) => void;
+}
+
+function TextInput({ x, y, onSubmit }: TextInputProps) {
+  const [value, setValue] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    // Auto-focus when component mounts
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onSubmit(value);
+    }
+  };
+
+  const handleBlur = () => {
+    onSubmit(value);
+  };
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+      style={{
+        position: 'absolute',
+        left: `${x}px`,
+        top: `${y}px`,
+        minWidth: '200px',
+        minHeight: '30px',
+        padding: '4px 8px',
+        fontSize: '16px',
+        fontFamily: 'Arial',
+        border: '2px solid #4a90e2',
+        borderRadius: '4px',
+        outline: 'none',
+        resize: 'both',
+        zIndex: 1000,
+      }}
+      placeholder="Type text here..."
+    />
+  );
+}
+
 export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
   const [lines, setLines] = useState<StrokeLine[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Tool mode state
+  const [tool, setTool] = useState<Tool>('draw');
+
+  // Text annotations state
+  const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([]);
+  const [activeTextInput, setActiveTextInput] = useState<{
+    x: number;
+    y: number;
+    visible: boolean;
+  } | null>(null);
 
   // Drawing context - stores current tool settings
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
@@ -77,12 +152,19 @@ export default function Whiteboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Start a new stroke with current tool settings
+  // Start a new stroke with current tool settings (draw mode) or show text input (text mode)
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
+    if (tool === 'text') {
+      // Show text input at click position
+      setActiveTextInput({ x: pos.x, y: pos.y, visible: true });
+      return;
+    }
+
+    // Draw mode - start a new stroke
     setIsDrawing(true);
     setLines([
       ...lines,
@@ -131,9 +213,51 @@ export default function Whiteboard() {
     setIsDrawing(false);
   };
 
+  // Handle text input submission
+  const handleTextSubmit = (text: string) => {
+    if (!activeTextInput || !text.trim()) {
+      setActiveTextInput(null);
+      return;
+    }
+
+    const newTextAnnotation: TextAnnotation = {
+      id: `text-${Date.now()}`,
+      x: activeTextInput.x,
+      y: activeTextInput.y,
+      text: text.trim(),
+      fontSize: 16, // Default font size for now
+      color: strokeColor,
+    };
+
+    setTextAnnotations([...textAnnotations, newTextAnnotation]);
+    setActiveTextInput(null);
+  };
+
+  // Handle container clicks for text mode (fallback if Konva events don't fire)
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (tool !== 'text') return;
+    if (!containerRef.current) return;
+
+    // Don't handle if clicking on toolbar or existing text input
+    const target = e.target as HTMLElement;
+    if (target.closest('.toolbar') || target.tagName === 'TEXTAREA') return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setActiveTextInput({ x, y, visible: true });
+  };
+
   return (
-    <div className="whiteboard-container" ref={containerRef}>
+    <div
+      className="whiteboard-container"
+      ref={containerRef}
+      onClick={handleContainerClick}
+    >
       <Toolbar
+        tool={tool}
+        onToolChange={setTool}
         brushSize={brushSize}
         onBrushSizeChange={setBrushSize}
         strokeColor={strokeColor}
@@ -165,6 +289,41 @@ export default function Whiteboard() {
           ))}
         </Layer>
       </Stage>
+      {/* SVG overlay for text annotations */}
+      <svg
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: dimensions.width,
+          height: dimensions.height,
+          pointerEvents: 'none',
+          zIndex: 1,
+        }}
+      >
+        {textAnnotations.map((textAnnotation) => (
+          <text
+            key={textAnnotation.id}
+            x={textAnnotation.x}
+            y={textAnnotation.y}
+            fontSize={textAnnotation.fontSize}
+            fill={textAnnotation.color}
+            fontFamily="Arial"
+            dominantBaseline="hanging"
+            style={{ pointerEvents: 'auto' }}
+          >
+            {textAnnotation.text}
+          </text>
+        ))}
+      </svg>
+      {/* Text input overlay */}
+      {activeTextInput?.visible && (
+        <TextInput
+          x={activeTextInput.x}
+          y={activeTextInput.y}
+          onSubmit={handleTextSubmit}
+        />
+      )}
     </div>
   );
 }

@@ -1,27 +1,27 @@
 /**
  * Landing Page Styles - Premium SaaS aesthetic
- * Dark theme with gradient orbs, glass effects, and smooth animations
+ * Light theme with subtle gradients and glass effects
  */
 
 /* ===== BASE & VARIABLES ===== */
 .landing {
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #12121a;
-    --bg-elevated: #1a1a24;
-    --text-primary: #fafafa;
-    --text-secondary: #a1a1aa;
-    --text-muted: #71717a;
-    --border: rgba(255, 255, 255, 0.08);
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-elevated: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --border: rgba(0, 0, 0, 0.08);
     --accent-purple: #8b5cf6;
     --accent-blue: #6366f1;
     --accent-pink: #ec4899;
 
     min-height: 100vh;
     background:
-        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(120, 119, 198, 0.15), transparent),
-        radial-gradient(ellipse 60% 40% at 80% 60%, rgba(139, 92, 246, 0.08), transparent),
-        radial-gradient(ellipse 50% 30% at 20% 80%, rgba(99, 102, 241, 0.06), transparent),
-        linear-gradient(180deg, #0a0a0f 0%, #0d0d14 50%, #0a0a0f 100%);
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 60%, rgba(99, 102, 241, 0.05), transparent),
+        radial-gradient(ellipse 50% 30% at 20% 80%, rgba(236, 72, 153, 0.04), transparent),
+        #ffffff;
     color: var(--text-primary);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     overflow-x: hidden;
@@ -41,14 +41,14 @@
     position: absolute;
     border-radius: 50%;
     filter: blur(150px);
-    opacity: 0.2;
+    opacity: 0.3;
     animation: float 25s ease-in-out infinite;
 }
 
 .orb--purple {
     width: 500px;
     height: 500px;
-    background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+    background: linear-gradient(135deg, #c4b5fd, #a78bfa);
     top: -150px;
     left: 25%;
 }
@@ -56,7 +56,7 @@
 .orb--blue {
     width: 400px;
     height: 400px;
-    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    background: linear-gradient(135deg, #a5b4fc, #818cf8);
     bottom: 15%;
     right: 15%;
     animation-delay: -8s;
@@ -65,10 +65,10 @@
 .orb--pink {
     width: 350px;
     height: 350px;
-    background: linear-gradient(135deg, #db2777, #ec4899);
+    background: linear-gradient(135deg, #fbcfe8, #f9a8d4);
     top: 45%;
     left: -80px;
-    opacity: 0.15;
+    opacity: 0.25;
     animation-delay: -16s;
 }
 
@@ -92,8 +92,8 @@
     position: fixed;
     inset: 0;
     background-image:
-        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+        linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
     background-size: 80px 80px;
     pointer-events: none;
     z-index: 0;
@@ -109,7 +109,7 @@
     right: 0;
     z-index: 100;
     padding: 16px 32px;
-    background: rgba(9, 9, 11, 0.8);
+    background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
 }
@@ -251,7 +251,7 @@
 }
 
 .hero__title-line--gradient {
-    background: linear-gradient(135deg, #fff 0%, var(--accent-purple) 50%, var(--accent-pink) 100%);
+    background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-blue) 50%, var(--accent-pink) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

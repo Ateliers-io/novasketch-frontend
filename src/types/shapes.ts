@@ -8,7 +8,6 @@ export enum ShapeType {
 }
 
 export enum ToolType {
-    SELECT = 'select',
     PEN = 'pen',
     ERASER = 'eraser',
     RECTANGLE = 'rectangle',

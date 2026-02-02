@@ -1,14 +1,13 @@
-/**
- * ThemeContext - Manages light/dark mode toggle
- */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-type Theme = 'light' | 'dark';
+// Added 'system' to allow OS-level syncing
+type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
     theme: Theme;
-    toggleTheme: () => void;
+    resolvedTheme: 'light' | 'dark'; // The actual theme being applied
     setTheme: (theme: Theme) => void;
+    toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
@@ -21,31 +20,79 @@ export const useTheme = () => {
     return context;
 };
 
-interface ThemeProviderProps {
-    children: ReactNode;
-}
+const STORAGE_KEY = 'nova_sketch_theme';
 
-export const ThemeProvider = ({ children }: ThemeProviderProps) => {
+export const ThemeProvider = ({ children }: { children: ReactNode }) => {
+    // 1. Initialize State
     const [theme, setThemeState] = useState<Theme>(() => {
-        const saved = localStorage.getItem('nova_sketch_theme') as Theme;
-        if (saved) return saved;
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
-        return 'light';
+        if (typeof window !== 'undefined') {
+            return (localStorage.getItem(STORAGE_KEY) as Theme) || 'dark'; // Default to Graphite (Dark)
+        }
+        return 'dark';
     });
 
+    const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
+
+    // 2. Handle Theme Application
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('nova_sketch_theme', theme);
-        document.documentElement.classList.add('theme-transition');
-        const timeout = setTimeout(() => document.documentElement.classList.remove('theme-transition'), 300);
-        return () => clearTimeout(timeout);
+        const root = window.document.documentElement;
+        
+        // Remove old classes
+        root.classList.remove('light', 'dark');
+        
+        // Determine actual theme
+        let targetTheme: 'light' | 'dark';
+
+        if (theme === 'system') {
+            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            targetTheme = systemTheme;
+        } else {
+            targetTheme = theme;
+        }
+
+        // Update state and DOM
+        setResolvedTheme(targetTheme);
+        root.classList.add(targetTheme);
+        root.setAttribute('data-theme', targetTheme);
+        
+        // Persist
+        localStorage.setItem(STORAGE_KEY, theme);
+
     }, [theme]);
 
-    const toggleTheme = () => setThemeState(prev => prev === 'light' ? 'dark' : 'light');
+    // 3. Listen for System Changes (Only active if theme === 'system')
+    useEffect(() => {
+        if (theme !== 'system') return;
+
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleChange = () => {
+            const root = window.document.documentElement;
+            const newSystemTheme = mediaQuery.matches ? 'dark' : 'light';
+            
+            root.classList.remove('light', 'dark');
+            root.classList.add(newSystemTheme);
+            root.setAttribute('data-theme', newSystemTheme);
+            setResolvedTheme(newSystemTheme);
+        };
+
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+    }, [theme]);
+
     const setTheme = (newTheme: Theme) => setThemeState(newTheme);
 
+    const toggleTheme = () => {
+        setThemeState(prev => {
+            // If system, we cycle to explicit choices. 
+            // Cycle: Dark -> Light -> System -> Dark
+            if (prev === 'system') return 'dark';
+            if (prev === 'dark') return 'light';
+            return 'system';
+        });
+    };
+
     return (
-        <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+        <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
             {children}
         </ThemeContext.Provider>
     );

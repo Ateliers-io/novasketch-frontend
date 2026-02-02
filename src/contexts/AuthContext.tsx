@@ -1,6 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
-// Enhanced User interface with Role and ID
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUTHENTICATION CONTEXT - NovaSketch
+// Frontend-only mock implementation for demonstration
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export interface User {
     id: string;
     name: string;
@@ -18,7 +22,7 @@ interface AuthContextType {
     error: string | null;
     loginWithGoogle: () => Promise<void>;
     loginWithGithub: () => Promise<void>;
-    loginAsGuest: () => Promise<void>; // Added Guest Mode
+    loginAsGuest: () => Promise<void>;
     logout: () => void;
     clearError: () => void;
 }
@@ -44,44 +48,64 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Persist user to state
-    const saveSession = (userData: User) => {
+    // Persist user session
+    const saveSession = useCallback((userData: User) => {
         setUser(userData);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
-    };
+    }, []);
 
-    // Simulated API Call Helper
+    // Simulated OAuth API Call
     const mockAuthCall = async (provider: User['provider']): Promise<User> => {
-        await new Promise(resolve => setTimeout(resolve, 1200)); // Simulate network latency
-        
-        // Randomize ID for "realism" in demos
-        const randomId = Math.random().toString(36).substring(2, 9);
-        
+        // Simulate network latency
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Small random chance of failure for realism
         if (Math.random() > 0.95) {
-             throw new Error(`${provider} authentication service unavailable.`);
+            throw new Error(`Connection to ${provider} service timed out.`);
         }
 
-        return {
-            id: `usr_${randomId}`,
-            name: provider === 'guest' ? 'Guest User' : 'Karthik Kirla',
-            email: provider === 'guest' ? 'guest@novasketch.app' : 'karthik@example.com',
-            avatar: `https://ui-avatars.com/api/?name=${provider === 'guest' ? 'Guest' : 'Karthik+Kirla'}&background=${provider === 'guest' ? '607383' : '2dd4bf'}&color=fff`,
-            provider,
-            role: provider === 'guest' ? 'viewer' : 'editor',
-            lastLogin: new Date().toISOString(),
+        const randomId = Math.random().toString(36).substring(2, 9);
+
+        const profiles: Record<User['provider'], Partial<User>> = {
+            google: {
+                name: 'Karthik Kirla',
+                email: 'karthik@example.com',
+                avatar: 'https://ui-avatars.com/api/?name=Karthik+Kirla&background=DB4437&color=fff&bold=true',
+                role: 'editor'
+            },
+            github: {
+                name: 'Dev Engineer',
+                email: 'dev@github.com',
+                avatar: 'https://ui-avatars.com/api/?name=Dev+Engineer&background=24292e&color=fff&bold=true',
+                role: 'editor'
+            },
+            guest: {
+                name: 'Guest User',
+                email: 'guest@novasketch.app',
+                avatar: 'https://ui-avatars.com/api/?name=Guest&background=45A29E&color=fff',
+                role: 'viewer'
+            }
         };
+
+        return {
+            id: `${provider}_${randomId}`,
+            provider,
+            lastLogin: new Date().toISOString(),
+            ...profiles[provider]
+        } as User;
     };
 
-    // Initialize Session
+    // Initialize session on mount
     useEffect(() => {
         const initAuth = async () => {
             try {
                 const savedSession = localStorage.getItem(STORAGE_KEY);
                 if (savedSession) {
-                    setUser(JSON.parse(savedSession));
+                    const parsed = JSON.parse(savedSession);
+                    setUser(parsed);
                 }
             } catch (e) {
-                console.error('Session restoration failed', e);
+                console.error('Session restoration failed:', e);
                 localStorage.removeItem(STORAGE_KEY);
             } finally {
                 setIsLoading(false);
@@ -94,8 +118,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setIsLoading(true);
         setError(null);
         try {
-            const user = await mockAuthCall('google');
-            saveSession(user);
+            const userData = await mockAuthCall('google');
+            saveSession(userData);
         } catch (err: any) {
             setError(err.message || 'Google login failed');
         } finally {
@@ -107,8 +131,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setIsLoading(true);
         setError(null);
         try {
-            const user = await mockAuthCall('github');
-            saveSession(user);
+            const userData = await mockAuthCall('github');
+            saveSession(userData);
         } catch (err: any) {
             setError(err.message || 'GitHub login failed');
         } finally {
@@ -120,10 +144,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setIsLoading(true);
         setError(null);
         try {
-            const user = await mockAuthCall('guest');
-            saveSession(user);
+            const userData = await mockAuthCall('guest');
+            saveSession(userData);
         } catch (err: any) {
-            setError('Guest login failed');
+            setError(err.message || 'Guest login failed');
         } finally {
             setIsLoading(false);
         }
@@ -132,10 +156,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const logout = useCallback(() => {
         localStorage.removeItem(STORAGE_KEY);
         setUser(null);
-        // Optional: Redirect to landing here if not handled by ProtectedRoute
     }, []);
 
-    const clearError = () => setError(null);
+    const clearError = useCallback(() => setError(null), []);
 
     return (
         <AuthContext.Provider

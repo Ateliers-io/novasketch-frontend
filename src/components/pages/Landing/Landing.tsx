@@ -320,7 +320,7 @@ export const Landing = () => {
               Sign In
             </button>
             <button
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/home')}
               className="px-5 py-2 rounded-lg bg-[#66FCF1] hover:bg-[#45A29E] text-black text-sm font-semibold transition-all"
             >
               Get Started
@@ -359,7 +359,7 @@ export const Landing = () => {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/home')}
               className="h-12 px-8 rounded-xl border border-gray-600 hover:border-gray-500 text-gray-300 hover:text-white font-medium transition-all flex items-center gap-2"
             >
               <Globe className="w-4 h-4" />
@@ -402,7 +402,7 @@ export const Landing = () => {
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Ready to start sketching?</h2>
           <p className="text-gray-400 mb-8 max-w-md mx-auto">Join thousands of teams using NovaSketch to collaborate and create.</p>
           <button
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate('/home')}
             className="h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold transition-all shadow-lg shadow-[#66FCF1]/20"
           >
             Get Started for Free

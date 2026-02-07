@@ -16,6 +16,12 @@ import {
   Position,
 } from '../../types/shapes';
 import SVGShapeRenderer from './SVGShapeRenderer';
+import {
+  getShapeBoundingBox,
+  getCombinedBoundingBox,
+  isPointInBoundingBox,
+  BoundingBox,
+} from '../../utils/boundingBox';
 
 // --- CONFIGURATION ---
 const GRID_DOT_COLOR = '#45A29E';
@@ -212,6 +218,10 @@ export default function Whiteboard() {
   const [dragStart, setDragStart] = useState<Position | null>(null);
   const [previewShape, setPreviewShape] = useState<Shape | null>(null);
 
+  // Selection State (Task 4.1)
+  const [selectedShapeIds, setSelectedShapeIds] = useState<Set<string>>(new Set());
+  const [selectionBoundingBox, setSelectionBoundingBox] = useState<BoundingBox | null>(null);
+
   // UI State
   const [activeTextInput, setActiveTextInput] = useState<{ x: number, y: number } | null>(null);
   const [textInputValue, setTextInputValue] = useState(''); // Hoisted state
@@ -266,6 +276,30 @@ export default function Whiteboard() {
     return false;
   }
 
+  // Hit test for selection: find shape at clicked point
+  function findShapeAtPoint(x: number, y: number): Shape | null {
+    // Iterate in reverse (top-most shapes first based on array order)
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const shape = shapes[i];
+      const bbox = getShapeBoundingBox(shape);
+      if (isPointInBoundingBox({ x, y }, bbox, 5)) { // 5px tolerance
+        return shape;
+      }
+    }
+    return null;
+  }
+
+  // Update bounding box when selection changes
+  useEffect(() => {
+    if (selectedShapeIds.size === 0) {
+      setSelectionBoundingBox(null);
+      return;
+    }
+    const selectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
+    const bbox = getCombinedBoundingBox(selectedShapes);
+    setSelectionBoundingBox(bbox);
+  }, [selectedShapeIds, shapes]);
+
   const performErase = (x: number, y: number) => {
     // 1. Lines
     if (eraserMode === 'stroke') {
@@ -317,7 +351,36 @@ export default function Whiteboard() {
 
     const { x, y } = getPointerPos(e);
 
-    // A. TEXT TOOL
+    // A. SELECTION TOOL
+    if (activeTool === 'select') {
+      const clickedShape = findShapeAtPoint(x, y);
+      const nativeEvent = 'nativeEvent' in e ? e.nativeEvent : (e as any).evt;
+      const isShiftClick = nativeEvent?.shiftKey || false;
+
+      if (clickedShape) {
+        if (isShiftClick) {
+          // Multi-select: toggle selection
+          setSelectedShapeIds(prev => {
+            const next = new Set(prev);
+            if (next.has(clickedShape.id)) {
+              next.delete(clickedShape.id);
+            } else {
+              next.add(clickedShape.id);
+            }
+            return next;
+          });
+        } else {
+          // Single select: replace selection
+          setSelectedShapeIds(new Set([clickedShape.id]));
+        }
+      } else {
+        // Clicked on empty space: deselect all
+        setSelectedShapeIds(new Set());
+      }
+      return;
+    }
+
+    // B. TEXT TOOL
     if (activeTool === 'text') {
       // Start new text input
       setActiveTextInput({ x, y });
@@ -325,7 +388,7 @@ export default function Whiteboard() {
       return;
     }
 
-    // B. ERASER TOOL
+    // C. ERASER TOOL
     if (activeTool === 'eraser') {
       performErase(x, y);
       setIsDrawing(true);
@@ -458,6 +521,66 @@ export default function Whiteboard() {
           height={dimensions.height}
         />
       </div>
+
+      {/* LAYER 2.5: SELECTION BOUNDING BOX */}
+      {selectionBoundingBox && activeTool === 'select' && (
+        <svg
+          className="absolute inset-0 z-15 pointer-events-none"
+          width={dimensions.width}
+          height={dimensions.height}
+        >
+          {/* Main bounding box */}
+          <rect
+            x={selectionBoundingBox.x - 4}
+            y={selectionBoundingBox.y - 4}
+            width={selectionBoundingBox.width + 8}
+            height={selectionBoundingBox.height + 8}
+            fill="none"
+            stroke="#2dd4bf"
+            strokeWidth={1.5}
+            strokeDasharray="6,4"
+            rx={2}
+          />
+          {/* Corner handles */}
+          {[
+            { x: selectionBoundingBox.minX, y: selectionBoundingBox.minY }, // Top-left
+            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.minY }, // Top-right
+            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.maxY }, // Bottom-right
+            { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY }, // Bottom-left
+          ].map((corner, i) => (
+            <rect
+              key={`corner-${i}`}
+              x={corner.x - 5}
+              y={corner.y - 5}
+              width={10}
+              height={10}
+              fill="#1a2026"
+              stroke="#2dd4bf"
+              strokeWidth={2}
+              rx={2}
+            />
+          ))}
+          {/* Midpoint handles */}
+          {[
+            { x: selectionBoundingBox.centerX, y: selectionBoundingBox.minY }, // Top-center
+            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.centerY }, // Right-center
+            { x: selectionBoundingBox.centerX, y: selectionBoundingBox.maxY }, // Bottom-center
+            { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY }, // Left-center
+          ].map((mid, i) => (
+            <rect
+              key={`mid-${i}`}
+              x={mid.x - 4}
+              y={mid.y - 4}
+              width={8}
+              height={8}
+              fill="#1a2026"
+              stroke="#2dd4bf"
+              strokeWidth={1.5}
+              rx={1}
+            />
+          ))}
+        </svg>
+      )}
 
       {/* LAYER 3: KONVA (Drawings) */}
       <div className="absolute inset-0 z-20 pointer-events-none">

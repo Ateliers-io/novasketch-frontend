@@ -11,7 +11,9 @@ import {
     Underline,
     ChevronDown,
     Minus,
-    Trash2
+    Trash2,
+    Lock,
+    Unlock
 } from 'lucide-react';
 import { ToolType } from '../../types/shapes';
 
@@ -23,6 +25,10 @@ interface ToolbarProps {
     // State
     activeTool: ActiveTool;
     onToolChange: (tool: ActiveTool) => void;
+
+    // Tool Lock (for drawing multiple shapes)
+    isToolLocked: boolean;
+    onToolLockChange: (locked: boolean) => void;
 
     // Draw Props
     brushSize: number;
@@ -113,6 +119,8 @@ const Separator = () => <div className="w-px h-8 bg-[#262e35] mx-2" />;
 export default function Toolbar({
     activeTool,
     onToolChange,
+    isToolLocked,
+    onToolLockChange,
     brushSize,
     onBrushSizeChange,
     strokeColor,
@@ -156,6 +164,23 @@ export default function Toolbar({
     return (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
             <div className="flex items-center gap-2 px-3 py-2 bg-[#1a2026]/90 backdrop-blur-xl border border-[#262e35] rounded-xl shadow-2xl shadow-black/50 text-[#eceef0]">
+
+                {/* --- LOCK BUTTON --- */}
+                <button
+                    onClick={() => onToolLockChange(!isToolLocked)}
+                    title={isToolLocked ? 'Tool Locked (Click to unlock)' : 'Tool Unlocked (Click to lock)'}
+                    className={`
+                        relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-200
+                        ${isToolLocked
+                            ? 'bg-[#2dd4bf]/20 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/50 shadow-[0_0_10px_rgba(45,212,191,0.3)]'
+                            : 'text-[#607383] hover:bg-[#262e35] hover:text-[#aab6bf]'
+                        }
+                    `}
+                >
+                    {isToolLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                </button>
+
+                <div className="w-px h-6 bg-[#262e35]" />
 
                 {/* --- SELECTION & TOOLS --- */}
                 <div className="flex items-center gap-1">

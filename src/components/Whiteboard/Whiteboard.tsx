@@ -525,11 +525,28 @@ export default function Whiteboard() {
       {/* LAYER 2.5: SELECTION BOUNDING BOX */}
       {selectionBoundingBox && activeTool === 'select' && (
         <svg
-          className="absolute inset-0 z-15 pointer-events-none"
+          className="absolute inset-0 z-15"
           width={dimensions.width}
           height={dimensions.height}
+          style={{ pointerEvents: 'none' }}
         >
-          {/* Main bounding box */}
+          {/* SVG Definitions for filters */}
+          <defs>
+            {/* Drop shadow for handles */}
+            <filter id="handle-shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#000" floodOpacity="0.4" />
+            </filter>
+            {/* Glow effect for bounding box */}
+            <filter id="selection-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* Main bounding box with glow */}
           <rect
             x={selectionBoundingBox.x - 4}
             y={selectionBoundingBox.y - 4}
@@ -540,45 +557,101 @@ export default function Whiteboard() {
             strokeWidth={1.5}
             strokeDasharray="6,4"
             rx={2}
+            filter="url(#selection-glow)"
           />
-          {/* Corner handles */}
+
+          {/* Corner handles with shadows and cursor hints */}
           {[
-            { x: selectionBoundingBox.minX, y: selectionBoundingBox.minY }, // Top-left
-            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.minY }, // Top-right
-            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.maxY }, // Bottom-right
-            { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY }, // Bottom-left
+            { x: selectionBoundingBox.minX, y: selectionBoundingBox.minY, cursor: 'nwse-resize' }, // Top-left
+            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.minY, cursor: 'nesw-resize' }, // Top-right
+            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.maxY, cursor: 'nwse-resize' }, // Bottom-right
+            { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY, cursor: 'nesw-resize' }, // Bottom-left
           ].map((corner, i) => (
-            <rect
-              key={`corner-${i}`}
-              x={corner.x - 5}
-              y={corner.y - 5}
-              width={10}
-              height={10}
-              fill="#1a2026"
-              stroke="#2dd4bf"
-              strokeWidth={2}
-              rx={2}
-            />
+            <g key={`corner-${i}`} style={{ pointerEvents: 'auto', cursor: corner.cursor }}>
+              <rect
+                x={corner.x - 6}
+                y={corner.y - 6}
+                width={12}
+                height={12}
+                fill="#0f1419"
+                stroke="#2dd4bf"
+                strokeWidth={2}
+                rx={2}
+                filter="url(#handle-shadow)"
+              />
+              {/* Inner highlight */}
+              <rect
+                x={corner.x - 3}
+                y={corner.y - 3}
+                width={6}
+                height={6}
+                fill="#2dd4bf"
+                rx={1}
+              />
+            </g>
           ))}
-          {/* Midpoint handles */}
+
+          {/* Midpoint handles with shadows */}
           {[
-            { x: selectionBoundingBox.centerX, y: selectionBoundingBox.minY }, // Top-center
-            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.centerY }, // Right-center
-            { x: selectionBoundingBox.centerX, y: selectionBoundingBox.maxY }, // Bottom-center
-            { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY }, // Left-center
+            { x: selectionBoundingBox.centerX, y: selectionBoundingBox.minY, cursor: 'ns-resize' }, // Top-center
+            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.centerY, cursor: 'ew-resize' }, // Right-center
+            { x: selectionBoundingBox.centerX, y: selectionBoundingBox.maxY, cursor: 'ns-resize' }, // Bottom-center
+            { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY, cursor: 'ew-resize' }, // Left-center
           ].map((mid, i) => (
-            <rect
-              key={`mid-${i}`}
-              x={mid.x - 4}
-              y={mid.y - 4}
-              width={8}
-              height={8}
-              fill="#1a2026"
+            <g key={`mid-${i}`} style={{ pointerEvents: 'auto', cursor: mid.cursor }}>
+              <rect
+                x={mid.x - 5}
+                y={mid.y - 5}
+                width={10}
+                height={10}
+                fill="#0f1419"
+                stroke="#2dd4bf"
+                strokeWidth={1.5}
+                rx={2}
+                filter="url(#handle-shadow)"
+              />
+              {/* Inner dot */}
+              <circle
+                cx={mid.x}
+                cy={mid.y}
+                r={2}
+                fill="#2dd4bf"
+              />
+            </g>
+          ))}
+
+          {/* Rotation handle (top-center, above the box) */}
+          <g style={{ pointerEvents: 'auto', cursor: 'grab' }}>
+            {/* Connection line */}
+            <line
+              x1={selectionBoundingBox.centerX}
+              y1={selectionBoundingBox.minY - 4}
+              x2={selectionBoundingBox.centerX}
+              y2={selectionBoundingBox.minY - 24}
               stroke="#2dd4bf"
               strokeWidth={1.5}
-              rx={1}
+              strokeDasharray="3,2"
             />
-          ))}
+            {/* Rotation circle */}
+            <circle
+              cx={selectionBoundingBox.centerX}
+              cy={selectionBoundingBox.minY - 30}
+              r={8}
+              fill="#0f1419"
+              stroke="#2dd4bf"
+              strokeWidth={2}
+              filter="url(#handle-shadow)"
+            />
+            {/* Rotation icon (curved arrow) */}
+            <path
+              d={`M ${selectionBoundingBox.centerX - 3} ${selectionBoundingBox.minY - 32} 
+                  A 4 4 0 1 1 ${selectionBoundingBox.centerX + 3} ${selectionBoundingBox.minY - 28}`}
+              fill="none"
+              stroke="#2dd4bf"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+            />
+          </g>
         </svg>
       )}
 

@@ -827,33 +827,42 @@ export default function Whiteboard() {
   };
 
   const handlePointerUp = () => {
-    // Task 4.2.3: Broadcast final position update
-    if (isResizing) {
-      setIsResizing(false);
-      setResizeHandle(null);
-      setInitialResizeState(null);
-      return;
-    }
-
-    if (isDraggingSelection) {
+    // Task 3: Broadcast properties (resize or drag)
+    if (isResizing || isDraggingSelection) {
       // Logic to prepare data for broadcast
-      if (selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0) {
-        const movedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
-        const movedLines = lines.filter(l => selectedLineIds.has(l.id));
-        const movedText = textAnnotations.filter(t => selectedTextIds.has(t.id));
+      const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
+      const affectedLines = lines.filter(l => selectedLineIds.has(l.id));
+      const affectedText = textAnnotations.filter(t => selectedTextIds.has(t.id));
 
-        console.log('[Broadcast] Final positions:', {
-          shapes: movedShapes,
-          lines: movedLines,
-          text: movedText
+      if (affectedShapes.length > 0 || affectedLines.length > 0 || affectedText.length > 0) {
+        console.log('[Broadcast] Object Update:', {
+          type: isResizing ? 'resize' : 'move',
+          shapes: affectedShapes.map(s => ({
+            id: s.id,
+            position: s.position,
+            // rotation: s.rotation, // Re-add when rotation is implemented
+            ...(isRectangle(s) ? { width: (s as RectangleShape).width, height: (s as RectangleShape).height } : {}),
+            ...(isCircle(s) ? { radius: (s as CircleShape).radius } : {})
+          })),
+          lines: affectedLines.map(l => ({ id: l.id, points: l.points })),
+          texts: affectedText.map(t => ({ id: t.id, position: { x: t.x, y: t.y }, fontSize: t.fontSize }))
         });
-        // In a real app, you would emit a socket event here: socket.emit('update-objects', { ... });
+        // In a real app: socket.emit('update-objects', { ... });
       }
 
-      setIsDraggingSelection(false);
-      setLastPointerPos(null);
+      if (isResizing) {
+        setIsResizing(false);
+        setResizeHandle(null);
+        setInitialResizeState(null);
+      }
+      if (isDraggingSelection) {
+        setIsDraggingSelection(false);
+        setLastPointerPos(null);
+      }
       return;
     }
+
+
 
     // Auto-switch to selection after erasing (unless locked)
     if (activeTool === 'eraser' && isDrawing && !isToolLocked) {

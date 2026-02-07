@@ -143,6 +143,28 @@ function removeStrokesAt(x: number, y: number, strokes: StrokeLine[], radius: nu
   });
 }
 
+// Helper for Task 2: Reorder Object Array (Bring Forward)
+function moveForward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
+  const newItems = [...items];
+  for (let i = newItems.length - 2; i >= 0; i--) {
+    if (selectedIds.has(newItems[i].id) && !selectedIds.has(newItems[i + 1].id)) {
+      [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
+    }
+  }
+  return newItems;
+}
+
+// Helper for Task 2: Reorder Object Array (Send Backward)
+function moveBackward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
+  const newItems = [...items];
+  for (let i = 1; i < newItems.length; i++) {
+    if (selectedIds.has(newItems[i].id) && !selectedIds.has(newItems[i - 1].id)) {
+      [newItems[i], newItems[i - 1]] = [newItems[i - 1], newItems[i]];
+    }
+  }
+  return newItems;
+}
+
 // --- HELPER COMPONENTS ---
 const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -466,91 +488,15 @@ export default function Whiteboard() {
 
   // -- Task 4.4: Layer Management --
   const handleBringForward = () => {
-    // 1. Shapes
-    if (selectedShapeIds.size > 0) {
-      setShapes(prev => {
-        const newShapes = [...prev];
-        // Move selected shapes to the end (top) one step at a time
-        // Simple approach: Extract selected, append to end? 
-        // Or swap with next neighbor? "Bring Forward" usually means swap with next.
-        // "Bring to Front" means move to end.
-
-        // Let's implement Swap with Next (Forward)
-        // Iterate from end to start to bubble up
-        for (let i = newShapes.length - 2; i >= 0; i--) {
-          if (selectedShapeIds.has(newShapes[i].id) && !selectedShapeIds.has(newShapes[i + 1].id)) {
-            // Swap
-            [newShapes[i], newShapes[i + 1]] = [newShapes[i + 1], newShapes[i]];
-          }
-        }
-        return newShapes;
-      });
-    }
-    // 2. Lines
-    if (selectedLineIds.size > 0) {
-      setLines(prev => {
-        const newLines = [...prev];
-        for (let i = newLines.length - 2; i >= 0; i--) {
-          if (selectedLineIds.has(newLines[i].id) && !selectedLineIds.has(newLines[i + 1].id)) {
-            [newLines[i], newLines[i + 1]] = [newLines[i + 1], newLines[i]];
-          }
-        }
-        return newLines;
-      });
-    }
-    // 3. Text
-    if (selectedTextIds.size > 0) {
-      setTextAnnotations(prev => {
-        const newTexts = [...prev];
-        for (let i = newTexts.length - 2; i >= 0; i--) {
-          if (selectedTextIds.has(newTexts[i].id) && !selectedTextIds.has(newTexts[i + 1].id)) {
-            [newTexts[i], newTexts[i + 1]] = [newTexts[i + 1], newTexts[i]];
-          }
-        }
-        return newTexts;
-      });
-    }
+    if (selectedShapeIds.size > 0) setShapes(prev => moveForward(prev, selectedShapeIds));
+    if (selectedLineIds.size > 0) setLines(prev => moveForward(prev, selectedLineIds));
+    if (selectedTextIds.size > 0) setTextAnnotations(prev => moveForward(prev, selectedTextIds));
   };
 
   const handleSendBackward = () => {
-    // 1. Shapes
-    if (selectedShapeIds.size > 0) {
-      setShapes(prev => {
-        const newShapes = [...prev];
-        // Iterate from start to end to bubble down
-        for (let i = 1; i < newShapes.length; i++) {
-          if (selectedShapeIds.has(newShapes[i].id) && !selectedShapeIds.has(newShapes[i - 1].id)) {
-            // Swap with previous
-            [newShapes[i], newShapes[i - 1]] = [newShapes[i - 1], newShapes[i]];
-          }
-        }
-        return newShapes;
-      });
-    }
-    // 2. Lines
-    if (selectedLineIds.size > 0) {
-      setLines(prev => {
-        const newLines = [...prev];
-        for (let i = 1; i < newLines.length; i++) {
-          if (selectedLineIds.has(newLines[i].id) && !selectedLineIds.has(newLines[i - 1].id)) {
-            [newLines[i], newLines[i - 1]] = [newLines[i - 1], newLines[i]];
-          }
-        }
-        return newLines;
-      });
-    }
-    // 3. Text
-    if (selectedTextIds.size > 0) {
-      setTextAnnotations(prev => {
-        const newTexts = [...prev];
-        for (let i = 1; i < newTexts.length; i++) {
-          if (selectedTextIds.has(newTexts[i].id) && !selectedTextIds.has(newTexts[i - 1].id)) {
-            [newTexts[i], newTexts[i - 1]] = [newTexts[i - 1], newTexts[i]];
-          }
-        }
-        return newTexts;
-      });
-    }
+    if (selectedShapeIds.size > 0) setShapes(prev => moveBackward(prev, selectedShapeIds));
+    if (selectedLineIds.size > 0) setLines(prev => moveBackward(prev, selectedLineIds));
+    if (selectedTextIds.size > 0) setTextAnnotations(prev => moveBackward(prev, selectedTextIds));
   };
 
   // -- 5. ACTION HANDLERS --

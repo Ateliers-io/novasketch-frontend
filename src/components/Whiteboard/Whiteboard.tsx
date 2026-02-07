@@ -214,6 +214,10 @@ export default function Whiteboard() {
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
   const [isDrawing, setIsDrawing] = useState(false);
   const [isToolLocked, setIsToolLocked] = useState(false); // Lock tool for multiple drawings
+  // Task 4.2.1: State for calculating drag delta
+  const [isDraggingSelection, setIsDraggingSelection] = useState(false);
+  const [lastPointerPos, setLastPointerPos] = useState<Position | null>(null);
+  const [isHoveringSelection, setIsHoveringSelection] = useState(false); // Task 4.2.4: Track hover for cursor
 
   // Shape Creation
   const [dragStart, setDragStart] = useState<Position | null>(null);
@@ -461,6 +465,14 @@ export default function Whiteboard() {
 
     // A. SELECTION TOOL
     if (activeTool === 'select') {
+      // Task 4.2.1: Drag Logic - Check bounding box first
+      // If we have a selection and click inside its bounding box, start dragging
+      if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
+        setIsDraggingSelection(true);
+        setLastPointerPos({ x, y });
+        return;
+      }
+
       const clickedShape = findShapeAtPoint(x, y);
       const nativeEvent = 'nativeEvent' in e ? e.nativeEvent : (e as any).evt;
       const isShiftClick = nativeEvent?.shiftKey || false;
@@ -495,6 +507,7 @@ export default function Whiteboard() {
       return;
     }
 
+    // ... (Rest of tools)
     // B. TEXT TOOL
     if (activeTool === 'text') {
       // Start new text input
@@ -531,6 +544,66 @@ export default function Whiteboard() {
   const handlePointerMove = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
     const { x, y } = getPointerPos(e);
     setCursorPos({ x, y });
+
+    // Task 4.2.4: Hover detection for cursor
+    if (activeTool === 'select' && !isDraggingSelection && !isDrawing) {
+      let hovering = false;
+      if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
+        hovering = true;
+      }
+      setIsHoveringSelection(hovering);
+    } else if (activeTool !== 'select') {
+      setIsHoveringSelection(false);
+    }
+
+
+    // Task 4.2.1: Calculate Delta during drag
+    if (isDraggingSelection && lastPointerPos) {
+      const dx = x - lastPointerPos.x;
+      const dy = y - lastPointerPos.y;
+
+      // Task 4.2.2: Update object coordinates locally in real-time
+
+      // 1. Move Shapes
+      if (selectedShapeIds.size > 0) {
+        setShapes(prev => prev.map(s => {
+          if (selectedShapeIds.has(s.id)) {
+            return {
+              ...s,
+              position: { x: s.position.x + dx, y: s.position.y + dy }
+            };
+          }
+          return s;
+        }));
+      }
+
+      // 2. Move Lines (all points must shift)
+      if (selectedLineIds.size > 0) {
+        setLines(prev => prev.map(l => {
+          if (selectedLineIds.has(l.id)) {
+            const newPoints = l.points.map((val, i) => {
+              // Even indices are X, odd are Y
+              return i % 2 === 0 ? val + dx : val + dy;
+            });
+            return { ...l, points: newPoints };
+          }
+          return l;
+        }));
+      }
+
+      // 3. Move Text
+      if (selectedTextIds.size > 0) {
+        setTextAnnotations(prev => prev.map(t => {
+          if (selectedTextIds.has(t.id)) {
+            return { ...t, x: t.x + dx, y: t.y + dy };
+          }
+          return t;
+        }));
+      }
+
+      setLastPointerPos({ x, y });
+      return;
+    }
 
     if (!isDrawing) return;
 
@@ -579,6 +652,27 @@ export default function Whiteboard() {
   };
 
   const handlePointerUp = () => {
+    // Task 4.2.3: Broadcast final position update
+    if (isDraggingSelection) {
+      // Logic to prepare data for broadcast
+      if (selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0) {
+        const movedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
+        const movedLines = lines.filter(l => selectedLineIds.has(l.id));
+        const movedText = textAnnotations.filter(t => selectedTextIds.has(t.id));
+
+        console.log('[Broadcast] Final positions:', {
+          shapes: movedShapes,
+          lines: movedLines,
+          text: movedText
+        });
+        // In a real app, you would emit a socket event here: socket.emit('update-objects', { ... });
+      }
+
+      setIsDraggingSelection(false);
+      setLastPointerPos(null);
+      return;
+    }
+
     // Auto-switch to selection after erasing (unless locked)
     if (activeTool === 'eraser' && isDrawing && !isToolLocked) {
       setIsDrawing(false);
@@ -703,7 +797,12 @@ export default function Whiteboard() {
   return (
     <div
       ref={containerRef}
-      className="relative w-screen h-screen overflow-hidden bg-[#0B0C10] select-none"
+      className={`relative w-screen h-screen overflow-hidden bg-[#0B0C10] select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection)
+          ? 'cursor-move'
+          : activeTool === 'select'
+            ? 'cursor-default'
+            : 'cursor-crosshair'
+        }`}
       onMouseMove={handlePointerMove}
       onMouseDown={handlePointerDown}
       onMouseUp={handlePointerUp}

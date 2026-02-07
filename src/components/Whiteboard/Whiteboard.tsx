@@ -487,16 +487,55 @@ export default function Whiteboard() {
 
 
   // -- Task 4.4: Layer Management --
+  // -- Task 4.4: Layer Management --
   const handleBringForward = () => {
-    if (selectedShapeIds.size > 0) setShapes(prev => moveForward(prev, selectedShapeIds));
-    if (selectedLineIds.size > 0) setLines(prev => moveForward(prev, selectedLineIds));
-    if (selectedTextIds.size > 0) setTextAnnotations(prev => moveForward(prev, selectedTextIds));
+    let newShapes = shapes;
+    let newLines = lines;
+    let newTexts = textAnnotations;
+
+    if (selectedShapeIds.size > 0) newShapes = moveForward(shapes, selectedShapeIds);
+    if (selectedLineIds.size > 0) newLines = moveForward(lines, selectedLineIds);
+    if (selectedTextIds.size > 0) newTexts = moveForward(textAnnotations, selectedTextIds);
+
+    if (newShapes !== shapes) setShapes(newShapes);
+    if (newLines !== lines) setLines(newLines);
+    if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
+
+    // Task 3: Collaboration Broadcast
+    if (newShapes !== shapes || newLines !== lines || newTexts !== textAnnotations) {
+      console.log('[Broadcast] Layer Reorder:', {
+        type: 'LAYER_REORDER',
+        shapeOrder: newShapes.map(s => s.id),
+        lineOrder: newLines.map(l => l.id),
+        textOrder: newTexts.map(t => t.id)
+      });
+      // socket.emit('layer-update', { ... });
+    }
   };
 
   const handleSendBackward = () => {
-    if (selectedShapeIds.size > 0) setShapes(prev => moveBackward(prev, selectedShapeIds));
-    if (selectedLineIds.size > 0) setLines(prev => moveBackward(prev, selectedLineIds));
-    if (selectedTextIds.size > 0) setTextAnnotations(prev => moveBackward(prev, selectedTextIds));
+    let newShapes = shapes;
+    let newLines = lines;
+    let newTexts = textAnnotations;
+
+    if (selectedShapeIds.size > 0) newShapes = moveBackward(shapes, selectedShapeIds);
+    if (selectedLineIds.size > 0) newLines = moveBackward(lines, selectedLineIds);
+    if (selectedTextIds.size > 0) newTexts = moveBackward(textAnnotations, selectedTextIds);
+
+    if (newShapes !== shapes) setShapes(newShapes);
+    if (newLines !== lines) setLines(newLines);
+    if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
+
+    // Task 3: Collaboration Broadcast
+    if (newShapes !== shapes || newLines !== lines || newTexts !== textAnnotations) {
+      console.log('[Broadcast] Layer Reorder:', {
+        type: 'LAYER_REORDER',
+        shapeOrder: newShapes.map(s => s.id),
+        lineOrder: newLines.map(l => l.id),
+        textOrder: newTexts.map(t => t.id)
+      });
+      // socket.emit('layer-update', { ... });
+    }
   };
 
   // -- 5. ACTION HANDLERS --

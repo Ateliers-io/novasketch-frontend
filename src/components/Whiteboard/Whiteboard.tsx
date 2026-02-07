@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Stage, Layer, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import DOMPurify from 'dompurify';
@@ -219,6 +219,16 @@ export default function Whiteboard() {
   const [lastPointerPos, setLastPointerPos] = useState<Position | null>(null);
   const [isHoveringSelection, setIsHoveringSelection] = useState(false); // Task 4.2.4: Track hover for cursor
 
+  // Resizing State
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const [initialResizeState, setInitialResizeState] = useState<{
+    box: BoundingBox;
+    shapes: Map<string, Shape>;
+    lines: Map<string, StrokeLine>;
+    texts: Map<string, TextAnnotation>;
+  } | null>(null);
+
   // Shape Creation
   const [dragStart, setDragStart] = useState<Position | null>(null);
   const [previewShape, setPreviewShape] = useState<Shape | null>(null);
@@ -249,6 +259,9 @@ export default function Whiteboard() {
     italic: false,
     underline: false
   });
+
+
+
 
   // Handle Window Resize
   useEffect(() => {
@@ -399,6 +412,8 @@ export default function Whiteboard() {
     }
   }, [selectedShapeIds, selectedLineIds, selectedTextIds, shapes, lines, textAnnotations]);
 
+
+
   const performErase = (x: number, y: number) => {
     // 1. Lines
     if (eraserMode === 'stroke') {
@@ -453,6 +468,26 @@ export default function Whiteboard() {
     if ((e.target as HTMLElement).closest?.('[data-component="toolbar"]')) {
       if (activeTextInput) commitText();
       return;
+    }
+
+    // Check if clicking resize handles
+    const nativeTarget = ('nativeEvent' in e ? e.nativeEvent.target : e.target) as Element;
+    const resizeHandleEl = nativeTarget.closest?.('[data-resize-handle]');
+
+    if (activeTool === 'select' && resizeHandleEl && selectionBoundingBox) {
+      if ('stopPropagation' in e) e.stopPropagation();
+      const handleId = resizeHandleEl.getAttribute('data-resize-handle');
+      if (handleId) {
+        setIsResizing(true);
+        setResizeHandle(handleId);
+        setInitialResizeState({
+          box: { ...selectionBoundingBox },
+          shapes: new Map(shapes.filter(s => selectedShapeIds.has(s.id)).map(s => [s.id, s])),
+          lines: new Map(lines.filter(l => selectedLineIds.has(l.id)).map(l => [l.id, l])),
+          texts: new Map(textAnnotations.filter(t => selectedTextIds.has(t.id)).map(t => [t.id, t]))
+        });
+        return;
+      }
     }
 
     // If text input is open, commit it first (unless we are clicking ON the input, which is handled by stopPropagation)
@@ -557,6 +592,146 @@ export default function Whiteboard() {
     }
 
 
+
+
+    // Task 2: Handle Resizing Logic
+    if (isResizing && initialResizeState && resizeHandle) {
+      const { box } = initialResizeState;
+      let newX = box.x;
+      let newY = box.y;
+      let newWidth = box.width;
+      let newHeight = box.height;
+
+      // Calculate new bounds based on handle
+      // Standard delta from initial pointer usually better, but here we can compute from current mouse to initial bounds edges
+      // Current Mouse: {x, y}
+
+      // Determine new edges
+      // Note: This simple logic assumes no rotation on the box itself (AABB)
+
+      if (resizeHandle.includes('e')) newWidth = Math.max(10, x - box.x);
+      if (resizeHandle.includes('w')) {
+        const right = box.x + box.width;
+        newWidth = Math.max(10, right - x);
+        newX = right - newWidth;
+      }
+      if (resizeHandle.includes('s')) newHeight = Math.max(10, y - box.y);
+      if (resizeHandle.includes('n')) {
+        const bottom = box.y + box.height;
+        newHeight = Math.max(10, bottom - y);
+        newY = bottom - newHeight;
+      }
+
+      // Aspect Ratio Lock (Shift)
+      const nativeEvent = 'nativeEvent' in e ? e.nativeEvent : (e as any).evt;
+      if (nativeEvent?.shiftKey && ['nw', 'ne', 'se', 'sw'].includes(resizeHandle)) {
+        const ratio = box.width / box.height;
+        // We need to decide which dimension to prioritize or pick the larger change
+        // Simple approach: width dictates height (common) or take max projected dimension
+
+        if (resizeHandle === 'se' || resizeHandle === 'nw') {
+          // For SE/NW, standard ratio logic
+          // Determine dominant axis usually, or just use width
+          const projectedHeight = newWidth / ratio;
+          if (newHeight < projectedHeight) {
+            // Mouse is "above/left" of diagonal
+            newHeight = projectedHeight;
+            if (resizeHandle === 'nw') newY = (box.y + box.height) - newHeight;
+          } else {
+            newWidth = newHeight * ratio;
+            if (resizeHandle === 'nw') newX = (box.x + box.width) - newWidth;
+          }
+        } else {
+          // NE / SW - Inverted ratio logic visually but math is same for dimensions
+          const projectedHeight = newWidth / ratio;
+          // The "sign" of updates matters for position, but we already calculated newX/newY and W/H.
+          // Let's refine based on W/H again.
+
+          // If we just strictly constrain w/h:
+          newHeight = newWidth / ratio;
+
+          // Adjust position if needed (growing upwards/leftwards)
+          if (resizeHandle.includes('n')) {
+            newY = (box.y + box.height) - newHeight;
+          }
+          if (resizeHandle.includes('w')) {
+            // We set newX based on Width, but here we adjusted Height based on Width.
+            // Wait, if we adjusted Height, we must check if that's valid user intent.
+            // Usually we take the larger of (dx, dy).
+          }
+        }
+      }
+
+      // Scale Factors
+      const scaleX = newWidth / box.width;
+      const scaleY = newHeight / box.height;
+
+      // A. Update Shapes
+      if (initialResizeState.shapes.size > 0) {
+        setShapes(prev => prev.map(s => {
+          const initS = initialResizeState.shapes.get(s.id);
+          if (initS) {
+            // Calculate relative position
+            const relX = initS.position.x - box.x;
+            const relY = initS.position.y - box.y;
+
+            // New pos
+            const finalX = newX + relX * scaleX;
+            const finalY = newY + relY * scaleY;
+
+            if (isRectangle(initS)) {
+              return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY };
+            } else if (isCircle(initS)) {
+              // Circles usually maintain aspect ratio or become ellipses. 
+              // Novasketch `CircleShape` only has `radius`. It stays a circle.
+              // So we must choose one scale or average.
+              // Use average of scales or max? Max ensures it doesn't shrink weirdly.
+              // Or use scaleX if shift held? 
+              // Let's use geometric mean or max. Max is safer for visibility.
+              const scale = Math.max(scaleX, scaleY);
+              return { ...s, position: { x: finalX, y: finalY }, radius: (initS as CircleShape).radius * scale };
+            }
+            return { ...s, position: { x: finalX, y: finalY } };
+          }
+          return s;
+        }));
+      }
+
+      // B. Update Lines
+      if (initialResizeState.lines.size > 0) {
+        setLines(prev => prev.map(l => {
+          const initL = initialResizeState.lines.get(l.id);
+          if (initL) {
+            const newPoints = [];
+            for (let i = 0; i < initL.points.length; i += 2) {
+              const px = initL.points[i];
+              const py = initL.points[i + 1];
+              const nx = newX + (px - box.x) * scaleX;
+              const ny = newY + (py - box.y) * scaleY;
+              newPoints.push(nx, ny);
+            }
+            return { ...l, points: newPoints };
+          }
+          return l;
+        }));
+      }
+
+      // C. Update Text
+      if (initialResizeState.texts.size > 0) {
+        setTextAnnotations(prev => prev.map(t => {
+          const initT = initialResizeState.texts.get(t.id);
+          if (initT) {
+            const nx = newX + (initT.x - box.x) * scaleX;
+            const ny = newY + (initT.y - box.y) * scaleY;
+            const nFontSize = initT.fontSize * scaleY; // Use Y scale for font size typically
+            return { ...t, x: nx, y: ny, fontSize: nFontSize };
+          }
+          return t;
+        }));
+      }
+      return;
+    }
+
     // Task 4.2.1: Calculate Delta during drag
     if (isDraggingSelection && lastPointerPos) {
       const dx = x - lastPointerPos.x;
@@ -653,6 +828,13 @@ export default function Whiteboard() {
 
   const handlePointerUp = () => {
     // Task 4.2.3: Broadcast final position update
+    if (isResizing) {
+      setIsResizing(false);
+      setResizeHandle(null);
+      setInitialResizeState(null);
+      return;
+    }
+
     if (isDraggingSelection) {
       // Logic to prepare data for broadcast
       if (selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0) {
@@ -798,10 +980,10 @@ export default function Whiteboard() {
     <div
       ref={containerRef}
       className={`relative w-screen h-screen overflow-hidden bg-[#0B0C10] select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection)
-          ? 'cursor-move'
-          : activeTool === 'select'
-            ? 'cursor-default'
-            : 'cursor-crosshair'
+        ? 'cursor-move'
+        : activeTool === 'select'
+          ? 'cursor-default'
+          : 'cursor-crosshair'
         }`}
       onMouseMove={handlePointerMove}
       onMouseDown={handlePointerDown}
@@ -896,127 +1078,98 @@ export default function Whiteboard() {
           height={dimensions.height}
           style={{ pointerEvents: 'none' }}
         >
-          {/* SVG Definitions for filters */}
-          <defs>
-            {/* Drop shadow for handles */}
-            <filter id="handle-shadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#000" floodOpacity="0.4" />
-            </filter>
-            {/* Glow effect for bounding box */}
-            <filter id="selection-glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="2" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
+          <g>
+            {/* SVG Definitions for filters */}
+            <defs>
+              {/* Drop shadow for handles */}
+              <filter id="handle-shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#000" floodOpacity="0.4" />
+              </filter>
+              {/* Glow effect for bounding box */}
+              <filter id="selection-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
 
-          {/* Main bounding box with glow */}
-          <rect
-            x={selectionBoundingBox.x - 4}
-            y={selectionBoundingBox.y - 4}
-            width={selectionBoundingBox.width + 8}
-            height={selectionBoundingBox.height + 8}
-            fill="none"
-            stroke="#2dd4bf"
-            strokeWidth={1.5}
-            strokeDasharray="6,4"
-            rx={2}
-            filter="url(#selection-glow)"
-          />
-
-          {/* Corner handles with shadows and cursor hints */}
-          {[
-            { x: selectionBoundingBox.minX, y: selectionBoundingBox.minY, cursor: 'nwse-resize' }, // Top-left
-            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.minY, cursor: 'nesw-resize' }, // Top-right
-            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.maxY, cursor: 'nwse-resize' }, // Bottom-right
-            { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY, cursor: 'nesw-resize' }, // Bottom-left
-          ].map((corner, i) => (
-            <g key={`corner-${i}`} style={{ pointerEvents: 'auto', cursor: corner.cursor }}>
-              <rect
-                x={corner.x - 6}
-                y={corner.y - 6}
-                width={12}
-                height={12}
-                fill="#0f1419"
-                stroke="#2dd4bf"
-                strokeWidth={2}
-                rx={2}
-                filter="url(#handle-shadow)"
-              />
-              {/* Inner highlight */}
-              <rect
-                x={corner.x - 3}
-                y={corner.y - 3}
-                width={6}
-                height={6}
-                fill="#2dd4bf"
-                rx={1}
-              />
-            </g>
-          ))}
-
-          {/* Midpoint handles with shadows */}
-          {[
-            { x: selectionBoundingBox.centerX, y: selectionBoundingBox.minY, cursor: 'ns-resize' }, // Top-center
-            { x: selectionBoundingBox.maxX, y: selectionBoundingBox.centerY, cursor: 'ew-resize' }, // Right-center
-            { x: selectionBoundingBox.centerX, y: selectionBoundingBox.maxY, cursor: 'ns-resize' }, // Bottom-center
-            { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY, cursor: 'ew-resize' }, // Left-center
-          ].map((mid, i) => (
-            <g key={`mid-${i}`} style={{ pointerEvents: 'auto', cursor: mid.cursor }}>
-              <rect
-                x={mid.x - 5}
-                y={mid.y - 5}
-                width={10}
-                height={10}
-                fill="#0f1419"
-                stroke="#2dd4bf"
-                strokeWidth={1.5}
-                rx={2}
-                filter="url(#handle-shadow)"
-              />
-              {/* Inner dot */}
-              <circle
-                cx={mid.x}
-                cy={mid.y}
-                r={2}
-                fill="#2dd4bf"
-              />
-            </g>
-          ))}
-
-          {/* Rotation handle (top-center, above the box) */}
-          <g style={{ pointerEvents: 'auto', cursor: 'grab' }}>
-            {/* Connection line */}
-            <line
-              x1={selectionBoundingBox.centerX}
-              y1={selectionBoundingBox.minY - 4}
-              x2={selectionBoundingBox.centerX}
-              y2={selectionBoundingBox.minY - 24}
-              stroke="#2dd4bf"
-              strokeWidth={1.5}
-              strokeDasharray="3,2"
-            />
-            {/* Rotation circle */}
-            <circle
-              cx={selectionBoundingBox.centerX}
-              cy={selectionBoundingBox.minY - 30}
-              r={8}
-              fill="#0f1419"
-              stroke="#2dd4bf"
-              strokeWidth={2}
-              filter="url(#handle-shadow)"
-            />
-            {/* Rotation icon (curved arrow) */}
-            <path
-              d={`M ${selectionBoundingBox.centerX - 3} ${selectionBoundingBox.minY - 32} 
-                  A 4 4 0 1 1 ${selectionBoundingBox.centerX + 3} ${selectionBoundingBox.minY - 28}`}
+            {/* Main bounding box with glow */}
+            <rect
+              x={selectionBoundingBox.x - 4}
+              y={selectionBoundingBox.y - 4}
+              width={selectionBoundingBox.width + 8}
+              height={selectionBoundingBox.height + 8}
               fill="none"
               stroke="#2dd4bf"
               strokeWidth={1.5}
-              strokeLinecap="round"
+              strokeDasharray="6,4"
+              rx={2}
+              filter="url(#selection-glow)"
             />
+
+            {/* Corner handles with shadows and cursor hints */}
+            {[
+              { x: selectionBoundingBox.minX, y: selectionBoundingBox.minY, cursor: 'nwse-resize', id: 'nw' }, // Top-left
+              { x: selectionBoundingBox.maxX, y: selectionBoundingBox.minY, cursor: 'nesw-resize', id: 'ne' }, // Top-right
+              { x: selectionBoundingBox.maxX, y: selectionBoundingBox.maxY, cursor: 'nwse-resize', id: 'se' }, // Bottom-right
+              { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY, cursor: 'nesw-resize', id: 'sw' }, // Bottom-left
+            ].map((corner, i) => (
+              <g key={`corner-${i}`} data-resize-handle={corner.id} style={{ pointerEvents: 'auto', cursor: corner.cursor }}>
+                <rect
+                  x={corner.x - 6}
+                  y={corner.y - 6}
+                  width={12}
+                  height={12}
+                  fill="#0f1419"
+                  stroke="#2dd4bf"
+                  strokeWidth={2}
+                  rx={2}
+                  filter="url(#handle-shadow)"
+                />
+                {/* Inner highlight */}
+                <rect
+                  x={corner.x - 3}
+                  y={corner.y - 3}
+                  width={6}
+                  height={6}
+                  fill="#2dd4bf"
+                  rx={1}
+                />
+              </g>
+            ))}
+
+            {/* Midpoint handles with shadows */}
+            {[
+              { x: selectionBoundingBox.centerX, y: selectionBoundingBox.minY, cursor: 'ns-resize', id: 'n' }, // Top-center
+              { x: selectionBoundingBox.maxX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'e' }, // Right-center
+              { x: selectionBoundingBox.centerX, y: selectionBoundingBox.maxY, cursor: 'ns-resize', id: 's' }, // Bottom-center
+              { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'w' }, // Left-center
+            ].map((mid, i) => (
+              <g key={`mid-${i}`} data-resize-handle={mid.id} style={{ pointerEvents: 'auto', cursor: mid.cursor }}>
+                <rect
+                  x={mid.x - 5}
+                  y={mid.y - 5}
+                  width={10}
+                  height={10}
+                  fill="#0f1419"
+                  stroke="#2dd4bf"
+                  strokeWidth={1.5}
+                  rx={2}
+                  filter="url(#handle-shadow)"
+                />
+                {/* Inner dot */}
+                <circle
+                  cx={mid.x}
+                  cy={mid.y}
+                  r={2}
+                  fill="#2dd4bf"
+                />
+              </g>
+            ))}
+
+
           </g>
         </svg>
       )}

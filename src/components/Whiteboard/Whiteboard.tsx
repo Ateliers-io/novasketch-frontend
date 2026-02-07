@@ -217,6 +217,7 @@ export default function Whiteboard() {
   // Task 4.2.1: State for calculating drag delta
   const [isDraggingSelection, setIsDraggingSelection] = useState(false);
   const [lastPointerPos, setLastPointerPos] = useState<Position | null>(null);
+  const [isHoveringSelection, setIsHoveringSelection] = useState(false); // Task 4.2.4: Track hover for cursor
 
   // Shape Creation
   const [dragStart, setDragStart] = useState<Position | null>(null);
@@ -544,6 +545,18 @@ export default function Whiteboard() {
     const { x, y } = getPointerPos(e);
     setCursorPos({ x, y });
 
+    // Task 4.2.4: Hover detection for cursor
+    if (activeTool === 'select' && !isDraggingSelection && !isDrawing) {
+      let hovering = false;
+      if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
+        hovering = true;
+      }
+      setIsHoveringSelection(hovering);
+    } else if (activeTool !== 'select') {
+      setIsHoveringSelection(false);
+    }
+
+
     // Task 4.2.1: Calculate Delta during drag
     if (isDraggingSelection && lastPointerPos) {
       const dx = x - lastPointerPos.x;
@@ -639,8 +652,22 @@ export default function Whiteboard() {
   };
 
   const handlePointerUp = () => {
-    // Task 4.2.1: End Drag
+    // Task 4.2.3: Broadcast final position update
     if (isDraggingSelection) {
+      // Logic to prepare data for broadcast
+      if (selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0) {
+        const movedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
+        const movedLines = lines.filter(l => selectedLineIds.has(l.id));
+        const movedText = textAnnotations.filter(t => selectedTextIds.has(t.id));
+
+        console.log('[Broadcast] Final positions:', {
+          shapes: movedShapes,
+          lines: movedLines,
+          text: movedText
+        });
+        // In a real app, you would emit a socket event here: socket.emit('update-objects', { ... });
+      }
+
       setIsDraggingSelection(false);
       setLastPointerPos(null);
       return;
@@ -770,7 +797,12 @@ export default function Whiteboard() {
   return (
     <div
       ref={containerRef}
-      className="relative w-screen h-screen overflow-hidden bg-[#0B0C10] select-none"
+      className={`relative w-screen h-screen overflow-hidden bg-[#0B0C10] select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection)
+          ? 'cursor-move'
+          : activeTool === 'select'
+            ? 'cursor-default'
+            : 'cursor-crosshair'
+        }`}
       onMouseMove={handlePointerMove}
       onMouseDown={handlePointerDown}
       onMouseUp={handlePointerUp}

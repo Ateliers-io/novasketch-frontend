@@ -162,7 +162,10 @@ export default function Toolbar({
     const isEraserMode = activeTool === 'eraser';
 
     return (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+        <div
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-50"
+            data-component="toolbar"
+        >
             <div className="flex items-center gap-2 px-3 py-2 bg-[#1a2026]/90 backdrop-blur-xl border border-[#262e35] rounded-xl shadow-2xl shadow-black/50 text-[#eceef0]">
 
                 {/* --- LOCK BUTTON --- */}

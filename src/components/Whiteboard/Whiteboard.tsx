@@ -445,6 +445,12 @@ export default function Whiteboard() {
   };
 
   const handlePointerDown = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
+    // Check if clicking on UI (Toolbar)
+    if ((e.target as HTMLElement).closest?.('[data-component="toolbar"]')) {
+      if (activeTextInput) commitText();
+      return;
+    }
+
     // If text input is open, commit it first (unless we are clicking ON the input, which is handled by stopPropagation)
     if (activeTextInput) {
       commitText();

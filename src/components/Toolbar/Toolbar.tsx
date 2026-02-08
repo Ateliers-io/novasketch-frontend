@@ -13,7 +13,9 @@ import {
     Minus,
     Trash2,
     Lock,
-    Unlock
+    Unlock,
+    ArrowUp,
+    ArrowDown
 } from 'lucide-react';
 import { ToolType } from '../../types/shapes';
 
@@ -55,6 +57,11 @@ interface ToolbarProps {
     onEraserModeChange: (mode: EraserMode) => void;
     eraserSize: number;
     onEraserSizeChange: (size: number) => void;
+
+    // Layering Props (Task 4.4)
+    hasSelection: boolean;
+    onBringForward: () => void;
+    onSendBackward: () => void;
 }
 
 /* --- COMPONENTS --- */
@@ -141,6 +148,9 @@ export default function Toolbar({
     onEraserModeChange,
     eraserSize,
     onEraserSizeChange,
+    hasSelection,
+    onBringForward,
+    onSendBackward
 }: ToolbarProps) {
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const eraserMenuRef = useRef<HTMLDivElement>(null);
@@ -360,6 +370,26 @@ export default function Toolbar({
                             </button>
                         </div>
                     </div>
+                )}
+                {/* 4. Layer Controls (When Selection Active) */}
+                {hasSelection && (
+                    <>
+                        <Separator />
+                        <div className="flex items-center gap-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                            <ToolButton
+                                icon={ArrowUp}
+                                label="Bring Forward"
+                                isActive={false}
+                                onClick={onBringForward}
+                            />
+                            <ToolButton
+                                icon={ArrowDown}
+                                label="Send Backward"
+                                isActive={false}
+                                onClick={onSendBackward}
+                            />
+                        </div>
+                    </>
                 )}
             </div>
         </div>

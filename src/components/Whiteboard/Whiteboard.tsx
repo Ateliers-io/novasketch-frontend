@@ -143,6 +143,28 @@ function removeStrokesAt(x: number, y: number, strokes: StrokeLine[], radius: nu
   });
 }
 
+// Helper for Task 2: Reorder Object Array (Bring Forward)
+function moveForward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
+  const newItems = [...items];
+  for (let i = newItems.length - 2; i >= 0; i--) {
+    if (selectedIds.has(newItems[i].id) && !selectedIds.has(newItems[i + 1].id)) {
+      [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
+    }
+  }
+  return newItems;
+}
+
+// Helper for Task 2: Reorder Object Array (Send Backward)
+function moveBackward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
+  const newItems = [...items];
+  for (let i = 1; i < newItems.length; i++) {
+    if (selectedIds.has(newItems[i].id) && !selectedIds.has(newItems[i - 1].id)) {
+      [newItems[i], newItems[i - 1]] = [newItems[i - 1], newItems[i]];
+    }
+  }
+  return newItems;
+}
+
 // --- HELPER COMPONENTS ---
 const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -340,14 +362,40 @@ export default function Whiteboard() {
     return false;
   }
 
-  // Hit test for selection: find shape at clicked point
-  function findShapeAtPoint(x: number, y: number): Shape | null {
-    // Iterate in reverse (top-most shapes first based on array order)
+  // Hit test for selection: find item (text, line, shape) at clicked point
+  function findElementAtPoint(x: number, y: number): { id: string; type: 'shape' | 'line' | 'text' } | null {
+    // 1. Text (Top Layer)
+    for (let i = textAnnotations.length - 1; i >= 0; i--) {
+      const t = textAnnotations[i];
+      const w = t.text.length * (t.fontSize * 0.6); // Approximate width
+      const h = t.fontSize * 1.2;
+      if (x >= t.x && x <= t.x + w && y >= t.y && y <= t.y + h) {
+        return { id: t.id, type: 'text' };
+      }
+    }
+
+    // 2. Lines (Middle Layer)
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const l = lines[i];
+      // Bounding box check with buffer
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (let j = 0; j < l.points.length; j += 2) {
+        minX = Math.min(minX, l.points[j]);
+        minY = Math.min(minY, l.points[j + 1]);
+        maxX = Math.max(maxX, l.points[j]);
+        maxY = Math.max(maxY, l.points[j + 1]);
+      }
+      const buf = (l.strokeWidth || 5) / 2 + 5;
+      if (x >= minX - buf && x <= maxX + buf && y >= minY - buf && y <= maxY + buf) {
+        return { id: l.id, type: 'line' };
+      }
+    }
+
+    // 3. Shapes (Bottom Layer)
     for (let i = shapes.length - 1; i >= 0; i--) {
-      const shape = shapes[i];
-      const bbox = getShapeBoundingBox(shape);
-      if (isPointInBoundingBox({ x, y }, bbox, 5)) { // 5px tolerance
-        return shape;
+      const s = shapes[i];
+      if (isPointInBoundingBox({ x, y }, getShapeBoundingBox(s), 5)) {
+        return { id: s.id, type: 'shape' };
       }
     }
     return null;
@@ -435,6 +483,61 @@ export default function Whiteboard() {
     }));
   };
 
+
+
+
+  // -- Task 4.4: Layer Management --
+  // -- Task 4.4: Layer Management --
+  const handleBringForward = () => {
+    let newShapes = shapes;
+    let newLines = lines;
+    let newTexts = textAnnotations;
+
+    if (selectedShapeIds.size > 0) newShapes = moveForward(shapes, selectedShapeIds);
+    if (selectedLineIds.size > 0) newLines = moveForward(lines, selectedLineIds);
+    if (selectedTextIds.size > 0) newTexts = moveForward(textAnnotations, selectedTextIds);
+
+    if (newShapes !== shapes) setShapes(newShapes);
+    if (newLines !== lines) setLines(newLines);
+    if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
+
+    // Task 3: Collaboration Broadcast
+    if (newShapes !== shapes || newLines !== lines || newTexts !== textAnnotations) {
+      console.log('[Broadcast] Layer Reorder:', {
+        type: 'LAYER_REORDER',
+        shapeOrder: newShapes.map(s => s.id),
+        lineOrder: newLines.map(l => l.id),
+        textOrder: newTexts.map(t => t.id)
+      });
+      // socket.emit('layer-update', { ... });
+    }
+  };
+
+  const handleSendBackward = () => {
+    let newShapes = shapes;
+    let newLines = lines;
+    let newTexts = textAnnotations;
+
+    if (selectedShapeIds.size > 0) newShapes = moveBackward(shapes, selectedShapeIds);
+    if (selectedLineIds.size > 0) newLines = moveBackward(lines, selectedLineIds);
+    if (selectedTextIds.size > 0) newTexts = moveBackward(textAnnotations, selectedTextIds);
+
+    if (newShapes !== shapes) setShapes(newShapes);
+    if (newLines !== lines) setLines(newLines);
+    if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
+
+    // Task 3: Collaboration Broadcast
+    if (newShapes !== shapes || newLines !== lines || newTexts !== textAnnotations) {
+      console.log('[Broadcast] Layer Reorder:', {
+        type: 'LAYER_REORDER',
+        shapeOrder: newShapes.map(s => s.id),
+        lineOrder: newLines.map(l => l.id),
+        textOrder: newTexts.map(t => t.id)
+      });
+      // socket.emit('layer-update', { ... });
+    }
+  };
+
   // -- 5. ACTION HANDLERS --
 
   const commitText = () => {
@@ -508,27 +611,37 @@ export default function Whiteboard() {
         return;
       }
 
-      const clickedShape = findShapeAtPoint(x, y);
+      const clickedItem = findElementAtPoint(x, y);
       const nativeEvent = 'nativeEvent' in e ? e.nativeEvent : (e as any).evt;
       const isShiftClick = nativeEvent?.shiftKey || false;
 
-      if (clickedShape) {
+      if (clickedItem) {
         if (isShiftClick) {
           // Multi-select: toggle selection
-          setSelectedShapeIds(prev => {
-            const next = new Set(prev);
-            if (next.has(clickedShape.id)) {
-              next.delete(clickedShape.id);
-            } else {
-              next.add(clickedShape.id);
-            }
-            return next;
-          });
+          if (clickedItem.type === 'shape') {
+            setSelectedShapeIds(prev => {
+              const next = new Set(prev);
+              if (next.has(clickedItem.id)) next.delete(clickedItem.id); else next.add(clickedItem.id);
+              return next;
+            });
+          } else if (clickedItem.type === 'line') {
+            setSelectedLineIds(prev => {
+              const next = new Set(prev);
+              if (next.has(clickedItem.id)) next.delete(clickedItem.id); else next.add(clickedItem.id);
+              return next;
+            });
+          } else if (clickedItem.type === 'text') {
+            setSelectedTextIds(prev => {
+              const next = new Set(prev);
+              if (next.has(clickedItem.id)) next.delete(clickedItem.id); else next.add(clickedItem.id);
+              return next;
+            });
+          }
         } else {
           // Single select: replace selection (clear others)
-          setSelectedShapeIds(new Set([clickedShape.id]));
-          setSelectedLineIds(new Set());
-          setSelectedTextIds(new Set());
+          setSelectedShapeIds(clickedItem.type === 'shape' ? new Set([clickedItem.id]) : new Set());
+          setSelectedLineIds(clickedItem.type === 'line' ? new Set([clickedItem.id]) : new Set());
+          setSelectedTextIds(clickedItem.type === 'text' ? new Set([clickedItem.id]) : new Set());
         }
       } else {
         // Clicked on empty space: start marquee selection
@@ -1033,6 +1146,10 @@ export default function Whiteboard() {
         onEraserModeChange={setEraserMode}
         eraserSize={eraserSize}
         onEraserSizeChange={setEraserSize}
+
+        hasSelection={selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0}
+        onBringForward={handleBringForward}
+        onSendBackward={handleSendBackward}
       />
 
       {/* LAYER 2: SVG SHAPES */}
@@ -1104,18 +1221,17 @@ export default function Whiteboard() {
               </filter>
             </defs>
 
-            {/* Main bounding box with glow */}
+            {/* Selection Bounding Box */}
             <rect
-              x={selectionBoundingBox.x - 4}
-              y={selectionBoundingBox.y - 4}
-              width={selectionBoundingBox.width + 8}
-              height={selectionBoundingBox.height + 8}
+              x={selectionBoundingBox.minX}
+              y={selectionBoundingBox.minY}
+              width={selectionBoundingBox.width}
+              height={selectionBoundingBox.height}
               fill="none"
               stroke="#2dd4bf"
               strokeWidth={1.5}
               strokeDasharray="6,4"
-              rx={2}
-              filter="url(#selection-glow)"
+              opacity={0.8}
             />
 
             {/* Corner handles with shadows and cursor hints */}
@@ -1126,25 +1242,32 @@ export default function Whiteboard() {
               { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY, cursor: 'nesw-resize', id: 'sw' }, // Bottom-left
             ].map((corner, i) => (
               <g key={`corner-${i}`} data-resize-handle={corner.id} style={{ pointerEvents: 'auto', cursor: corner.cursor }}>
+                {/* Larger invisible hit area */}
                 <rect
-                  x={corner.x - 6}
-                  y={corner.y - 6}
-                  width={12}
-                  height={12}
+                  x={corner.x - 8}
+                  y={corner.y - 8}
+                  width={16}
+                  height={16}
+                  fill="transparent"
+                />
+                {/* Visible handle */}
+                <rect
+                  x={corner.x - 5}
+                  y={corner.y - 5}
+                  width={10}
+                  height={10}
                   fill="#0f1419"
                   stroke="#2dd4bf"
-                  strokeWidth={2}
+                  strokeWidth={1.5}
                   rx={2}
                   filter="url(#handle-shadow)"
                 />
-                {/* Inner highlight */}
-                <rect
-                  x={corner.x - 3}
-                  y={corner.y - 3}
-                  width={6}
-                  height={6}
+                {/* Inner dot */}
+                <circle
+                  cx={corner.x}
+                  cy={corner.y}
+                  r={2}
                   fill="#2dd4bf"
-                  rx={1}
                 />
               </g>
             ))}
@@ -1157,6 +1280,15 @@ export default function Whiteboard() {
               { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'w' }, // Left-center
             ].map((mid, i) => (
               <g key={`mid-${i}`} data-resize-handle={mid.id} style={{ pointerEvents: 'auto', cursor: mid.cursor }}>
+                {/* Larger invisible hit area */}
+                <rect
+                  x={mid.x - 8}
+                  y={mid.y - 8}
+                  width={16}
+                  height={16}
+                  fill="transparent"
+                />
+                {/* Visible handle */}
                 <rect
                   x={mid.x - 5}
                   y={mid.y - 5}
@@ -1167,13 +1299,6 @@ export default function Whiteboard() {
                   strokeWidth={1.5}
                   rx={2}
                   filter="url(#handle-shadow)"
-                />
-                {/* Inner dot */}
-                <circle
-                  cx={mid.x}
-                  cy={mid.y}
-                  r={2}
-                  fill="#2dd4bf"
                 />
               </g>
             ))}

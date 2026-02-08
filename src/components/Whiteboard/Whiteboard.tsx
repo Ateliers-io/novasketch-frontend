@@ -24,6 +24,7 @@ import {
 } from '../../utils/boundingBox';
 import ExportTools from '../ExportTools/ExportTools';
 import Konva from 'konva';
+import api from '../../services/api';
 
 // --- CONFIGURATION ---
 const GRID_DOT_COLOR = '#45A29E';
@@ -231,6 +232,7 @@ export default function Whiteboard() {
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isLoadingCanvas, setIsLoadingCanvas] = useState(true); // New loading state
 
   // -- 1. CANVAS STATE --
   const [lines, setLines] = useState<StrokeLine[]>([]);
@@ -297,44 +299,80 @@ export default function Whiteboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // -- Task 6.1.1: Auto-Save Functionality --
+  // -- Task 6.1.2: Load Canvas Data on Mount --
   useEffect(() => {
-    const saveData = async () => {
+    const loadCanvas = async () => {
+      try {
+        setIsLoadingCanvas(true);
+        const response = await api.get('/canvas/load');
+
+        if (response.data && response.data.canvas) {
+          const { lines, shapes, textAnnotations, lastSaved } = response.data.canvas;
+
+          setLines(lines || []);
+          setShapes(shapes || []);
+          setTextAnnotations(textAnnotations || []);
+
+          if (lastSaved) {
+            setLastSaved(new Date(lastSaved));
+          }
+          console.log('[Canvas Load] Loaded saved data successfully');
+        }
+      } catch (error) {
+        console.error('[Canvas Load] Failed to load canvas data:', error);
+        // Optional: Show error toast or redirect if 401
+      } finally {
+        setIsLoadingCanvas(false);
+      }
+    };
+
+    loadCanvas();
+  }, []); // Empty dependency array = run once on mount
+
+  // -- Task 6.1.1: Auto-Save Functionality --
+  // -- Task 6.1.1: Auto-Save Functionality (Refined) --
+  // Use a ref to keep track of the latest data without triggering effects constantly
+  const canvasDataRef = useRef({ lines, shapes, textAnnotations });
+
+  useEffect(() => {
+    canvasDataRef.current = { lines, shapes, textAnnotations };
+  }, [lines, shapes, textAnnotations]);
+
+  useEffect(() => {
+    const saveCanvas = async () => {
+      // Don't save if empty
+      const data = canvasDataRef.current;
+      if (data.lines.length === 0 && data.shapes.length === 0 && data.textAnnotations.length === 0) {
+        return;
+      }
+
       setIsSaving(true);
       try {
-        // Prepare data payload
-        const canvasData = {
-          lines,
-          shapes,
-          textAnnotations,
+        const payload = {
+          ...data,
           version: Date.now()
         };
 
-        // TODO: Replace with actual API call
-        // await api.post('/canvas/save', canvasData); 
-        console.log('[Auto-Save] Saving canvas data...', canvasData);
+        console.log('[Auto-Save] Saving payload:', payload);
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Real API call
+        await api.post('/canvas/save', payload);
 
+        console.log('[Auto-Save] Successfully saved to backend');
         setLastSaved(new Date());
-      } catch (error) {
-        console.error('[Auto-Save] Failed to save:', error);
+      } catch (err) {
+        console.error('[Auto-Save] Error:', err);
       } finally {
         setIsSaving(false);
       }
     };
 
-    // Debounce save operation (2 seconds after last change)
-    const timeoutId = setTimeout(() => {
-      // Only save if there is content
-      if (lines.length > 0 || shapes.length > 0 || textAnnotations.length > 0) {
-        saveData();
-      }
+    const handler = setTimeout(() => {
+      saveCanvas();
     }, 2000);
 
-    return () => clearTimeout(timeoutId);
-  }, [lines, shapes, textAnnotations]);
+    return () => clearTimeout(handler);
+  }, [lines, shapes, textAnnotations]); // Re-run debounce timer on changes
 
   // Keyboard Shortcuts (Ctrl+A, Escape, Delete)
   useEffect(() => {
@@ -1156,6 +1194,16 @@ export default function Whiteboard() {
       onMouseUp={handlePointerUp}
       onMouseLeave={() => setCursorPos(null)}
     >
+      {/* Loading Overlay */}
+      {isLoadingCanvas && (
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0B0C10] text-[#66FCF1]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[#1F2833] border-t-[#66FCF1] rounded-full animate-spin"></div>
+            <p className="font-medium animate-pulse">Loading your masterpiece...</p>
+          </div>
+        </div>
+      )}
+
       {/* LAYER 1: BACKGROUND */}
       <div
         className="absolute inset-0 pointer-events-none z-0 opacity-20"

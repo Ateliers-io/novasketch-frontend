@@ -107,7 +107,7 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-4 right-4 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-colors z-50 flex items-center justify-center"
+                className="fixed bottom-4 right-4 bg-transparent border-2 border-[#66FCF1] text-[#66FCF1] p-3 rounded-lg shadow-[0_0_10px_rgba(102,252,241,0.3)] hover:shadow-[0_0_20px_rgba(102,252,241,0.5)] transition-all duration-300 z-50 flex items-center justify-center"
                 title="Export options"
             >
                 <Download size={24} />
@@ -116,51 +116,51 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
     }
 
     return (
-        <div className="fixed bottom-4 right-4 bg-white p-4 rounded-lg shadow-xl border border-gray-200 z-50 flex flex-col gap-2 min-w-[200px]">
-            <div className="flex justify-between items-center mb-2 border-b pb-2">
-                <h3 className="font-semibold text-gray-700">Export & Actions</h3>
-                <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600">
+        <div className="fixed bottom-4 right-4 bg-black/90 backdrop-blur-sm p-4 rounded-xl border border-[#66FCF1] shadow-[0_0_20px_rgba(102,252,241,0.15)] z-50 flex flex-col gap-2 min-w-[200px]">
+            <div className="flex justify-between items-center mb-2 border-b border-[#66FCF1]/30 pb-2">
+                <h3 className="font-semibold text-[#66FCF1]">Export & Actions</h3>
+                <button onClick={() => setIsOpen(false)} className="text-[#66FCF1]/70 hover:text-[#66FCF1] transition-colors">
                     <X size={16} />
                 </button>
             </div>
 
             <button
                 onClick={() => handleExportImage('png')}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded text-left text-sm"
+                className="flex items-center gap-2 p-2 hover:bg-[#1F2833] rounded text-left text-sm group"
             >
-                <FileImage size={16} className="text-blue-500" />
-                <span>Export as PNG</span>
+                <FileImage size={16} className="text-[#66FCF1] group-hover:text-white transition-colors" />
+                <span className="text-[#c5c6c7] group-hover:text-white transition-colors">Export as PNG</span>
             </button>
 
             <button
                 onClick={() => handleExportImage('jpeg')}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded text-left text-sm"
+                className="flex items-center gap-2 p-2 hover:bg-[#1F2833] rounded text-left text-sm group"
             >
-                <FileImage size={16} className="text-blue-500" />
-                <span>Export as JPG</span>
+                <FileImage size={16} className="text-[#66FCF1] group-hover:text-white transition-colors" />
+                <span className="text-[#c5c6c7] group-hover:text-white transition-colors">Export as JPG</span>
             </button>
 
             <button
                 onClick={handleExportSVG}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded text-left text-sm"
+                className="flex items-center gap-2 p-2 hover:bg-[#1F2833] rounded text-left text-sm group"
             >
-                <FileDown size={16} className="text-purple-500" />
-                <span>Export as SVG</span>
+                <FileDown size={16} className="text-[#66FCF1] group-hover:text-white transition-colors" />
+                <span className="text-[#c5c6c7] group-hover:text-white transition-colors">Export as SVG</span>
             </button>
 
             <button
                 onClick={handleExportPDF}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded text-left text-sm"
+                className="flex items-center gap-2 p-2 hover:bg-[#1F2833] rounded text-left text-sm group"
             >
-                <FileDown size={16} className="text-red-500" />
-                <span>Export as PDF</span>
+                <FileDown size={16} className="text-[#66FCF1] group-hover:text-white transition-colors" />
+                <span className="text-[#c5c6c7] group-hover:text-white transition-colors">Export as PDF</span>
             </button>
 
-            <div className="h-px bg-gray-200 my-1"></div>
+            <div className="h-px bg-[#66FCF1]/30 my-1"></div>
 
             <button
                 onClick={handleClear}
-                className="flex items-center gap-2 p-2 hover:bg-red-50 rounded text-left text-sm text-red-600"
+                className="flex items-center gap-2 p-2 hover:bg-red-900/20 rounded text-left text-sm text-red-500 hover:text-red-400"
             >
                 <Trash2 size={16} />
                 <span>Clear Canvas</span>

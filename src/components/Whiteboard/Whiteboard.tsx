@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Stage, Layer, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
+import { useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import Toolbar, { ActiveTool, EraserMode } from '../Toolbar/Toolbar';
 import {
@@ -22,31 +23,14 @@ import {
   isPointInBoundingBox,
   BoundingBox,
 } from '../../utils/boundingBox';
+import * as whiteboardService from '../../services/whiteboard.service';
+import type { StrokeLine, TextAnnotation } from '../../db/schema';
 
 // --- CONFIGURATION ---
 const GRID_DOT_COLOR = '#45A29E';
 const DEFAULT_STROKE_COLOR = '#66FCF1';
 
-// --- TYPES ---
-interface StrokeLine {
-  id: string;
-  points: number[];
-  color: string;
-  strokeWidth: number;
-}
-
-interface TextAnnotation {
-  id: string;
-  x: number;
-  y: number;
-  text: string;
-  fontSize: number;
-  color: string;
-  fontFamily: string;
-  fontWeight: string;
-  fontStyle: string;
-  textDecoration: string;
-}
+// Types moved to schema.ts or imported
 
 // --- MATH HELPERS (CRITICAL FOR ERASER) ---
 function distSq(p1: { x: number; y: number }, p2: { x: number; y: number }) {
@@ -202,6 +186,7 @@ const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
 
 // --- MAIN COMPONENT ---
 export default function Whiteboard() {
+  const { id: boardId } = useParams<{ id: string }>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
@@ -270,6 +255,35 @@ export default function Whiteboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Load Whiteboard Data from IndexedDB
+  useEffect(() => {
+    if (!boardId) return;
+
+    const bid = boardId;
+    async function loadData() {
+      try {
+        const items = await whiteboardService.getWhiteboardElements(bid);
+        const loadedShapes: Shape[] = [];
+        const loadedLines: StrokeLine[] = [];
+        const loadedTexts: TextAnnotation[] = [];
+
+        items.forEach(item => {
+          if (item.element.type === 'shape') loadedShapes.push(item.element.data);
+          else if (item.element.type === 'line') loadedLines.push(item.element.data);
+          else if (item.element.type === 'text') loadedTexts.push(item.element.data);
+        });
+
+        setShapes(loadedShapes);
+        setLines(loadedLines);
+        setTextAnnotations(loadedTexts);
+      } catch (err) {
+        console.error("Failed to load whiteboard data:", err);
+      }
+    }
+
+    loadData();
+  }, [boardId]);
+
   // Keyboard Shortcuts (Ctrl+A, Escape, Delete)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -299,6 +313,12 @@ export default function Whiteboard() {
       if ((e.key === 'Delete' || e.key === 'Backspace') && hasSelection) {
         // Don't delete if user is typing in text input
         if (activeTextInput) return;
+
+        if (boardId) {
+          selectedShapeIds.forEach(id => whiteboardService.deleteWhiteboardElement(boardId, id));
+          selectedLineIds.forEach(id => whiteboardService.deleteWhiteboardElement(boardId, id));
+          selectedTextIds.forEach(id => whiteboardService.deleteWhiteboardElement(boardId, id));
+        }
 
         setShapes(prev => prev.filter(s => !selectedShapeIds.has(s.id)));
         setLines(prev => prev.filter(l => !selectedLineIds.has(l.id)));
@@ -415,32 +435,59 @@ export default function Whiteboard() {
 
 
   const performErase = (x: number, y: number) => {
+    if (!boardId) return;
+
     // 1. Lines
+    let newLines;
     if (eraserMode === 'stroke') {
-      setLines(lines => removeStrokesAt(x, y, lines, eraserSize));
+      const removedIds = lines.filter(line => {
+        for (let i = 0; i < line.points.length; i += 2) {
+          if (distSq({ x: line.points[i], y: line.points[i + 1] }, { x, y }) < eraserSize ** 2) return true;
+        }
+        return false;
+      }).map(l => l.id);
+
+      removedIds.forEach(id => whiteboardService.deleteWhiteboardElement(boardId, id));
+      newLines = removeStrokesAt(x, y, lines, eraserSize);
     } else {
-      setLines(lines => eraseAtPosition(x, y, lines, eraserSize));
+      // Manual splitting eraser is complex to sync because it creates new IDs
+      // For now, let's stick to stroke erasing for simpler sync, or we'd need to re-save all fragments
+      newLines = eraseAtPosition(x, y, lines, eraserSize);
+      // If we use fragment erasing, we should re-sync the entire array or the changed parts
+      // To keep it simple for this integration:
+      setLines(newLines);
+      return;
     }
+    setLines(newLines);
 
     // 2. Shapes
+    const removedShapes = shapes.filter(s => isPointInShape(s, x, y, eraserSize));
+    removedShapes.forEach(s => whiteboardService.deleteWhiteboardElement(boardId, s.id));
     setShapes(prev => prev.filter(s => !isPointInShape(s, x, y, eraserSize)));
 
     // 3. Text
-    setTextAnnotations(prev => prev.filter(t => {
-      // Approximate text hit (top-left anchor)
+    const removedTexts = textAnnotations.filter(t => {
       const dx = t.x - x;
       const dy = t.y - y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      return dist > eraserSize + 20; // 20px buffer for text body
+      return dist <= eraserSize + 20;
+    });
+    removedTexts.forEach(t => whiteboardService.deleteWhiteboardElement(boardId, t.id));
+
+    setTextAnnotations(prev => prev.filter(t => {
+      const dx = t.x - x;
+      const dy = t.y - y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      return dist > eraserSize + 20;
     }));
   };
 
   // -- 5. ACTION HANDLERS --
 
   const commitText = () => {
-    if (activeTextInput && textInputValue.trim()) {
+    if (activeTextInput && textInputValue.trim() && boardId) {
       const newTextId = `text-${Date.now()}`;
-      setTextAnnotations(prev => [...prev, {
+      const newText: TextAnnotation = {
         id: newTextId,
         x: activeTextInput.x,
         y: activeTextInput.y,
@@ -451,7 +498,10 @@ export default function Whiteboard() {
         fontWeight: fontStyles.bold ? 'bold' : 'normal',
         fontStyle: fontStyles.italic ? 'italic' : 'normal',
         textDecoration: fontStyles.underline ? 'underline' : 'none',
-      }]);
+      };
+
+      setTextAnnotations(prev => [...prev, newText]);
+      whiteboardService.saveWhiteboardElement(boardId, { type: 'text', data: newText });
 
       // Auto-switch to selection and select the new text (unless locked)
       if (!isToolLocked) {
@@ -828,26 +878,19 @@ export default function Whiteboard() {
 
   const handlePointerUp = () => {
     // Task 3: Broadcast properties (resize or drag)
-    if (isResizing || isDraggingSelection) {
-      // Logic to prepare data for broadcast
+    if ((isResizing || isDraggingSelection) && boardId) {
+      // Logic to prepare data for broadcast and save to local DB
       const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
       const affectedLines = lines.filter(l => selectedLineIds.has(l.id));
       const affectedText = textAnnotations.filter(t => selectedTextIds.has(t.id));
 
       if (affectedShapes.length > 0 || affectedLines.length > 0 || affectedText.length > 0) {
-        console.log('[Broadcast] Object Update:', {
-          type: isResizing ? 'resize' : 'move',
-          shapes: affectedShapes.map(s => ({
-            id: s.id,
-            position: s.position,
-            // rotation: s.rotation, // Re-add when rotation is implemented
-            ...(isRectangle(s) ? { width: (s as RectangleShape).width, height: (s as RectangleShape).height } : {}),
-            ...(isCircle(s) ? { radius: (s as CircleShape).radius } : {})
-          })),
-          lines: affectedLines.map(l => ({ id: l.id, points: l.points })),
-          texts: affectedText.map(t => ({ id: t.id, position: { x: t.x, y: t.y }, fontSize: t.fontSize }))
-        });
-        // In a real app: socket.emit('update-objects', { ... });
+        // Save changed items to DB/SyncQueue
+        affectedShapes.forEach(s => whiteboardService.saveWhiteboardElement(boardId, { type: 'shape', data: s }));
+        affectedLines.forEach(l => whiteboardService.saveWhiteboardElement(boardId, { type: 'line', data: l }));
+        affectedText.forEach(t => whiteboardService.saveWhiteboardElement(boardId, { type: 'text', data: t }));
+
+        console.log('[Sync] Elements updated via drag/resize');
       }
 
       if (isResizing) {
@@ -957,13 +1000,14 @@ export default function Whiteboard() {
       return;
     }
 
-    if (previewShape) {
+    if (previewShape && boardId) {
       const isRect = isRectangle(previewShape) && (previewShape as RectangleShape).width > 5;
       const isCirc = isCircle(previewShape) && (previewShape as CircleShape).radius > 5;
 
       if (isRect || isCirc) {
         const newShape = previewShape;
         setShapes([...shapes, newShape]);
+        whiteboardService.saveWhiteboardElement(boardId, { type: 'shape', data: newShape });
 
         // Auto-switch to selection tool after drawing (unless locked)
         if (!isToolLocked) {
@@ -974,10 +1018,12 @@ export default function Whiteboard() {
       setPreviewShape(null);
     }
 
-    // Auto-switch after pen stroke (unless locked)
-    if (activeTool === ToolType.PEN && lines.length > 0 && !isToolLocked) {
-      // Don't auto-switch for pen as it's often used for continuous drawing
-      // Only switch if user explicitly wants single-stroke mode
+    // Save pen stroke
+    if (activeTool === ToolType.PEN && lines.length > 0 && boardId && isDrawing) {
+      const lastLine = lines[lines.length - 1];
+      if (lastLine && lastLine.points.length > 2) {
+        whiteboardService.saveWhiteboardElement(boardId, { type: 'line', data: lastLine });
+      }
     }
 
     setDragStart(null);

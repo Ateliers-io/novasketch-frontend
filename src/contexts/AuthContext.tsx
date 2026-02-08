@@ -1,19 +1,11 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { User } from '../db/schema';
+import * as sessionService from '../services/session.service';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AUTHENTICATION CONTEXT - NovaSketch
-// Frontend-only mock implementation for demonstration
+// Integrated with IndexedDB for session persistence
 // ═══════════════════════════════════════════════════════════════════════════════
-
-export interface User {
-    id: string;
-    name: string;
-    email: string;
-    avatar: string;
-    provider: 'google' | 'github' | 'guest';
-    role: 'admin' | 'editor' | 'viewer';
-    lastLogin: string;
-}
 
 interface AuthContextType {
     user: User | null;
@@ -41,26 +33,26 @@ interface AuthProviderProps {
     children: ReactNode;
 }
 
-const STORAGE_KEY = 'nova_sketch_session';
-
 export const AuthProvider = ({ children }: AuthProviderProps) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Persist user session
-    const saveSession = useCallback((userData: User) => {
+    // Persist user session to IndexedDB
+    const saveSession = useCallback(async (userData: User) => {
         setUser(userData);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+        await sessionService.saveSession({
+            id: 'current',
+            user: userData,
+            updatedAt: new Date().toISOString()
+        });
     }, []);
 
     // Simulated OAuth API Call
     const mockAuthCall = async (provider: User['provider']): Promise<User> => {
-        // Simulate network latency
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // Small random chance of failure for realism
-        if (Math.random() > 0.95) {
+        if (Math.random() > 0.99) { // Reduced failure rate for better DX
             throw new Error(`Connection to ${provider} service timed out.`);
         }
 
@@ -95,18 +87,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } as User;
     };
 
-    // Initialize session on mount
+    // Initialize session on mount using IndexedDB
     useEffect(() => {
         const initAuth = async () => {
             try {
-                const savedSession = localStorage.getItem(STORAGE_KEY);
-                if (savedSession) {
-                    const parsed = JSON.parse(savedSession);
-                    setUser(parsed);
+                const session = await sessionService.getSession();
+                if (session && session.user) {
+                    setUser(session.user);
                 }
             } catch (e) {
                 console.error('Session restoration failed:', e);
-                localStorage.removeItem(STORAGE_KEY);
             } finally {
                 setIsLoading(false);
             }
@@ -119,7 +109,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setError(null);
         try {
             const userData = await mockAuthCall('google');
-            saveSession(userData);
+            await saveSession(userData);
         } catch (err: any) {
             setError(err.message || 'Google login failed');
         } finally {
@@ -132,7 +122,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setError(null);
         try {
             const userData = await mockAuthCall('github');
-            saveSession(userData);
+            await saveSession(userData);
         } catch (err: any) {
             setError(err.message || 'GitHub login failed');
         } finally {
@@ -145,7 +135,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setError(null);
         try {
             const userData = await mockAuthCall('guest');
-            saveSession(userData);
+            await saveSession(userData);
         } catch (err: any) {
             setError(err.message || 'Guest login failed');
         } finally {
@@ -153,8 +143,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
     };
 
-    const logout = useCallback(() => {
-        localStorage.removeItem(STORAGE_KEY);
+    const logout = useCallback(async () => {
+        await sessionService.clearSession();
         setUser(null);
     }, []);
 

@@ -48,6 +48,16 @@ interface TextAnnotation {
   textDecoration: string;
 }
 
+// --- UNDO/REDO TYPES ---
+interface Action {
+  type: 'ADD' | 'UPDATE' | 'DELETE' | 'LAYER_CHANGE';
+  objectType: 'shape' | 'line' | 'text';
+  id: string;
+  previousState: any; // Shape | StrokeLine | TextAnnotation | null
+  newState: any; // Shape | StrokeLine | TextAnnotation | null
+  userId: string;
+}
+
 // --- MATH HELPERS (CRITICAL FOR ERASER) ---
 function distSq(p1: { x: number; y: number }, p2: { x: number; y: number }) {
   return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
@@ -229,8 +239,20 @@ export default function Whiteboard() {
 
   // -- 1. CANVAS STATE --
   const [lines, setLines] = useState<StrokeLine[]>([]);
+  const linesRef = useRef(lines);
+  useEffect(() => { linesRef.current = lines; }, [lines]);
+
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([]);
+
+  // -- 1.5 HISTORY STATE --
+  const [undoStack, setUndoStack] = useState<Action[]>([]);
+  const [redoStack, setRedoStack] = useState<Action[]>([]);
+
+  const addToHistory = (action: Action) => {
+    setUndoStack(prev => [...prev, action]);
+    setRedoStack([]); // Clear redo stack on new action
+  };
 
   // -- 2. INTERACTION STATE --
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
@@ -251,9 +273,21 @@ export default function Whiteboard() {
     texts: Map<string, TextAnnotation>;
   } | null>(null);
 
+  // Rotation State
+  const [isRotating, setIsRotating] = useState(false);
+  const [rotationStartAngle, setRotationStartAngle] = useState<number>(0);
+  const [initialShapeRotations, setInitialShapeRotations] = useState<Map<string, number>>(new Map());
+
   // Shape Creation
   const [dragStart, setDragStart] = useState<Position | null>(null);
   const [previewShape, setPreviewShape] = useState<Shape | null>(null);
+
+  // Dragging State Snapshot (for History)
+  const [initialDragState, setInitialDragState] = useState<{
+    shapes: Map<string, Shape>;
+    lines: Map<string, StrokeLine>;
+    texts: Map<string, TextAnnotation>;
+  } | null>(null);
 
   // Selection State (Task 4.1) - Track all selected items
   const [selectedShapeIds, setSelectedShapeIds] = useState<Set<string>>(new Set());
@@ -319,8 +353,16 @@ export default function Whiteboard() {
       // Delete/Backspace: Delete All Selected Items
       const hasSelection = selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0;
       if ((e.key === 'Delete' || e.key === 'Backspace') && hasSelection) {
-        // Don't delete if user is typing in text input
         if (activeTextInput) return;
+
+        // Capture state for undo
+        const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
+        const affectedLines = lines.filter(l => selectedLineIds.has(l.id));
+        const affectedTexts = textAnnotations.filter(t => selectedTextIds.has(t.id));
+
+        affectedShapes.forEach(s => addToHistory({ type: 'DELETE', objectType: 'shape', id: s.id, previousState: s, newState: null, userId: 'local' }));
+        affectedLines.forEach(l => addToHistory({ type: 'DELETE', objectType: 'line', id: l.id, previousState: l, newState: null, userId: 'local' }));
+        affectedTexts.forEach(t => addToHistory({ type: 'DELETE', objectType: 'text', id: t.id, previousState: t, newState: null, userId: 'local' }));
 
         setShapes(prev => prev.filter(s => !selectedShapeIds.has(s.id)));
         setLines(prev => prev.filter(l => !selectedLineIds.has(l.id)));
@@ -543,7 +585,7 @@ export default function Whiteboard() {
   const commitText = () => {
     if (activeTextInput && textInputValue.trim()) {
       const newTextId = `text-${Date.now()}`;
-      setTextAnnotations(prev => [...prev, {
+      const newText = {
         id: newTextId,
         x: activeTextInput.x,
         y: activeTextInput.y,
@@ -554,7 +596,16 @@ export default function Whiteboard() {
         fontWeight: fontStyles.bold ? 'bold' : 'normal',
         fontStyle: fontStyles.italic ? 'italic' : 'normal',
         textDecoration: fontStyles.underline ? 'underline' : 'none',
-      }]);
+      };
+      setTextAnnotations(prev => [...prev, newText]);
+      addToHistory({
+        type: 'ADD',
+        objectType: 'text',
+        id: newTextId,
+        previousState: null,
+        newState: newText,
+        userId: 'local'
+      });
 
       // Auto-switch to selection and select the new text (unless locked)
       if (!isToolLocked) {
@@ -608,6 +659,12 @@ export default function Whiteboard() {
       if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
         setIsDraggingSelection(true);
         setLastPointerPos({ x, y });
+        // Snapshot for Undo
+        setInitialDragState({
+          shapes: new Map(shapes.filter(s => selectedShapeIds.has(s.id)).map(s => [s.id, s])),
+          lines: new Map(lines.filter(l => selectedLineIds.has(l.id)).map(l => [l.id, l])),
+          texts: new Map(textAnnotations.filter(t => selectedTextIds.has(t.id)).map(t => [t.id, t]))
+        });
         return;
       }
 
@@ -924,7 +981,6 @@ export default function Whiteboard() {
     else if (dragStart && previewShape) {
       const width = x - dragStart.x;
       const height = y - dragStart.y;
-
       if (activeTool === ToolType.RECTANGLE) {
         setPreviewShape({
           ...previewShape,
@@ -940,8 +996,77 @@ export default function Whiteboard() {
   };
 
   const handlePointerUp = () => {
+    // Task 3.1: Handle Rotation End
+    if (isRotating) {
+      const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
+      if (affectedShapes.length > 0) {
+        console.log('[Broadcast] Rotation Update:', {
+          type: 'rotate',
+          shapes: affectedShapes.map(s => ({
+            id: s.id,
+            rotation: s.transform.rotation
+          }))
+        });
+        // History for Rotation
+        affectedShapes.forEach(s => {
+          const initRotation = initialShapeRotations.get(s.id);
+          // TODO: This assumes the shape object structure hasn't changed except rotation
+          // We need to reconstruct the previous state fully.
+          // Since we stored initial rotations, we can infer previous state.
+          // Better: We should have stored the full object state before rotation.
+          // But `initialShapeRotations` only stored angles.
+          // Let's rely on finding shape by ID in `shapes` array (which is current) and reverting rotation for previous.
+          if (initRotation !== undefined && initRotation !== s.transform.rotation) {
+            const prevState = { ...s, transform: { ...s.transform, rotation: initRotation } };
+            addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prevState, newState: s, userId: 'local' });
+          }
+        });
+      }
+      setIsRotating(false);
+      setRotationStartAngle(0);
+      setInitialShapeRotations(new Map());
+      return;
+    }
+
     // Task 3: Broadcast properties (resize or drag)
     if (isResizing || isDraggingSelection) {
+      // History for Resize
+      if (isResizing && initialResizeState) {
+        shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
+          const prev = initialResizeState.shapes.get(s.id);
+          if (prev) addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prev, newState: s, userId: 'local' });
+        });
+        lines.filter(l => selectedLineIds.has(l.id)).forEach(l => {
+          const prev = initialResizeState.lines.get(l.id);
+          if (prev) addToHistory({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: prev, newState: l, userId: 'local' });
+        });
+        textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
+          const prev = initialResizeState.texts.get(t.id);
+          if (prev) addToHistory({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: prev, newState: t, userId: 'local' });
+        });
+      }
+
+      // History for Drag
+      if (isDraggingSelection && initialDragState) {
+        shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
+          const prev = initialDragState.shapes.get(s.id);
+          // Only add if changed
+          if (prev && (prev.position.x !== s.position.x || prev.position.y !== s.position.y)) {
+            addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prev, newState: s, userId: 'local' });
+          }
+        });
+        lines.filter(l => selectedLineIds.has(l.id)).forEach(l => {
+          const prev = initialDragState.lines.get(l.id);
+          if (prev) addToHistory({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: prev, newState: l, userId: 'local' });
+        });
+        textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
+          const prev = initialDragState.texts.get(t.id);
+          if (prev && (prev.x !== t.x || prev.y !== t.y)) {
+            addToHistory({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: prev, newState: t, userId: 'local' });
+          }
+        });
+      }
+
       // Logic to prepare data for broadcast
       const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
       const affectedLines = lines.filter(l => selectedLineIds.has(l.id));
@@ -971,6 +1096,7 @@ export default function Whiteboard() {
       if (isDraggingSelection) {
         setIsDraggingSelection(false);
         setLastPointerPos(null);
+        setInitialDragState(null);
       }
       return;
     }
@@ -986,8 +1112,8 @@ export default function Whiteboard() {
 
     setIsDrawing(false);
 
-    // Handle marquee selection completion
-    if (marqueeRect && activeTool === 'select') {
+    // Handle marquee selection completion -- MOVED UP
+    if (activeTool === 'select' && marqueeRect) {
       // Find all items that intersect with the marquee
       const selectedShapeIdsNew = new Set<string>();
       const selectedLineIdsNew = new Set<string>();
@@ -1037,62 +1163,61 @@ export default function Whiteboard() {
         }
       });
 
-      // Check text annotations (approximate bounding box)
+      // Check text
       textAnnotations.forEach(text => {
-        // Estimate text size (rough approximation)
         const textWidth = text.text.length * (text.fontSize * 0.6);
         const textHeight = text.fontSize * 1.2;
-        const textMinX = text.x;
-        const textMinY = text.y;
-        const textMaxX = text.x + textWidth;
-        const textMaxY = text.y + textHeight;
-
         const intersects = !(
-          textMaxX < marqueeBox.minX ||
-          textMinX > marqueeBox.maxX ||
-          textMaxY < marqueeBox.minY ||
-          textMinY > marqueeBox.maxY
+          text.x + textWidth < marqueeBox.minX ||
+          text.x > marqueeBox.maxX ||
+          text.y + textHeight < marqueeBox.minY ||
+          text.y > marqueeBox.maxY
         );
         if (intersects) {
           selectedTextIdsNew.add(text.id);
         }
       });
 
-      // Update selections
-      const hasSelection = selectedShapeIdsNew.size > 0 || selectedLineIdsNew.size > 0 || selectedTextIdsNew.size > 0;
-      if (hasSelection) {
-        setSelectedShapeIds(selectedShapeIdsNew);
-        setSelectedLineIds(selectedLineIdsNew);
-        setSelectedTextIds(selectedTextIdsNew);
-      }
+      setSelectedShapeIds(selectedShapeIdsNew);
+      setSelectedLineIds(selectedLineIdsNew);
+      setSelectedTextIds(selectedTextIdsNew);
       setMarqueeRect(null);
       setDragStart(null);
+      setIsDrawing(false);
       return;
     }
 
+    // Handle Shape Creation
     if (previewShape) {
       const isRect = isRectangle(previewShape) && (previewShape as RectangleShape).width > 5;
       const isCirc = isCircle(previewShape) && (previewShape as CircleShape).radius > 5;
 
       if (isRect || isCirc) {
         const newShape = previewShape;
-        setShapes([...shapes, newShape]);
+        setShapes(prev => [...prev, newShape]); // Use functional update
+        addToHistory({ type: 'ADD', objectType: 'shape', id: newShape.id, previousState: null, newState: newShape, userId: 'local' });
 
         // Auto-switch to selection tool after drawing (unless locked)
         if (!isToolLocked) {
           setActiveTool('select');
           setSelectedShapeIds(new Set([newShape.id]));
+        } else {
+          // If locked, we need to reset for next shape? actually dragStart handles it.
         }
       }
       setPreviewShape(null);
     }
 
-    // Auto-switch after pen stroke (unless locked)
-    if (activeTool === ToolType.PEN && lines.length > 0 && !isToolLocked) {
-      // Don't auto-switch for pen as it's often used for continuous drawing
-      // Only switch if user explicitly wants single-stroke mode
+    // Handle Pen Stroke
+    // Use REF for lines to get latest state in closure
+    if (activeTool === ToolType.PEN && linesRef.current.length > 0) {
+      // Only add history if we actually drew something new (length changed or new id)
+      // Since this runs ONCE per mouse up, we take the last line of the array
+      const lastLine = linesRef.current[linesRef.current.length - 1];
+      addToHistory({ type: 'ADD', objectType: 'line', id: lastLine.id, previousState: null, newState: lastLine, userId: 'local' });
     }
 
+    setIsDrawing(false);
     setDragStart(null);
   };
 
@@ -1151,10 +1276,10 @@ export default function Whiteboard() {
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
 
-        canUndo={false} // Placeholder for backend integration
-        canRedo={false} // Placeholder for backend integration
-        onUndo={() => console.log('Undo triggered')}
-        onRedo={() => console.log('Redo triggered')}
+        canUndo={undoStack.length > 0}
+        canRedo={redoStack.length > 0}
+        onUndo={() => console.log('Undo triggered (History Stack:', undoStack.length, ')')}
+        onRedo={() => console.log('Redo triggered (Redo Stack:', redoStack.length, ')')}
       />
 
       {/* LAYER 2: SVG SHAPES */}

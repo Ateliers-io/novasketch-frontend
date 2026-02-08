@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { Stage, Layer, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import DOMPurify from 'dompurify';
@@ -254,6 +254,80 @@ export default function Whiteboard() {
     setRedoStack([]); // Clear redo stack on new action
   };
 
+  const performUndo = useCallback(() => {
+    if (undoStack.length === 0) return;
+
+    const action = undoStack[undoStack.length - 1];
+    const newUndoStack = undoStack.slice(0, -1);
+    setUndoStack(newUndoStack);
+
+    // Push to redo stack
+    setRedoStack(prev => [...prev, action]);
+
+    // Apply Inverse
+    if (action.type === 'ADD') {
+      // Inverse: DELETE
+      if (action.objectType === 'shape') setShapes(prev => prev.filter(s => s.id !== action.id));
+      if (action.objectType === 'line') setLines(prev => prev.filter(l => l.id !== action.id));
+      if (action.objectType === 'text') setTextAnnotations(prev => prev.filter(t => t.id !== action.id));
+      // Deselect if needed
+      setSelectedShapeIds(prev => { const n = new Set(prev); n.delete(action.id); return n; });
+      setSelectedLineIds(prev => { const n = new Set(prev); n.delete(action.id); return n; });
+      setSelectedTextIds(prev => { const n = new Set(prev); n.delete(action.id); return n; });
+    } else if (action.type === 'DELETE') {
+      // Inverse: ADD (Restore)
+      if (action.objectType === 'shape' && action.previousState) setShapes(prev => [...prev, action.previousState]);
+      if (action.objectType === 'line' && action.previousState) setLines(prev => [...prev, action.previousState]);
+      if (action.objectType === 'text' && action.previousState) setTextAnnotations(prev => [...prev, action.previousState]);
+    } else if (action.type === 'UPDATE') {
+      // Inverse: RESTORE PREVIOUS STATE
+      if (action.objectType === 'shape') {
+        setShapes(prev => prev.map(s => s.id === action.id ? action.previousState : s));
+      }
+      if (action.objectType === 'line') {
+        setLines(prev => prev.map(l => l.id === action.id ? action.previousState : l));
+      }
+      if (action.objectType === 'text') {
+        setTextAnnotations(prev => prev.map(t => t.id === action.id ? action.previousState : t));
+      }
+    }
+  }, [undoStack]);
+
+  const performRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+
+    const action = redoStack[redoStack.length - 1];
+    const newRedoStack = redoStack.slice(0, -1);
+    setRedoStack(newRedoStack);
+
+    // Push back to undo stack
+    setUndoStack(prev => [...prev, action]);
+
+    // Apply Action
+    if (action.type === 'ADD') {
+      // Redo: ADD
+      if (action.objectType === 'shape' && action.newState) setShapes(prev => [...prev, action.newState]);
+      if (action.objectType === 'line' && action.newState) setLines(prev => [...prev, action.newState]);
+      if (action.objectType === 'text' && action.newState) setTextAnnotations(prev => [...prev, action.newState]);
+    } else if (action.type === 'DELETE') {
+      // Redo: DELETE
+      if (action.objectType === 'shape') setShapes(prev => prev.filter(s => s.id !== action.id));
+      if (action.objectType === 'line') setLines(prev => prev.filter(l => l.id !== action.id));
+      if (action.objectType === 'text') setTextAnnotations(prev => prev.filter(t => t.id !== action.id));
+    } else if (action.type === 'UPDATE') {
+      // Redo: UPDATE TO NEW STATE
+      if (action.objectType === 'shape') {
+        setShapes(prev => prev.map(s => s.id === action.id ? action.newState : s));
+      }
+      if (action.objectType === 'line') {
+        setLines(prev => prev.map(l => l.id === action.id ? action.newState : l));
+      }
+      if (action.objectType === 'text') {
+        setTextAnnotations(prev => prev.map(t => t.id === action.id ? action.newState : t));
+      }
+    }
+  }, [redoStack]);
+
   // -- 2. INTERACTION STATE --
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
   const [isDrawing, setIsDrawing] = useState(false);
@@ -507,22 +581,79 @@ export default function Whiteboard() {
   const performErase = (x: number, y: number) => {
     // 1. Lines
     if (eraserMode === 'stroke') {
-      setLines(lines => removeStrokesAt(x, y, lines, eraserSize));
+      // Find lines that would be removed
+      const linesHit = lines.filter(l => {
+        for (let i = 0; i < l.points.length; i += 2) {
+          if (distSq({ x: l.points[i], y: l.points[i + 1] }, { x, y }) < eraserSize ** 2) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (linesHit.length > 0) {
+        // Record History
+        linesHit.forEach(l => {
+          console.log('[Eraser] Deleting Line:', l.id);
+          addToHistory({
+            type: 'DELETE',
+            objectType: 'line',
+            id: l.id,
+            previousState: l,
+            newState: null,
+            userId: 'local'
+          });
+        });
+
+        // Update State
+        setLines(prev => prev.filter(l => !linesHit.some(hit => hit.id === l.id)));
+      }
     } else {
+      // Partial Eraser (Complex) - For now, we only support full undo for Stroke Eraser as per current Task requirements for "DELETE_OBJECT" consistency.
+      // Existing logic kept for functionality, but history tracking might be incomplete for partial splits.
       setLines(lines => eraseAtPosition(x, y, lines, eraserSize));
     }
 
     // 2. Shapes
-    setShapes(prev => prev.filter(s => !isPointInShape(s, x, y, eraserSize)));
+    const shapesHit = shapes.filter(s => isPointInShape(s, x, y, eraserSize));
+    if (shapesHit.length > 0) {
+      shapesHit.forEach(s => {
+        console.log('[Eraser] Deleting Shape:', s.id);
+        addToHistory({
+          type: 'DELETE',
+          objectType: 'shape',
+          id: s.id,
+          previousState: s,
+          newState: null,
+          userId: 'local'
+        });
+      });
+      setShapes(prev => prev.filter(s => !shapesHit.some(hit => hit.id === s.id)));
+    }
 
     // 3. Text
-    setTextAnnotations(prev => prev.filter(t => {
+    const textsHit = textAnnotations.filter(t => {
       // Approximate text hit (top-left anchor)
       const dx = t.x - x;
       const dy = t.y - y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      return dist > eraserSize + 20; // 20px buffer for text body
-    }));
+      return dist <= eraserSize + 20; // 20px buffer for text body (INVERSE logic from original filter)
+    });
+
+    if (textsHit.length > 0) {
+      textsHit.forEach(t => {
+        console.log('[Eraser] Deleting Text:', t.id);
+        addToHistory({
+          type: 'DELETE',
+          objectType: 'text',
+          id: t.id,
+          previousState: t,
+          newState: null,
+          userId: 'local'
+        });
+      });
+      setTextAnnotations(prev => prev.filter(t => !textsHit.some(hit => hit.id === t.id)));
+    }
   };
 
 
@@ -1278,8 +1409,8 @@ export default function Whiteboard() {
 
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
-        onUndo={() => console.log('Undo triggered (History Stack:', undoStack.length, ')')}
-        onRedo={() => console.log('Redo triggered (Redo Stack:', redoStack.length, ')')}
+        onUndo={performUndo}
+        onRedo={performRedo}
       />
 
       {/* LAYER 2: SVG SHAPES */}

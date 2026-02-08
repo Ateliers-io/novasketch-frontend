@@ -53,12 +53,13 @@ interface TextAnnotation {
 
 // --- UNDO/REDO TYPES ---
 interface Action {
-  type: 'ADD' | 'UPDATE' | 'DELETE' | 'LAYER_CHANGE';
-  objectType: 'shape' | 'line' | 'text';
-  id: string;
-  previousState: any; // Shape | StrokeLine | TextAnnotation | null
-  newState: any; // Shape | StrokeLine | TextAnnotation | null
+  type: 'ADD' | 'UPDATE' | 'DELETE' | 'LAYER_CHANGE' | 'BATCH';
+  objectType?: 'shape' | 'line' | 'text';
+  id?: string;
+  previousState?: any;
+  newState?: any;
   userId: string;
+  actions?: Action[]; // For BATCH type
 }
 
 // --- MATH HELPERS (CRITICAL FOR ERASER) ---
@@ -96,7 +97,8 @@ function eraseAtPosition(x: number, y: number, strokes: StrokeLine[], eraserRadi
 
     const finishLine = () => {
       if (currentLinePoints.length >= 4) {
-        result.push({ ...stroke, id: `${stroke.id}-${segmentCount++}`, points: [...currentLinePoints] });
+        // Use a more unique ID for new segments to prevent key collisions and tracking issues
+        result.push({ ...stroke, id: `${stroke.id}-${Math.floor(Math.random() * 1000000)}`, points: [...currentLinePoints] });
       }
       currentLinePoints = [];
     };
@@ -256,6 +258,9 @@ export default function Whiteboard() {
   const [undoStack, setUndoStack] = useState<Action[]>([]);
   const [redoStack, setRedoStack] = useState<Action[]>([]);
 
+  // Snapshot for Eraser Diffing
+  const [initialEraserLines, setInitialEraserLines] = useState<StrokeLine[] | null>(null);
+
   const addToHistory = (action: Action) => {
     setUndoStack(prev => [...prev, action]);
     setRedoStack([]); // Clear redo stack on new action
@@ -286,32 +291,47 @@ export default function Whiteboard() {
     setRedoStack(prev => [...prev, action]);
 
     // Apply Inverse
-    if (action.type === 'ADD') {
-      // Inverse: DELETE
-      if (action.objectType === 'shape') setShapes(prev => prev.filter(s => s.id !== action.id));
-      if (action.objectType === 'line') setLines(prev => prev.filter(l => l.id !== action.id));
-      if (action.objectType === 'text') setTextAnnotations(prev => prev.filter(t => t.id !== action.id));
-      // Deselect if needed
-      setSelectedShapeIds(prev => { const n = new Set(prev); n.delete(action.id); return n; });
-      setSelectedLineIds(prev => { const n = new Set(prev); n.delete(action.id); return n; });
-      setSelectedTextIds(prev => { const n = new Set(prev); n.delete(action.id); return n; });
-    } else if (action.type === 'DELETE') {
-      // Inverse: ADD (Restore)
-      if (action.objectType === 'shape' && action.previousState) setShapes(prev => [...prev, action.previousState]);
-      if (action.objectType === 'line' && action.previousState) setLines(prev => [...prev, action.previousState]);
-      if (action.objectType === 'text' && action.previousState) setTextAnnotations(prev => [...prev, action.previousState]);
-    } else if (action.type === 'UPDATE') {
-      // Inverse: RESTORE PREVIOUS STATE
-      if (action.objectType === 'shape') {
-        setShapes(prev => prev.map(s => s.id === action.id ? action.previousState : s));
+    const applyInverse = (act: Action) => {
+      if (act.type === 'ADD') {
+        // Inverse: DELETE
+        if (act.objectType === 'shape') setShapes(prev => prev.filter(s => s.id !== act.id));
+        if (act.objectType === 'line') setLines(prev => prev.filter(l => l.id !== act.id));
+        if (act.objectType === 'text') setTextAnnotations(prev => prev.filter(t => t.id !== act.id));
+        // Deselect
+        if (act.id) {
+          setSelectedShapeIds(prev => { const n = new Set(prev); n.delete(act.id!); return n; });
+          setSelectedLineIds(prev => { const n = new Set(prev); n.delete(act.id!); return n; });
+          setSelectedTextIds(prev => { const n = new Set(prev); n.delete(act.id!); return n; });
+        }
+      } else if (act.type === 'DELETE') {
+        // Inverse: ADD (Restore)
+        if (act.objectType === 'shape' && act.previousState) setShapes(prev => [...prev, act.previousState]);
+        if (act.objectType === 'line' && act.previousState) setLines(prev => [...prev, act.previousState]);
+        if (act.objectType === 'text' && act.previousState) setTextAnnotations(prev => [...prev, act.previousState]);
+      } else if (act.type === 'UPDATE') {
+        // Inverse: RESTORE PREVIOUS STATE
+        if (act.objectType === 'shape') setShapes(prev => prev.map(s => s.id === act.id ? act.previousState : s));
+        if (act.objectType === 'line') {
+          if (Array.isArray(act.newState)) {
+            // Task 4.5.3 Partial Erase Undo (Split Line)
+            // Remove the fragments (newState) and restore the original (previousState)
+            const fragmentIds = new Set(act.newState.map((l: StrokeLine) => l.id));
+            setLines(prev => {
+              const filtered = prev.filter(l => !fragmentIds.has(l.id));
+              return [...filtered, act.previousState];
+            });
+          } else {
+            setLines(prev => prev.map(l => l.id === act.id ? act.previousState : l));
+          }
+        }
+        if (act.objectType === 'text') setTextAnnotations(prev => prev.map(t => t.id === act.id ? act.previousState : t));
+      } else if (act.type === 'BATCH' && act.actions) {
+        // Inverse of Batch: Apply inverse of each sub-action in REVERSE order
+        [...act.actions].reverse().forEach(subAct => applyInverse(subAct));
       }
-      if (action.objectType === 'line') {
-        setLines(prev => prev.map(l => l.id === action.id ? action.previousState : l));
-      }
-      if (action.objectType === 'text') {
-        setTextAnnotations(prev => prev.map(t => t.id === action.id ? action.previousState : t));
-      }
-    }
+    };
+
+    applyInverse(action);
   }, [undoStack]);
 
   // Task 4.5.3: User-Specific Redo
@@ -339,28 +359,39 @@ export default function Whiteboard() {
     setUndoStack(prev => [...prev, action]);
 
     // Apply Action
-    if (action.type === 'ADD') {
-      // Redo: ADD
-      if (action.objectType === 'shape' && action.newState) setShapes(prev => [...prev, action.newState]);
-      if (action.objectType === 'line' && action.newState) setLines(prev => [...prev, action.newState]);
-      if (action.objectType === 'text' && action.newState) setTextAnnotations(prev => [...prev, action.newState]);
-    } else if (action.type === 'DELETE') {
-      // Redo: DELETE
-      if (action.objectType === 'shape') setShapes(prev => prev.filter(s => s.id !== action.id));
-      if (action.objectType === 'line') setLines(prev => prev.filter(l => l.id !== action.id));
-      if (action.objectType === 'text') setTextAnnotations(prev => prev.filter(t => t.id !== action.id));
-    } else if (action.type === 'UPDATE') {
-      // Redo: UPDATE TO NEW STATE
-      if (action.objectType === 'shape') {
-        setShapes(prev => prev.map(s => s.id === action.id ? action.newState : s));
+    const applyAction = (act: Action) => {
+      if (act.type === 'ADD') {
+        // Redo: ADD
+        if (act.objectType === 'shape' && act.newState) setShapes(prev => [...prev, act.newState]);
+        if (act.objectType === 'line' && act.newState) setLines(prev => [...prev, act.newState]);
+        if (act.objectType === 'text' && act.newState) setTextAnnotations(prev => [...prev, act.newState]);
+      } else if (act.type === 'DELETE') {
+        // Redo: DELETE
+        if (act.objectType === 'shape') setShapes(prev => prev.filter(s => s.id !== act.id));
+        if (act.objectType === 'line') setLines(prev => prev.filter(l => l.id !== act.id));
+        if (act.objectType === 'text') setTextAnnotations(prev => prev.filter(t => t.id !== act.id));
+      } else if (act.type === 'UPDATE') {
+        // Redo: UPDATE TO NEW STATE
+        if (act.objectType === 'shape') setShapes(prev => prev.map(s => s.id === act.id ? act.newState : s));
+        if (act.objectType === 'line') {
+          if (Array.isArray(act.newState)) {
+            // Redo Partial Erase: Remove original, Add fragments
+            setLines(prev => {
+              const withoutOriginal = prev.filter(l => l.id !== act.id);
+              return [...withoutOriginal, ...act.newState];
+            });
+          } else {
+            setLines(prev => prev.map(l => l.id === act.id ? act.newState : l));
+          }
+        }
+        if (act.objectType === 'text') setTextAnnotations(prev => prev.map(t => t.id === act.id ? act.newState : t));
+      } else if (act.type === 'BATCH' && act.actions) {
+        // Redo Batch: Apply actions in ORIGINAL order
+        act.actions.forEach(subAct => applyAction(subAct));
       }
-      if (action.objectType === 'line') {
-        setLines(prev => prev.map(l => l.id === action.id ? action.newState : l));
-      }
-      if (action.objectType === 'text') {
-        setTextAnnotations(prev => prev.map(t => t.id === action.id ? action.newState : t));
-      }
-    }
+    };
+
+    applyAction(action);
   }, [redoStack]);
 
   // -- 2. INTERACTION STATE --
@@ -580,6 +611,28 @@ export default function Whiteboard() {
     if (stage) {
       return stage.getPointerPosition() || { x: 0, y: 0 };
     }
+
+    // Fix for UI Eraser Cursor Jump: Use global client coordinates relative to container
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+
+      // Get client coordinates from various event types (React Synthetic, Native, or Konva wrapped)
+      const nativeEvent = e.nativeEvent || e;
+      const clientX = e.clientX ?? nativeEvent.clientX ?? e.evt?.clientX;
+      const clientY = e.clientY ?? nativeEvent.clientY ?? e.evt?.clientY;
+
+      if (typeof clientX === 'number' && typeof clientY === 'number') {
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        // Temporary Debug Log
+        // console.log('[Pointer]', { client: { x: clientX, y: clientY }, canvas: { x, y } });
+
+        return { x, y };
+      }
+    }
+
+    // Fallback (Risk of 0,0 jump if target is child)
     return { x: e.nativeEvent?.offsetX || 0, y: e.nativeEvent?.offsetY || 0 };
   };
 
@@ -977,6 +1030,12 @@ export default function Whiteboard() {
 
     // C. ERASER TOOL
     if (activeTool === 'eraser') {
+      // DEBUG: Log coordinates to verify fix
+      const native = (e as any).nativeEvent || (e as any).evt;
+      console.log('[Eraser Down] Raw:', { x: native.clientX, y: native.clientY }, 'Canvas:', { x, y });
+
+      // Snapshot lines for diffing later
+      setInitialEraserLines(lines);
       performErase(x, y);
       setIsDrawing(true);
       return;
@@ -1000,11 +1059,18 @@ export default function Whiteboard() {
     }
   };
 
+  // Calculate Sub-Lines
+  // This logic is complex. 'eraseAtPosition' splits lines.
+  // Instead of recalculating here, we should rely on the state update inside 'performErase'.
+  // But 'performErase' can call 'setLines'.
+  // We need to capture the pointer move events.
+  // Simpler: Just rely on 'eraseAtPosition' inside 'performErase' to update state, 
+  // and PointerUp to diff.
   const handlePointerMove = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
     const { x, y } = getPointerPos(e);
     setCursorPos({ x, y });
 
-    // Task 4.2.4: Hover detection for cursor
+    // Task 4.2.4: Hover detection
     if (activeTool === 'select' && !isDraggingSelection && !isDrawing) {
       let hovering = false;
       if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
@@ -1013,6 +1079,11 @@ export default function Whiteboard() {
       setIsHoveringSelection(hovering);
     } else if (activeTool !== 'select') {
       setIsHoveringSelection(false);
+    }
+
+    if (isDrawing && activeTool === 'eraser') {
+      performErase(x, y);
+      return;
     }
 
 
@@ -1250,6 +1321,60 @@ export default function Whiteboard() {
   };
 
   const handlePointerUp = () => {
+    // 1. History & Logic for Eraser (MUST BE BEFORE EARLY RETURNS)
+    // Task 4.5.3 Partial Eraser Logic: Detect Changes
+    if (activeTool === 'eraser' && initialEraserLines) {
+      const deletedLines = initialEraserLines.filter(initL => !linesRef.current.some(currL => currL.id === initL.id));
+      const addedLines = linesRef.current.filter(currL => !initialEraserLines.some(initL => initL.id === currL.id));
+
+      const actions: Action[] = [];
+
+      // Detect Splits (Update) vs Full Deletion
+      deletedLines.forEach(deletedL => {
+        // Find fragments derived from this line
+        // Fragments will have IDs like `originalId-randomNum`
+        // We match by checking if fragment ID starts with original ID + '-'
+        const fragments = addedLines.filter(addedL => addedL.id.startsWith(deletedL.id + '-'));
+
+        if (fragments.length > 0) {
+          // This is a partial erase (Split) -> UPDATE
+          console.log('[Eraser] Partial Erase (Update Path):', deletedL.id, '->', fragments.length, 'fragments');
+          actions.push({
+            type: 'UPDATE',
+            objectType: 'line',
+            id: deletedL.id,
+            previousState: deletedL,
+            newState: fragments,
+            userId: 'local'
+          });
+          // Mark fragments as handled so we don't treat them as separate ADDs (though logic below for Added Lines relies on `addedLines` array)
+          // But we don't process addedLines separately if we map them here.
+          // Wait, we need to ensure we don't double-count them.
+        } else {
+          // Full Deletion -> DELETE
+          console.log('[Eraser] Full Deletion:', deletedL.id);
+          actions.push({
+            type: 'DELETE',
+            objectType: 'line',
+            id: deletedL.id,
+            previousState: deletedL,
+            newState: null,
+            userId: 'local'
+          });
+        }
+      });
+
+      // NOTE: Any addedLines that are NOT fragments of deleted lines?
+      // In eraser tool, user only erases. So added lines MUST be fragments.
+      // So we don't need to process `addedLines` separately if we assume all added lines are fragments of suppressed lines.
+
+      if (actions.length > 0) {
+        console.log('[Eraser] Batch Action Count:', actions.length);
+        addToHistory({ type: 'BATCH', userId: 'local', actions: actions });
+      }
+      setInitialEraserLines(null);
+    }
+
     // Task 3.1: Handle Rotation End
     if (isRotating) {
       const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
@@ -1264,12 +1389,6 @@ export default function Whiteboard() {
         // History for Rotation
         affectedShapes.forEach(s => {
           const initRotation = initialShapeRotations.get(s.id);
-          // TODO: This assumes the shape object structure hasn't changed except rotation
-          // We need to reconstruct the previous state fully.
-          // Since we stored initial rotations, we can infer previous state.
-          // Better: We should have stored the full object state before rotation.
-          // But `initialShapeRotations` only stored angles.
-          // Let's rely on finding shape by ID in `shapes` array (which is current) and reverting rotation for previous.
           if (initRotation !== undefined && initRotation !== s.transform.rotation) {
             const prevState = { ...s, transform: { ...s.transform, rotation: initRotation } };
             addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prevState, newState: s, userId: 'local' });
@@ -1355,13 +1474,11 @@ export default function Whiteboard() {
       return;
     }
 
-
-
     // Auto-switch to selection after erasing (unless locked)
     if (activeTool === 'eraser' && isDrawing && !isToolLocked) {
       setIsDrawing(false);
       setActiveTool('select');
-      return;
+      return; // THIS WAS PREVIOUSLY CAUSING THE BUG
     }
 
     setIsDrawing(false);
@@ -1471,7 +1588,6 @@ export default function Whiteboard() {
       addToHistory({ type: 'ADD', objectType: 'line', id: lastLine.id, previousState: null, newState: lastLine, userId: 'local' });
     }
 
-    setIsDrawing(false);
     setDragStart(null);
   };
 

@@ -22,6 +22,8 @@ import {
   isPointInBoundingBox,
   BoundingBox,
 } from '../../utils/boundingBox';
+import ExportTools from '../ExportTools/ExportTools';
+import Konva from 'konva';
 
 // --- CONFIGURATION ---
 const GRID_DOT_COLOR = '#45A29E';
@@ -225,7 +227,10 @@ const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
 // --- MAIN COMPONENT ---
 export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // -- 1. CANVAS STATE --
   const [lines, setLines] = useState<StrokeLine[]>([]);
@@ -291,6 +296,45 @@ export default function Whiteboard() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // -- Task 6.1.1: Auto-Save Functionality --
+  useEffect(() => {
+    const saveData = async () => {
+      setIsSaving(true);
+      try {
+        // Prepare data payload
+        const canvasData = {
+          lines,
+          shapes,
+          textAnnotations,
+          version: Date.now()
+        };
+
+        // TODO: Replace with actual API call
+        // await api.post('/canvas/save', canvasData); 
+        console.log('[Auto-Save] Saving canvas data...', canvasData);
+
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        setLastSaved(new Date());
+      } catch (error) {
+        console.error('[Auto-Save] Failed to save:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    // Debounce save operation (2 seconds after last change)
+    const timeoutId = setTimeout(() => {
+      // Only save if there is content
+      if (lines.length > 0 || shapes.length > 0 || textAnnotations.length > 0) {
+        saveData();
+      }
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [lines, shapes, textAnnotations]);
 
   // Keyboard Shortcuts (Ctrl+A, Escape, Delete)
   useEffect(() => {
@@ -1152,6 +1196,23 @@ export default function Whiteboard() {
         onSendBackward={handleSendBackward}
       />
 
+      {/* Auto-Save Indicator */}
+      <div className="fixed top-4 right-4 z-50 pointer-events-none">
+        <div className={`bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 flex items-center gap-2 ${isSaving || lastSaved ? 'opacity-100' : 'opacity-0'}`}>
+          {isSaving ? (
+            <>
+              <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+              <span>Saved {lastSaved?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* LAYER 2: SVG SHAPES */}
       <div className="absolute inset-0 z-10 pointer-events-none">
         <SVGShapeRenderer
@@ -1313,6 +1374,7 @@ export default function Whiteboard() {
       {/* LAYER 3: KONVA (Drawings) */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         <Stage
+          ref={stageRef}
           width={dimensions.width}
           height={dimensions.height}
           style={{ pointerEvents: 'none' }}
@@ -1379,6 +1441,19 @@ export default function Whiteboard() {
           }}
         />
       )}
+
+      {/* Export Tools Overlay */}
+      <ExportTools
+        stageRef={stageRef}
+        lines={lines}
+        shapes={shapes}
+        textAnnotations={textAnnotations}
+        onClear={() => {
+          setLines([]);
+          setShapes([]);
+          setTextAnnotations([]);
+        }}
+      />
     </div>
   );
 }

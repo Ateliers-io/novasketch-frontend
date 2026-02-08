@@ -15,7 +15,9 @@ import {
     Lock,
     Unlock,
     ArrowUp,
-    ArrowDown
+    ArrowDown,
+    Undo2,
+    Redo2
 } from 'lucide-react';
 import { ToolType } from '../../types/shapes';
 
@@ -62,6 +64,12 @@ interface ToolbarProps {
     hasSelection: boolean;
     onBringForward: () => void;
     onSendBackward: () => void;
+
+    // History Props
+    canUndo?: boolean;
+    canRedo?: boolean;
+    onUndo?: () => void;
+    onRedo?: () => void;
 }
 
 /* --- COMPONENTS --- */
@@ -150,7 +158,11 @@ export default function Toolbar({
     onEraserSizeChange,
     hasSelection,
     onBringForward,
-    onSendBackward
+    onSendBackward,
+    canUndo = false,
+    canRedo = false,
+    onUndo,
+    onRedo
 }: ToolbarProps) {
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const eraserMenuRef = useRef<HTMLDivElement>(null);
@@ -177,6 +189,40 @@ export default function Toolbar({
             data-component="toolbar"
         >
             <div className="flex items-center gap-2 px-3 py-2 bg-[#1a2026]/90 backdrop-blur-xl border border-[#262e35] rounded-xl shadow-2xl shadow-black/50 text-[#eceef0]">
+
+                {/* --- HISTORY CONTROLS --- */}
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={onUndo}
+                        disabled={!canUndo}
+                        title="Undo (Ctrl+Z)"
+                        className={`
+                            relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-200
+                            ${!canUndo
+                                ? 'text-[#3c4853] cursor-not-allowed'
+                                : 'text-[#607383] hover:bg-[#262e35] hover:text-[#eceef0] active:scale-95'
+                            }
+                        `}
+                    >
+                        <Undo2 size={18} />
+                    </button>
+                    <button
+                        onClick={onRedo}
+                        disabled={!canRedo}
+                        title="Redo (Ctrl+Y)"
+                        className={`
+                            relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-200
+                            ${!canRedo
+                                ? 'text-[#3c4853] cursor-not-allowed'
+                                : 'text-[#607383] hover:bg-[#262e35] hover:text-[#eceef0] active:scale-95'
+                            }
+                        `}
+                    >
+                        <Redo2 size={18} />
+                    </button>
+                </div>
+
+                <div className="w-px h-6 bg-[#262e35]" />
 
                 {/* --- LOCK BUTTON --- */}
                 <button

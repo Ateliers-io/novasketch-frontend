@@ -1242,6 +1242,11 @@ export default function Whiteboard() {
         hasSelection={selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0}
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
+
+        canUndo={false} // Placeholder for backend integration
+        canRedo={false} // Placeholder for backend integration
+        onUndo={() => console.log('Undo triggered')}
+        onRedo={() => console.log('Redo triggered')}
       />
 
       {/* Auto-Save Indicator */}

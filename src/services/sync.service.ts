@@ -1,7 +1,7 @@
 import { db } from "../db";
 import type { SyncOperation } from "../db/schema";
 
-class SyncService {
+export class SyncService {
     private isSyncing = false;
 
     constructor() {

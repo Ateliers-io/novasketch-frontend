@@ -4,6 +4,7 @@ import { Landing } from './components/pages/Landing';
 import { Dashboard } from './components/pages/Dashboard';
 import { Login } from './components/pages/Auth/Login';
 import Whiteboard from './components/Whiteboard/Whiteboard';
+import { DBProvider } from './db/DBProvider';
 
 /* --- 1. LOADING SCREEN --- */
 const LoadingScreen = () => (
@@ -59,13 +60,15 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <div className="min-h-screen w-full bg-[#0B0C10] text-[#eceef0]">
-            <AppRoutes />
-          </div>
-        </AuthProvider>
-      </ThemeProvider>
+      <DBProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <div className="min-h-screen w-full bg-[#0B0C10] text-[#eceef0]">
+              <AppRoutes />
+            </div>
+          </AuthProvider>
+        </ThemeProvider>
+        </DBProvider>
     </BrowserRouter>
   );
 }

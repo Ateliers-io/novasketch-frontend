@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import { Download, FileDown, FileImage, Trash2, X } from 'lucide-react';
 import Konva from 'konva';
 import { Shape, isRectangle, isCircle, RectangleShape, CircleShape } from '../../types/shapes';
-
+//
 interface ExportToolsProps {
     stageRef: React.RefObject<Konva.Stage | null>;
     lines: any[]; // Replace with proper types if imported
@@ -12,6 +12,13 @@ interface ExportToolsProps {
     onClear: () => void;
 }
 
+// Helper to generate timestamped filename
+const getTimestampFilename = (ext: string) => {
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    return `novasketch-${timestamp}.${ext}`;
+};
+
 const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, textAnnotations, onClear }) => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -19,16 +26,20 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
     const handleExportImage = (format: 'png' | 'jpeg' = 'png') => {
         if (!stageRef.current) return;
         const uri = stageRef.current.toDataURL({ pixelRatio: 2, mimeType: `image/${format}` });
+
         const link = document.createElement('a');
-        link.download = `whiteboard-export.${format}`;
+        link.download = getTimestampFilename(format === 'jpeg' ? 'jpg' : format);
         link.href = uri;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        setIsOpen(false);
     };
 
     // 6.3 Export to SVG
     const handleExportSVG = () => {
+        if (!stageRef.current) return;
+
         // Generate valid SVG string from state
         // Note: Konva doesn't natively export to SVG string in browser without plugins easily, 
         // but we can construct it since we have the state (lines, shapes, text).
@@ -66,34 +77,41 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
 
         svgContent += `</svg>`;
 
-        const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+        const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(blob);
+
         const link = document.createElement('a');
-        link.download = 'whiteboard-export.svg';
+        link.download = getTimestampFilename('svg');
         link.href = url;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+        setIsOpen(false);
     };
 
     // 6.4 Export Canvas to PDF
     const handleExportPDF = () => {
         if (!stageRef.current) return;
 
-        // Create PDF
+        const stageWidth = stageRef.current.width();
+        const stageHeight = stageRef.current.height();
+
+        // Initialize PDF
+        // eslint-disable-next-line new-cap
         const pdf = new jsPDF({
-            orientation: 'landscape',
+            orientation: stageWidth > stageHeight ? 'l' : 'p',
             unit: 'px',
-            format: [stageRef.current.width(), stageRef.current.height()]
+            format: [stageWidth, stageHeight]
         });
 
         // Convert stage to image data
         const imgData = stageRef.current.toDataURL({ pixelRatio: 2 });
 
         // Add image to PDF
-        pdf.addImage(imgData, 'PNG', 0, 0, stageRef.current.width(), stageRef.current.height());
-        pdf.save('whiteboard-export.pdf');
+        pdf.addImage(imgData, 'PNG', 0, 0, stageWidth, stageHeight);
+        pdf.save(getTimestampFilename('pdf'));
+        setIsOpen(false);
     };
 
     // 6.5 Clear Canvas

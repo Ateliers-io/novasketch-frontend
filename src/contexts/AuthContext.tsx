@@ -15,7 +15,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
-    loginWithGoogle: (idToken: string) => Promise<void>;
+    loginWithGoogle: (code: string) => Promise<void>;
     logout: () => void;
     clearError: () => void;
 }
@@ -64,11 +64,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         initAuth();
     }, []);
 
-    const loginWithGoogle = async (idToken: string) => {
+    const loginWithGoogle = async (code: string) => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await api.post('/auth/google', { idToken });
+            const response = await api.post('/auth/google', { code });
             const { token, user: userData } = response.data;
 
             // Store token and user session

@@ -48,7 +48,9 @@ interface TextAnnotation {
   fontFamily: string;
   fontWeight: string;
   fontStyle: string;
+  fontStyle: string;
   textDecoration: string;
+  rotation?: number; // Added rotation property
 }
 
 // --- UNDO/REDO TYPES ---
@@ -902,7 +904,10 @@ export default function Whiteboard() {
         fontFamily: fontStyles.family,
         fontWeight: fontStyles.bold ? 'bold' : 'normal',
         fontStyle: fontStyles.italic ? 'italic' : 'normal',
+        fontWeight: fontStyles.bold ? 'bold' : 'normal',
+        fontStyle: fontStyles.italic ? 'italic' : 'normal',
         textDecoration: fontStyles.underline ? 'underline' : 'none',
+        rotation: 0 // Initialize rotation
       };
       setTextAnnotations(prev => [...prev, newText]);
       addToHistory({
@@ -934,6 +939,47 @@ export default function Whiteboard() {
     // Check if clicking resize handles
     const nativeTarget = ('nativeEvent' in e ? e.nativeEvent.target : e.target) as Element;
     const resizeHandleEl = nativeTarget.closest?.('[data-resize-handle]');
+    const rotationHandleEl = nativeTarget.closest?.('[data-rotation-handle]');
+
+    // Get pointer position for handle interactions
+    const { x, y } = getPointerPos(e);
+
+    // Task 4.3: Check if clicking rotation handle
+    if (activeTool === 'select' && rotationHandleEl && selectionBoundingBox) {
+      if ('stopPropagation' in e) e.stopPropagation();
+      setIsRotating(true);
+
+      // Use robust coordinates relative to container
+      let mouseX = x;
+      let mouseY = y;
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const clientX = (e as any).clientX !== undefined ? (e as any).clientX : (e as any).evt?.clientX;
+        const clientY = (e as any).clientY !== undefined ? (e as any).clientY : (e as any).evt?.clientY;
+        if (clientX !== undefined && clientY !== undefined) {
+          mouseX = clientX - rect.left;
+          mouseY = clientY - rect.top;
+        }
+      }
+
+      // Calculate initial angle from center of selection to mouse position
+      const centerX = selectionBoundingBox.centerX;
+      const centerY = selectionBoundingBox.centerY;
+      const startAngle = Math.atan2(mouseY - centerY, mouseX - centerX) * (180 / Math.PI);
+      setRotationStartAngle(startAngle);
+
+      // Store initial rotations of all selected shapes
+      const initialRotations = new Map<string, number>();
+      shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
+        initialRotations.set(s.id, s.transform.rotation);
+      });
+      // Store initial rotations of all selected text
+      textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
+        initialRotations.set(t.id, t.rotation || 0);
+      });
+      setInitialShapeRotations(initialRotations);
+      return;
+    }
 
     if (activeTool === 'select' && resizeHandleEl && selectionBoundingBox) {
       if ('stopPropagation' in e) e.stopPropagation();
@@ -956,8 +1002,6 @@ export default function Whiteboard() {
       commitText();
       // Don't return, allow specific tool actions (like starting a new text elsewhere)
     }
-
-    const { x, y } = getPointerPos(e);
 
     // A. SELECTION TOOL
     if (activeTool === 'select') {
@@ -1079,6 +1123,63 @@ export default function Whiteboard() {
       setIsHoveringSelection(hovering);
     } else if (activeTool !== 'select') {
       setIsHoveringSelection(false);
+    }
+
+    // Task 4.3: Handle Rotation Logic
+    if (isRotating && selectionBoundingBox && initialShapeRotations.size > 0) {
+      const centerX = selectionBoundingBox.centerX;
+      const centerY = selectionBoundingBox.centerY;
+
+      // Use robust coordinates relative to container
+      let mouseX = x;
+      let mouseY = y;
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const clientX = (e as any).clientX !== undefined ? (e as any).clientX : (e as any).evt?.clientX;
+        const clientY = (e as any).clientY !== undefined ? (e as any).clientY : (e as any).evt?.clientY;
+        if (clientX !== undefined && clientY !== undefined) {
+          mouseX = clientX - rect.left;
+          mouseY = clientY - rect.top;
+        }
+      }
+
+      // Calculate current angle from center to mouse
+      const currentAngle = Math.atan2(mouseY - centerY, mouseX - centerX) * (180 / Math.PI);
+      let deltaAngle = currentAngle - rotationStartAngle;
+
+      // Shift key: Snap to 15-degree increments
+      const nativeEvent = 'nativeEvent' in e ? e.nativeEvent : (e as any).evt;
+      if (nativeEvent?.shiftKey) {
+        deltaAngle = Math.round(deltaAngle / 15) * 15;
+      }
+
+      // Update all selected shapes
+      setShapes(prev => prev.map(s => {
+        if (selectedShapeIds.has(s.id)) {
+          const initialRotation = initialShapeRotations.get(s.id) || 0;
+          return {
+            ...s,
+            transform: {
+              ...s.transform,
+              rotation: initialRotation + deltaAngle
+            }
+          };
+        }
+        return s;
+      }));
+
+      // Update all selected text
+      setTextAnnotations(prev => prev.map(t => {
+        if (selectedTextIds.has(t.id)) {
+          const initialRotation = initialShapeRotations.get(t.id) || 0;
+          return {
+            ...t,
+            rotation: initialRotation + deltaAngle
+          };
+        }
+        return t;
+      }));
+      return;
     }
 
     if (isDrawing && activeTool === 'eraser') {
@@ -1731,7 +1832,11 @@ export default function Whiteboard() {
           height={dimensions.height}
           style={{ pointerEvents: 'none' }}
         >
-          <g>
+          <g transform={(selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
+            ? `rotate(${shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0}, ${selectionBoundingBox.centerX}, ${selectionBoundingBox.centerY})`
+            : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
+              ? `rotate(${textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0}, ${selectionBoundingBox.centerX}, ${selectionBoundingBox.centerY})`
+              : undefined}>
             {/* SVG Definitions for filters */}
             <defs>
               {/* Drop shadow for handles */}
@@ -1832,6 +1937,46 @@ export default function Whiteboard() {
               </g>
             ))}
 
+            {/* Task 4.3: Rotation Handle */}
+            {selectedTextIds.size === 0 && selectedLineIds.size === 0 && (
+              <g data-rotation-handle="true" style={{ pointerEvents: 'auto', cursor: 'grab' }}>
+                {/* Stalk line connecting to selection box */}
+                <line
+                  x1={selectionBoundingBox.centerX}
+                  y1={selectionBoundingBox.minY - 4}
+                  x2={selectionBoundingBox.centerX}
+                  y2={selectionBoundingBox.minY - 28}
+                  stroke="#2dd4bf"
+                  strokeWidth={1.5}
+                  strokeDasharray="3,2"
+                />
+                {/* Rotation handle circle */}
+                <circle
+                  cx={selectionBoundingBox.centerX}
+                  cy={selectionBoundingBox.minY - 32}
+                  r={10}
+                  fill="#0f1419"
+                  stroke="#2dd4bf"
+                  strokeWidth={2}
+                  filter="url(#handle-shadow)"
+                />
+                {/* Rotation icon (curved arrow) */}
+                <path
+                  d={`M ${selectionBoundingBox.centerX - 4} ${selectionBoundingBox.minY - 35}
+                     a 4 4 0 1 1 8 0`}
+                  stroke="#2dd4bf"
+                  strokeWidth={1.5}
+                  fill="none"
+                  strokeLinecap="round"
+                />
+                <path
+                  d={`M ${selectionBoundingBox.centerX + 4} ${selectionBoundingBox.minY - 35}
+                     l 2 -2 l 0 4 z`}
+                  fill="#2dd4bf"
+                />
+              </g>
+            )}
+
 
           </g>
         </svg>
@@ -1876,8 +2021,10 @@ export default function Whiteboard() {
               fontWeight: t.fontWeight,
               fontStyle: t.fontStyle,
               textDecoration: t.textDecoration,
+              transform: `rotate(${t.rotation || 0}deg)`,
+              transformOrigin: 'top left', // Or handle properly with offset
             }}
-            className="whitespace-pre p-1 select-none"
+            className="whitespace-pre p-1 select-none origin-top-left"
           >
             {t.text}
           </div>

@@ -21,8 +21,9 @@
     pointer-events: none;
     /* Shapes are not clickable (selection removed) */
     transition: opacity 0.2s ease;
-    transform-origin: center;
 }
+
+
 
 /* --- PRIMITIVE ELEMENTS (The actual rect/circle/etc) --- */
 .svg-primitive {

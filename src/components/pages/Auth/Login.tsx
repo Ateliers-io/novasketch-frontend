@@ -247,10 +247,10 @@ export const Login = () => {
                             {/* GOOGLE */}
                             <button
                                 onClick={() => googleLogin()}
-                                disabled={!!loadingMethod}
+                                disabled={!!loadingMethod || isLoading}
                                 className="auth-button group w-full h-14 bg-white hover:bg-gray-50 text-gray-900 font-semibold rounded-xl flex items-center justify-center gap-3 transition-all hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {loadingMethod === 'google' ? (
+                                {(loadingMethod === 'google' || isLoading) ? (
                                     <>
                                         <Radio className="w-5 h-5 animate-spin" />
                                         <span>Connecting...</span>

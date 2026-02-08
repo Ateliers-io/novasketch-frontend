@@ -64,15 +64,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         initAuth();
     }, []);
 
-    // TODO: Implement in next subtask
     const loginWithGoogle = async (idToken: string) => {
         setIsLoading(true);
         setError(null);
         try {
-            // Will be implemented in next commit
-            console.log('loginWithGoogle called with token:', idToken);
+            const response = await api.post('/auth/google', { idToken });
+            const { token, user: userData } = response.data;
+
+            // Store token and user session
+            localStorage.setItem(TOKEN_KEY, token);
+            localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
+
+            setUser(userData);
         } catch (err: any) {
-            setError(err.message || 'Google login failed');
+            const message = err.response?.data?.error || err.message || 'Google login failed';
+            setError(message);
+            throw err;
         } finally {
             setIsLoading(false);
         }

@@ -1221,16 +1221,18 @@ export default function Whiteboard() {
               </filter>
             </defs>
 
-            {/* Selection Bounding Box */}
+            {/* Main bounding box with glow */}
             <rect
-              x={selectionBoundingBox.minX}
-              y={selectionBoundingBox.minY}
-              width={selectionBoundingBox.width}
-              height={selectionBoundingBox.height}
+              x={selectionBoundingBox.minX - 4}
+              y={selectionBoundingBox.minY - 4}
+              width={selectionBoundingBox.width + 8}
+              height={selectionBoundingBox.height + 8}
               fill="none"
               stroke="#2dd4bf"
               strokeWidth={1.5}
               strokeDasharray="6,4"
+              rx={2}
+              filter="url(#selection-glow)"
               opacity={0.8}
             />
 

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google';
 import gsap from 'gsap';
 import {
     ShieldCheck,
@@ -16,10 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts';
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // NOVASKETCH - LOGIN PORTAL
-// Theme: "Graphite & Turquoise" with Constellation vibes
-// ═══════════════════════════════════════════════════════════════════════════════
 
 // --- ANIMATED CONSTELLATION BACKGROUND ---
 const ConstellationBackground = () => {
@@ -121,7 +119,7 @@ const StatusIndicator = ({ label, status }: { label: string; status: 'online' | 
 // --- MAIN LOGIN COMPONENT ---
 export const Login = () => {
     const navigate = useNavigate();
-    const { loginWithGoogle, loginAsGuest, error, clearError, isAuthenticated } = useAuth();
+    const { loginWithGoogle, error, clearError, isAuthenticated, isLoading } = useAuth();
 
     const panelRef = useRef<HTMLDivElement>(null);
     const [loadingMethod, setLoadingMethod] = useState<string | null>(null);
@@ -132,6 +130,27 @@ export const Login = () => {
             navigate('/home', { replace: true });
         }
     }, [isAuthenticated, navigate]);
+
+    // Google OAuth hook - uses authorization code flow
+    const googleLogin = useGoogleLogin({
+        flow: 'auth-code',
+        onSuccess: async (codeResponse) => {
+            setLoadingMethod('google');
+            clearError();
+            try {
+                // Send auth code to backend to exchange for id_token
+                await loginWithGoogle(codeResponse.code);
+            } catch (err) {
+                console.error('Google auth failed:', err);
+            } finally {
+                setLoadingMethod(null);
+            }
+        },
+        onError: (errorResponse) => {
+            console.error('Google login error:', errorResponse);
+            setLoadingMethod(null);
+        },
+    });
 
     // --- GSAP ENTRANCE ANIMATION ---
     useLayoutEffect(() => {
@@ -162,18 +181,6 @@ export const Login = () => {
 
         return () => ctx.revert();
     }, []);
-
-    const handleLogin = async (methodName: string, methodFn: () => Promise<void>) => {
-        clearError();
-        setLoadingMethod(methodName);
-        try {
-            await methodFn();
-        } catch (err) {
-            console.error('Auth failed:', err);
-        } finally {
-            setLoadingMethod(null);
-        }
-    };
 
     return (
         <div className="min-h-screen bg-[#0B0C10] text-[#C5C6C7] font-sans flex items-center justify-center relative overflow-hidden">
@@ -239,11 +246,11 @@ export const Login = () => {
 
                             {/* GOOGLE */}
                             <button
-                                onClick={() => handleLogin('google', loginWithGoogle)}
-                                disabled={!!loadingMethod}
+                                onClick={() => googleLogin()}
+                                disabled={!!loadingMethod || isLoading}
                                 className="auth-button group w-full h-14 bg-white hover:bg-gray-50 text-gray-900 font-semibold rounded-xl flex items-center justify-center gap-3 transition-all hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {loadingMethod === 'google' ? (
+                                {(loadingMethod === 'google' || isLoading) ? (
                                     <>
                                         <Radio className="w-5 h-5 animate-spin" />
                                         <span>Connecting...</span>
@@ -252,33 +259,6 @@ export const Login = () => {
                                     <>
                                         <Chrome className="w-5 h-5" />
                                         <span>Continue with Google</span>
-                                    </>
-                                )}
-                            </button>
-
-                            {/* DIVIDER */}
-                            <div className="auth-button relative py-3 flex items-center justify-center">
-                                <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-[#45A29E]/30 to-transparent" />
-                                <span className="relative px-4 bg-[#0B0C10] text-xs text-[#45A29E]/60">
-                                    or
-                                </span>
-                            </div>
-
-                            {/* GUEST */}
-                            <button
-                                onClick={() => handleLogin('guest', loginAsGuest)}
-                                disabled={!!loadingMethod}
-                                className="auth-button group w-full h-12 bg-transparent hover:bg-[#45A29E]/10 text-[#45A29E] hover:text-[#66FCF1] border border-[#45A29E]/40 hover:border-[#66FCF1]/60 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                            >
-                                {loadingMethod === 'guest' ? (
-                                    <>
-                                        <Activity className="w-4 h-4 animate-pulse" />
-                                        <span>Joining...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <User className="w-4 h-4" />
-                                        <span>Continue as Guest</span>
                                     </>
                                 )}
                             </button>

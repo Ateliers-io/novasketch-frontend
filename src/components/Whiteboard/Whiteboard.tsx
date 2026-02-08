@@ -254,11 +254,25 @@ export default function Whiteboard() {
     setRedoStack([]); // Clear redo stack on new action
   };
 
+  // Task 4.5.3: User-Specific Undo
   const performUndo = useCallback(() => {
-    if (undoStack.length === 0) return;
+    // Find the last action created by the current user ('local')
+    let actionIndex = -1;
+    for (let i = undoStack.length - 1; i >= 0; i--) {
+      if (undoStack[i].userId === 'local') {
+        actionIndex = i;
+        break;
+      }
+    }
 
-    const action = undoStack[undoStack.length - 1];
-    const newUndoStack = undoStack.slice(0, -1);
+    if (actionIndex === -1) return; // No undoable action for current user
+
+    const action = undoStack[actionIndex];
+    console.log('[Undo] Reverting Action:', action.type, 'ID:', action.id, 'User:', action.userId);
+
+    // Remove from undo stack (preserve order of others)
+    const newUndoStack = [...undoStack];
+    newUndoStack.splice(actionIndex, 1);
     setUndoStack(newUndoStack);
 
     // Push to redo stack
@@ -293,11 +307,25 @@ export default function Whiteboard() {
     }
   }, [undoStack]);
 
+  // Task 4.5.3: User-Specific Redo
   const performRedo = useCallback(() => {
-    if (redoStack.length === 0) return;
+    // Find the last action in redo stack for 'local' (standard LIFO behavior for redo stack)
+    let actionIndex = -1;
+    for (let i = redoStack.length - 1; i >= 0; i--) {
+      if (redoStack[i].userId === 'local') {
+        actionIndex = i;
+        break;
+      }
+    }
 
-    const action = redoStack[redoStack.length - 1];
-    const newRedoStack = redoStack.slice(0, -1);
+    if (actionIndex === -1) return;
+
+    const action = redoStack[actionIndex];
+    console.log('[Redo] Re-applying Action:', action.type, 'ID:', action.id, 'User:', action.userId);
+
+    // Remove from redo stack
+    const newRedoStack = [...redoStack];
+    newRedoStack.splice(actionIndex, 1);
     setRedoStack(newRedoStack);
 
     // Push back to undo stack
@@ -1407,8 +1435,8 @@ export default function Whiteboard() {
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
 
-        canUndo={undoStack.length > 0}
-        canRedo={redoStack.length > 0}
+        canUndo={undoStack.some(a => a.userId === 'local')}
+        canRedo={redoStack.some(a => a.userId === 'local')}
         onUndo={performUndo}
         onRedo={performRedo}
       />

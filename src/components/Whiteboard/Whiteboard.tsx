@@ -22,6 +22,9 @@ import {
   isPointInBoundingBox,
   BoundingBox,
 } from '../../utils/boundingBox';
+import ExportTools from '../ExportTools/ExportTools';
+import Konva from 'konva';
+import api from '../../services/api';
 
 // --- CONFIGURATION ---
 const GRID_DOT_COLOR = '#45A29E';
@@ -225,7 +228,11 @@ const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
 // --- MAIN COMPONENT ---
 export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isLoadingCanvas, setIsLoadingCanvas] = useState(true); // New loading state
 
   // -- 1. CANVAS STATE --
   const [lines, setLines] = useState<StrokeLine[]>([]);
@@ -291,6 +298,81 @@ export default function Whiteboard() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // -- Task 6.1.2: Load Canvas Data on Mount --
+  useEffect(() => {
+    const loadCanvas = async () => {
+      try {
+        setIsLoadingCanvas(true);
+        const response = await api.get('/canvas/load');
+
+        if (response.data && response.data.canvas) {
+          const { lines, shapes, textAnnotations, lastSaved } = response.data.canvas;
+
+          setLines(lines || []);
+          setShapes(shapes || []);
+          setTextAnnotations(textAnnotations || []);
+
+          if (lastSaved) {
+            setLastSaved(new Date(lastSaved));
+          }
+          console.log('[Canvas Load] Loaded saved data successfully');
+        }
+      } catch (error) {
+        console.error('[Canvas Load] Failed to load canvas data:', error);
+        // Optional: Show error toast or redirect if 401
+      } finally {
+        setIsLoadingCanvas(false);
+      }
+    };
+
+    loadCanvas();
+  }, []); // Empty dependency array = run once on mount
+
+  // -- Task 6.1.1: Auto-Save Functionality --
+  // -- Task 6.1.1: Auto-Save Functionality (Refined) --
+  // Use a ref to keep track of the latest data without triggering effects constantly
+  const canvasDataRef = useRef({ lines, shapes, textAnnotations });
+
+  useEffect(() => {
+    canvasDataRef.current = { lines, shapes, textAnnotations };
+  }, [lines, shapes, textAnnotations]);
+
+  useEffect(() => {
+    const saveCanvas = async () => {
+      // Don't save if empty
+      const data = canvasDataRef.current;
+      if (data.lines.length === 0 && data.shapes.length === 0 && data.textAnnotations.length === 0) {
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        const payload = {
+          ...data,
+          version: Date.now()
+        };
+
+        console.log('[Auto-Save] Saving payload:', payload);
+
+        // Real API call
+        await api.post('/canvas/save', payload);
+
+        console.log('[Auto-Save] Successfully saved to backend');
+        setLastSaved(new Date());
+      } catch (err) {
+        console.error('[Auto-Save] Error:', err);
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    const handler = setTimeout(() => {
+      saveCanvas();
+    }, 2000);
+
+    return () => clearTimeout(handler);
+  }, [lines, shapes, textAnnotations]); // Re-run debounce timer on changes
 
   // Keyboard Shortcuts (Ctrl+A, Escape, Delete)
   useEffect(() => {
@@ -1112,6 +1194,16 @@ export default function Whiteboard() {
       onMouseUp={handlePointerUp}
       onMouseLeave={() => setCursorPos(null)}
     >
+      {/* Loading Overlay */}
+      {isLoadingCanvas && (
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0B0C10] text-[#66FCF1]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[#1F2833] border-t-[#66FCF1] rounded-full animate-spin"></div>
+            <p className="font-medium animate-pulse">Loading your masterpiece...</p>
+          </div>
+        </div>
+      )}
+
       {/* LAYER 1: BACKGROUND */}
       <div
         className="absolute inset-0 pointer-events-none z-0 opacity-20"
@@ -1151,6 +1243,23 @@ export default function Whiteboard() {
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
       />
+
+      {/* Auto-Save Indicator */}
+      <div className="fixed top-4 right-4 z-50 pointer-events-none">
+        <div className={`bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 flex items-center gap-2 ${isSaving || lastSaved ? 'opacity-100' : 'opacity-0'}`}>
+          {isSaving ? (
+            <>
+              <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+              <span>Saved {lastSaved?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* LAYER 2: SVG SHAPES */}
       <div className="absolute inset-0 z-10 pointer-events-none">
@@ -1313,6 +1422,7 @@ export default function Whiteboard() {
       {/* LAYER 3: KONVA (Drawings) */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         <Stage
+          ref={stageRef}
           width={dimensions.width}
           height={dimensions.height}
           style={{ pointerEvents: 'none' }}
@@ -1379,6 +1489,19 @@ export default function Whiteboard() {
           }}
         />
       )}
+
+      {/* Export Tools Overlay */}
+      <ExportTools
+        stageRef={stageRef}
+        lines={lines}
+        shapes={shapes}
+        textAnnotations={textAnnotations}
+        onClear={() => {
+          setLines([]);
+          setShapes([]);
+          setTextAnnotations([]);
+        }}
+      />
     </div>
   );
 }

@@ -26,11 +26,11 @@ import ExportTools from '../ExportTools/ExportTools';
 import Konva from 'konva';
 import { useSync } from '../../services/useSync';
 
-// WebSocket URL for sync
+// hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
-const ROOM_ID = 'default-room'; // TODO: Make dynamic based on route/user
+const ROOM_ID = 'default-room'; // TODO: derive from route params/auth context
 
-// --- CONFIGURATION ---
+// magical constants.
 const GRID_DOT_COLOR = '#45A29E';
 const DEFAULT_STROKE_COLOR = '#66FCF1';
 
@@ -53,10 +53,9 @@ interface TextAnnotation {
   fontWeight: string;
   fontStyle: string;
   textDecoration: string;
-  rotation?: number; // Added rotation property
+  rotation?: number;
 }
 
-// --- UNDO/REDO TYPES ---
 interface Action {
   type: 'ADD' | 'UPDATE' | 'DELETE' | 'LAYER_CHANGE' | 'BATCH';
   objectType?: 'shape' | 'line' | 'text';
@@ -68,7 +67,7 @@ interface Action {
   index?: number; // Order preservation
 }
 
-// --- MATH HELPERS (CRITICAL FOR ERASER) ---
+// collision detection for eraser. expensive but necessary.
 function distSq(p1: { x: number; y: number }, p2: { x: number; y: number }) {
   return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
 }
@@ -103,7 +102,7 @@ function eraseAtPosition(x: number, y: number, strokes: StrokeLine[], eraserRadi
 
     const finishLine = () => {
       if (currentLinePoints.length >= 4) {
-        // Use a more unique ID for new segments to prevent key collisions and tracking issues
+        // generating unique ID for split segments to avoid react key collisions.
         result.push({ ...stroke, id: `${stroke.id}-${Math.floor(Math.random() * 1000000)}`, points: [...currentLinePoints] });
       }
       currentLinePoints = [];
@@ -164,7 +163,7 @@ function removeStrokesAt(x: number, y: number, strokes: StrokeLine[], radius: nu
   });
 }
 
-// Helper for Task 2: Reorder Object Array (Bring Forward)
+// z-index manipulation (bring forward). naive array swap.
 function moveForward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
   const newItems = [...items];
   for (let i = newItems.length - 2; i >= 0; i--) {
@@ -175,7 +174,7 @@ function moveForward<T extends { id: string }>(items: T[], selectedIds: Set<stri
   return newItems;
 }
 
-// Helper for Task 2: Reorder Object Array (Send Backward)
+// z-index manipulation (send backward).
 function moveBackward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
   const newItems = [...items];
   for (let i = 1; i < newItems.length; i++) {
@@ -191,7 +190,7 @@ const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    // Focus on mount
+    // auto-focus on mount with slight delay to ensure DOM is ready
     const timer = setTimeout(() => {
       ref.current?.focus();
     }, 50);
@@ -204,8 +203,8 @@ const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
       onSubmit();
     }
     if (e.key === 'Escape') {
-      onChange(''); // Clear text
-      onSubmit();   // Close
+      onChange(''); // clear input
+      onSubmit();   // close
     }
   };
 
@@ -243,13 +242,13 @@ const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
   );
 };
 
-// --- MAIN COMPONENT ---
+// Monolithic whiteboard component. needs splitting up.
 export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
-  // -- 1. SYNC STATE (Yjs + WebSocket + IndexedDB) --
+  // connecting to the hive mind (yjs + ws + idb).
   const {
     lines,
     shapes,
@@ -275,15 +274,14 @@ export default function Whiteboard() {
     clearAll,
   } = useSync({ roomId: ROOM_ID, wsUrl: WS_URL });
 
-  // Keep a ref to lines for event handlers that need current state
+  // local ref to avoid staleness in event handlers.
   const linesRef = useRef(lines);
   useEffect(() => { linesRef.current = lines; }, [lines]);
 
   // Snapshot for Eraser Diffing
   const [initialEraserLines, setInitialEraserLines] = useState<StrokeLine[] | null>(null);
 
-  // State setter wrappers that use the sync service
-  // These provide compatibility with existing event handlers while routing through Yjs
+  // legacy adaptors. hijacking state setters to route through yjs sync engine.
   const setLines = useCallback((updater: StrokeLine[] | ((prev: StrokeLine[]) => StrokeLine[])) => {
     if (typeof updater === 'function') {
       const newLines = updater(lines);
@@ -311,10 +309,9 @@ export default function Whiteboard() {
     }
   }, [textAnnotations, syncSetTexts]);
 
-  // No-op function for addToHistory (Yjs handles history automatically)
+  // yjs handles history internally, but we keep this signature to avoid breaking old calls.
   const addToHistory = useCallback((_action: Action) => {
-    // Yjs UndoManager handles history automatically via transactions
-    // This is kept as a no-op for compatibility with existing code
+    // no-op.
   }, []);
 
   // -- 2. INTERACTION STATE --
@@ -697,7 +694,6 @@ export default function Whiteboard() {
 
 
   // -- Task 4.4: Layer Management --
-  // -- Task 4.4: Layer Management --
   const handleBringForward = () => {
     let newShapes = shapes;
     let newLines = lines;
@@ -806,7 +802,7 @@ export default function Whiteboard() {
       if ('stopPropagation' in e) e.stopPropagation();
       setIsRotating(true);
 
-      // Use robust coordinates relative to container
+      // Using robust coordinates relative to container
       let mouseX = x;
       let mouseY = y;
       if (containerRef.current) {

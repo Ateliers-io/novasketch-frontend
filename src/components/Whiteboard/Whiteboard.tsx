@@ -48,7 +48,6 @@ interface TextAnnotation {
   fontFamily: string;
   fontWeight: string;
   fontStyle: string;
-  fontStyle: string;
   textDecoration: string;
   rotation?: number; // Added rotation property
 }
@@ -62,6 +61,7 @@ interface Action {
   newState?: any;
   userId: string;
   actions?: Action[]; // For BATCH type
+  index?: number; // Order preservation
 }
 
 // --- MATH HELPERS (CRITICAL FOR ERASER) ---
@@ -308,7 +308,18 @@ export default function Whiteboard() {
       } else if (act.type === 'DELETE') {
         // Inverse: ADD (Restore)
         if (act.objectType === 'shape' && act.previousState) setShapes(prev => [...prev, act.previousState]);
-        if (act.objectType === 'line' && act.previousState) setLines(prev => [...prev, act.previousState]);
+        if (act.objectType === 'line' && act.previousState) {
+          if (typeof act.index === 'number') {
+            setLines(prev => {
+              const copy = [...prev];
+              if (act.index! >= 0 && act.index! <= copy.length) copy.splice(act.index!, 0, act.previousState);
+              else copy.push(act.previousState);
+              return copy;
+            });
+          } else {
+            setLines(prev => [...prev, act.previousState]);
+          }
+        }
         if (act.objectType === 'text' && act.previousState) setTextAnnotations(prev => [...prev, act.previousState]);
       } else if (act.type === 'UPDATE') {
         // Inverse: RESTORE PREVIOUS STATE
@@ -319,7 +330,13 @@ export default function Whiteboard() {
             // Remove the fragments (newState) and restore the original (previousState)
             const fragmentIds = new Set(act.newState.map((l: StrokeLine) => l.id));
             setLines(prev => {
+              const firstFragmentIndex = prev.findIndex(l => fragmentIds.has(l.id));
               const filtered = prev.filter(l => !fragmentIds.has(l.id));
+              if (firstFragmentIndex !== -1) {
+                const newLines = [...filtered];
+                newLines.splice(firstFragmentIndex, 0, act.previousState);
+                return newLines;
+              }
               return [...filtered, act.previousState];
             });
           } else {
@@ -379,7 +396,13 @@ export default function Whiteboard() {
           if (Array.isArray(act.newState)) {
             // Redo Partial Erase: Remove original, Add fragments
             setLines(prev => {
+              const index = prev.findIndex(l => l.id === act.id);
               const withoutOriginal = prev.filter(l => l.id !== act.id);
+              if (index !== -1) {
+                const newLines = [...withoutOriginal];
+                newLines.splice(index, 0, ...act.newState);
+                return newLines;
+              }
               return [...withoutOriginal, ...act.newState];
             });
           } else {
@@ -578,7 +601,7 @@ export default function Whiteboard() {
         const affectedTexts = textAnnotations.filter(t => selectedTextIds.has(t.id));
 
         affectedShapes.forEach(s => addToHistory({ type: 'DELETE', objectType: 'shape', id: s.id, previousState: s, newState: null, userId: 'local' }));
-        affectedLines.forEach(l => addToHistory({ type: 'DELETE', objectType: 'line', id: l.id, previousState: l, newState: null, userId: 'local' }));
+        affectedLines.forEach(l => addToHistory({ type: 'DELETE', objectType: 'line', id: l.id, previousState: l, newState: null, userId: 'local', index: lines.findIndex(line => line.id === l.id) }));
         affectedTexts.forEach(t => addToHistory({ type: 'DELETE', objectType: 'text', id: t.id, previousState: t, newState: null, userId: 'local' }));
 
         setShapes(prev => prev.filter(s => !selectedShapeIds.has(s.id)));
@@ -759,8 +782,9 @@ export default function Whiteboard() {
   const performErase = (x: number, y: number) => {
     // 1. Lines
     if (eraserMode === 'stroke') {
+      const currentLines = linesRef.current;
       // Find lines that would be removed
-      const linesHit = lines.filter(l => {
+      const linesHit = currentLines.filter(l => {
         for (let i = 0; i < l.points.length; i += 2) {
           if (distSq({ x: l.points[i], y: l.points[i + 1] }, { x, y }) < eraserSize ** 2) {
             return true;
@@ -772,24 +796,32 @@ export default function Whiteboard() {
       if (linesHit.length > 0) {
         // Record History
         linesHit.forEach(l => {
-          console.log('[Eraser] Deleting Line:', l.id);
+          const index = currentLines.findIndex(cl => cl.id === l.id);
+          console.log('[Eraser] Deleting Line:', l.id, 'Index:', index);
           addToHistory({
             type: 'DELETE',
             objectType: 'line',
             id: l.id,
             previousState: l,
             newState: null,
-            userId: 'local'
+            userId: 'local',
+            index
           });
         });
 
         // Update State
-        setLines(prev => prev.filter(l => !linesHit.some(hit => hit.id === l.id)));
+        const newLines = currentLines.filter(l => !linesHit.some(hit => hit.id === l.id));
+        setLines(newLines);
+        // Sync ref immediately to ensure PointerUp sees latest state for partial logic usage elsewhere (consistency)
+        linesRef.current = newLines;
       }
     } else {
-      // Partial Eraser (Complex) - For now, we only support full undo for Stroke Eraser as per current Task requirements for "DELETE_OBJECT" consistency.
-      // Existing logic kept for functionality, but history tracking might be incomplete for partial splits.
-      setLines(lines => eraseAtPosition(x, y, lines, eraserSize));
+      // Partial Eraser
+      // Calculate new lines using current Ref to ensure we build on latest known state
+      // (This avoids functional update delay causing history mismatch)
+      const newLines = eraseAtPosition(x, y, linesRef.current, eraserSize);
+      setLines(newLines);
+      linesRef.current = newLines; // SYNC REF for proper history capture in PointerUp
     }
 
     // 2. Shapes
@@ -902,8 +934,6 @@ export default function Whiteboard() {
         color: strokeColor,
         fontSize: fontStyles.size,
         fontFamily: fontStyles.family,
-        fontWeight: fontStyles.bold ? 'bold' : 'normal',
-        fontStyle: fontStyles.italic ? 'italic' : 'normal',
         fontWeight: fontStyles.bold ? 'bold' : 'normal',
         fontStyle: fontStyles.italic ? 'italic' : 'normal',
         textDecoration: fontStyles.underline ? 'underline' : 'none',
@@ -1453,14 +1483,16 @@ export default function Whiteboard() {
           // Wait, we need to ensure we don't double-count them.
         } else {
           // Full Deletion -> DELETE
-          console.log('[Eraser] Full Deletion:', deletedL.id);
+          const index = initialEraserLines?.findIndex(l => l.id === deletedL.id);
+          console.log('[Eraser] Full Deletion:', deletedL.id, 'Index:', index);
           actions.push({
             type: 'DELETE',
             objectType: 'line',
             id: deletedL.id,
             previousState: deletedL,
             newState: null,
-            userId: 'local'
+            userId: 'local',
+            index: index !== -1 ? index : undefined
           });
         }
       });

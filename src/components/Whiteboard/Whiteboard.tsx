@@ -2051,6 +2051,7 @@ export default function Whiteboard() {
         <EraserCursor cursorPos={cursorPos} eraserSize={eraserSize} />
       )}
 
+
       {/* Export Tools Overlay */}
       <ExportTools
         stageRef={stageRef}

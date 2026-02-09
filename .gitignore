@@ -52,6 +52,11 @@ lerna-debug.log*
 coverage/
 .nyc_output/
 *.lcov
+# Generated test reports (run `npx tsx scripts/generate-report.ts` to regenerate)
+test-report/
+test-results/
+test-report.html
+html/
 
 # ===============================
 # OS / Editor junk

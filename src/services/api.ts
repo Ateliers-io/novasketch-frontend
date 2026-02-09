@@ -9,7 +9,8 @@ const api = axios.create({
     },
 });
 
-// Request interceptor to attach JWT token
+// injects auth token into every request.
+// relies on local storage persistence (see AuthContext).
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('nova_sketch_token');
@@ -23,7 +24,8 @@ api.interceptors.request.use(
     }
 );
 
-// Response interceptor to handle auth errors
+// global 401 handler. if the session dies, hard redirect to login.
+// brutal but effective for now.
 api.interceptors.response.use(
     (response) => response,
     (error) => {

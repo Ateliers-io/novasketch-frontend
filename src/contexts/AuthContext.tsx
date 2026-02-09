@@ -1,8 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import api from '../services/api';
 
-// Google OAuth implementation with backend integration
-
 export interface User {
     id: string;
     email: string;
@@ -34,6 +32,7 @@ interface AuthProviderProps {
     children: ReactNode;
 }
 
+// TODO: move these to env or constants file to avoid magic strings scattered everywhere
 const TOKEN_KEY = 'nova_sketch_token';
 const SESSION_KEY = 'nova_sketch_session';
 
@@ -42,7 +41,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Initialize session on mount
+    // attempt to hydrate session from local storage.
+    // insecure storage mechanism (vulnerable to XSS), but sufficient for MVP.
     useEffect(() => {
         const initAuth = async () => {
             try {
@@ -54,6 +54,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                     setUser(parsed);
                 }
             } catch (e) {
+                // session corrupted or invalid, nuking it to be safe
                 console.error('Session restoration failed:', e);
                 localStorage.removeItem(SESSION_KEY);
                 localStorage.removeItem(TOKEN_KEY);
@@ -68,15 +69,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setIsLoading(true);
         setError(null);
         try {
+            // exchanging auth code for JWT.
+            // backend validates code with Google, we just forward it.
             const response = await api.post('/auth/google', { code });
             const { token, user: userData } = response.data;
 
-            // Store token and user session
             localStorage.setItem(TOKEN_KEY, token);
             localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
 
             setUser(userData);
         } catch (err: any) {
+            // generic error handler, backend messages might not always be user-friendly
             const message = err.response?.data?.error || err.message || 'Google login failed';
             setError(message);
             throw err;

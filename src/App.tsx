@@ -5,7 +5,7 @@ import { Dashboard } from './components/pages/Dashboard';
 import { Login } from './components/pages/Auth/Login';
 import Whiteboard from './components/Whiteboard/Whiteboard';
 
-/* --- 1. LOADING SCREEN --- */
+// simple spinner for async auth checks.
 const LoadingScreen = () => (
   <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[#0B0C10]">
     <div className="relative">
@@ -17,7 +17,8 @@ const LoadingScreen = () => (
   </div>
 );
 
-/* --- 2. PROTECTED ROUTE WRAPPER --- */
+// standard auth guard. kicks unauthenticated users back to login.
+// forces a replace to keep history clean.
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -28,24 +29,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 
-/* --- 4. APP ROUTES --- */
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/auth" element={<Login />} /> {/* Updated to use Login Component */}
+      <Route path="/auth" element={<Login />} />
 
-      {/* Dashboard - Temporarily unprotected for testing */}
+      {/* dashboard temporarily exposed without auth for dev convenience */}
       <Route
         path="/home"
         element={<Dashboard />}
       />
 
-      {/* Route for Whiteboard. 
-         Note: In a real app, this should be protected. 
-         Currently left unprotected for easy testing if desired, 
-         or wrap in <ProtectedRoute> to enforce the new Login flow.
-      */}
+      {/* whiteboard route. exposed for testing. 
+          TODO: wrap in ProtectedRoute before shipping to prod. */}
       <Route
         path="/board/:id"
         element={<Whiteboard />}

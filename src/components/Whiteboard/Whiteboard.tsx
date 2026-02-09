@@ -24,7 +24,11 @@ import {
 } from '../../utils/boundingBox';
 import ExportTools from '../ExportTools/ExportTools';
 import Konva from 'konva';
-import api from '../../services/api';
+import { useSync } from '../../services/useSync';
+
+// WebSocket URL for sync
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
+const ROOM_ID = 'default-room'; // TODO: Make dynamic based on route/user
 
 // --- CONFIGURATION ---
 const GRID_DOT_COLOR = '#45A29E';
@@ -244,180 +248,74 @@ export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [isLoadingCanvas, setIsLoadingCanvas] = useState(true); // New loading state
 
-  // -- 1. CANVAS STATE --
-  const [lines, setLines] = useState<StrokeLine[]>([]);
+  // -- 1. SYNC STATE (Yjs + WebSocket + IndexedDB) --
+  const {
+    lines,
+    shapes,
+    textAnnotations,
+    isConnected,
+    isLoading: isLoadingCanvas,
+    addLine,
+    updateLine: syncUpdateLine,
+    deleteLine: syncDeleteLine,
+    setLines: syncSetLines,
+    addShape,
+    updateShape: syncUpdateShape,
+    deleteShape: syncDeleteShape,
+    setShapes: syncSetShapes,
+    addText,
+    updateText: syncUpdateText,
+    deleteText: syncDeleteText,
+    setTexts: syncSetTexts,
+    undo: performUndo,
+    redo: performRedo,
+    canUndo,
+    canRedo,
+    clearAll,
+  } = useSync({ roomId: ROOM_ID, wsUrl: WS_URL });
+
+  // Keep a ref to lines for event handlers that need current state
   const linesRef = useRef(lines);
   useEffect(() => { linesRef.current = lines; }, [lines]);
-
-  const [shapes, setShapes] = useState<Shape[]>([]);
-  const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([]);
-
-  // -- 1.5 HISTORY STATE --
-  const [undoStack, setUndoStack] = useState<Action[]>([]);
-  const [redoStack, setRedoStack] = useState<Action[]>([]);
 
   // Snapshot for Eraser Diffing
   const [initialEraserLines, setInitialEraserLines] = useState<StrokeLine[] | null>(null);
 
-  const addToHistory = (action: Action) => {
-    setUndoStack(prev => [...prev, action]);
-    setRedoStack([]); // Clear redo stack on new action
-  };
-
-  // Task 4.5.3: User-Specific Undo
-  const performUndo = useCallback(() => {
-    // Find the last action created by the current user ('local')
-    let actionIndex = -1;
-    for (let i = undoStack.length - 1; i >= 0; i--) {
-      if (undoStack[i].userId === 'local') {
-        actionIndex = i;
-        break;
-      }
+  // State setter wrappers that use the sync service
+  // These provide compatibility with existing event handlers while routing through Yjs
+  const setLines = useCallback((updater: StrokeLine[] | ((prev: StrokeLine[]) => StrokeLine[])) => {
+    if (typeof updater === 'function') {
+      const newLines = updater(lines);
+      syncSetLines(newLines);
+    } else {
+      syncSetLines(updater);
     }
+  }, [lines, syncSetLines]);
 
-    if (actionIndex === -1) return; // No undoable action for current user
-
-    const action = undoStack[actionIndex];
-    console.log('[Undo] Reverting Action:', action.type, 'ID:', action.id, 'User:', action.userId);
-
-    // Remove from undo stack (preserve order of others)
-    const newUndoStack = [...undoStack];
-    newUndoStack.splice(actionIndex, 1);
-    setUndoStack(newUndoStack);
-
-    // Push to redo stack
-    setRedoStack(prev => [...prev, action]);
-
-    // Apply Inverse
-    const applyInverse = (act: Action) => {
-      if (act.type === 'ADD') {
-        // Inverse: DELETE
-        if (act.objectType === 'shape') setShapes(prev => prev.filter(s => s.id !== act.id));
-        if (act.objectType === 'line') setLines(prev => prev.filter(l => l.id !== act.id));
-        if (act.objectType === 'text') setTextAnnotations(prev => prev.filter(t => t.id !== act.id));
-        // Deselect
-        if (act.id) {
-          setSelectedShapeIds(prev => { const n = new Set(prev); n.delete(act.id!); return n; });
-          setSelectedLineIds(prev => { const n = new Set(prev); n.delete(act.id!); return n; });
-          setSelectedTextIds(prev => { const n = new Set(prev); n.delete(act.id!); return n; });
-        }
-      } else if (act.type === 'DELETE') {
-        // Inverse: ADD (Restore)
-        if (act.objectType === 'shape' && act.previousState) setShapes(prev => [...prev, act.previousState]);
-        if (act.objectType === 'line' && act.previousState) {
-          if (typeof act.index === 'number') {
-            setLines(prev => {
-              const copy = [...prev];
-              if (act.index! >= 0 && act.index! <= copy.length) copy.splice(act.index!, 0, act.previousState);
-              else copy.push(act.previousState);
-              return copy;
-            });
-          } else {
-            setLines(prev => [...prev, act.previousState]);
-          }
-        }
-        if (act.objectType === 'text' && act.previousState) setTextAnnotations(prev => [...prev, act.previousState]);
-      } else if (act.type === 'UPDATE') {
-        // Inverse: RESTORE PREVIOUS STATE
-        if (act.objectType === 'shape') setShapes(prev => prev.map(s => s.id === act.id ? act.previousState : s));
-        if (act.objectType === 'line') {
-          if (Array.isArray(act.newState)) {
-            // Task 4.5.3 Partial Erase Undo (Split Line)
-            // Remove the fragments (newState) and restore the original (previousState)
-            const fragmentIds = new Set(act.newState.map((l: StrokeLine) => l.id));
-            setLines(prev => {
-              const firstFragmentIndex = prev.findIndex(l => fragmentIds.has(l.id));
-              const filtered = prev.filter(l => !fragmentIds.has(l.id));
-              if (firstFragmentIndex !== -1) {
-                const newLines = [...filtered];
-                newLines.splice(firstFragmentIndex, 0, act.previousState);
-                return newLines;
-              }
-              return [...filtered, act.previousState];
-            });
-          } else {
-            setLines(prev => prev.map(l => l.id === act.id ? act.previousState : l));
-          }
-        }
-        if (act.objectType === 'text') setTextAnnotations(prev => prev.map(t => t.id === act.id ? act.previousState : t));
-      } else if (act.type === 'BATCH' && act.actions) {
-        // Inverse of Batch: Apply inverse of each sub-action in REVERSE order
-        [...act.actions].reverse().forEach(subAct => applyInverse(subAct));
-      }
-    };
-
-    applyInverse(action);
-  }, [undoStack]);
-
-  // Task 4.5.3: User-Specific Redo
-  const performRedo = useCallback(() => {
-    // Find the last action in redo stack for 'local' (standard LIFO behavior for redo stack)
-    let actionIndex = -1;
-    for (let i = redoStack.length - 1; i >= 0; i--) {
-      if (redoStack[i].userId === 'local') {
-        actionIndex = i;
-        break;
-      }
+  const setShapes = useCallback((updater: Shape[] | ((prev: Shape[]) => Shape[])) => {
+    if (typeof updater === 'function') {
+      const newShapes = updater(shapes);
+      syncSetShapes(newShapes);
+    } else {
+      syncSetShapes(updater);
     }
+  }, [shapes, syncSetShapes]);
 
-    if (actionIndex === -1) return;
+  const setTextAnnotations = useCallback((updater: TextAnnotation[] | ((prev: TextAnnotation[]) => TextAnnotation[])) => {
+    if (typeof updater === 'function') {
+      const newTexts = updater(textAnnotations);
+      syncSetTexts(newTexts);
+    } else {
+      syncSetTexts(updater);
+    }
+  }, [textAnnotations, syncSetTexts]);
 
-    const action = redoStack[actionIndex];
-    console.log('[Redo] Re-applying Action:', action.type, 'ID:', action.id, 'User:', action.userId);
-
-    // Remove from redo stack
-    const newRedoStack = [...redoStack];
-    newRedoStack.splice(actionIndex, 1);
-    setRedoStack(newRedoStack);
-
-    // Push back to undo stack
-    setUndoStack(prev => [...prev, action]);
-
-    // Apply Action
-    const applyAction = (act: Action) => {
-      if (act.type === 'ADD') {
-        // Redo: ADD
-        if (act.objectType === 'shape' && act.newState) setShapes(prev => [...prev, act.newState]);
-        if (act.objectType === 'line' && act.newState) setLines(prev => [...prev, act.newState]);
-        if (act.objectType === 'text' && act.newState) setTextAnnotations(prev => [...prev, act.newState]);
-      } else if (act.type === 'DELETE') {
-        // Redo: DELETE
-        if (act.objectType === 'shape') setShapes(prev => prev.filter(s => s.id !== act.id));
-        if (act.objectType === 'line') setLines(prev => prev.filter(l => l.id !== act.id));
-        if (act.objectType === 'text') setTextAnnotations(prev => prev.filter(t => t.id !== act.id));
-      } else if (act.type === 'UPDATE') {
-        // Redo: UPDATE TO NEW STATE
-        if (act.objectType === 'shape') setShapes(prev => prev.map(s => s.id === act.id ? act.newState : s));
-        if (act.objectType === 'line') {
-          if (Array.isArray(act.newState)) {
-            // Redo Partial Erase: Remove original, Add fragments
-            setLines(prev => {
-              const index = prev.findIndex(l => l.id === act.id);
-              const withoutOriginal = prev.filter(l => l.id !== act.id);
-              if (index !== -1) {
-                const newLines = [...withoutOriginal];
-                newLines.splice(index, 0, ...act.newState);
-                return newLines;
-              }
-              return [...withoutOriginal, ...act.newState];
-            });
-          } else {
-            setLines(prev => prev.map(l => l.id === act.id ? act.newState : l));
-          }
-        }
-        if (act.objectType === 'text') setTextAnnotations(prev => prev.map(t => t.id === act.id ? act.newState : t));
-      } else if (act.type === 'BATCH' && act.actions) {
-        // Redo Batch: Apply actions in ORIGINAL order
-        act.actions.forEach(subAct => applyAction(subAct));
-      }
-    };
-
-    applyAction(action);
-  }, [redoStack]);
+  // No-op function for addToHistory (Yjs handles history automatically)
+  const addToHistory = useCallback((_action: Action) => {
+    // Yjs UndoManager handles history automatically via transactions
+    // This is kept as a no-op for compatibility with existing code
+  }, []);
 
   // -- 2. INTERACTION STATE --
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
@@ -491,80 +389,9 @@ export default function Whiteboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // -- Task 6.1.2: Load Canvas Data on Mount --
-  useEffect(() => {
-    const loadCanvas = async () => {
-      try {
-        setIsLoadingCanvas(true);
-        const response = await api.get('/canvas/load');
+  // NOTE: Canvas loading and saving is now handled automatically by the SyncService
+  // via Yjs + WebSocket (for MongoDB persistence) and IndexedDB (for offline support)
 
-        if (response.data && response.data.canvas) {
-          const { lines, shapes, textAnnotations, lastSaved } = response.data.canvas;
-
-          setLines(lines || []);
-          setShapes(shapes || []);
-          setTextAnnotations(textAnnotations || []);
-
-          if (lastSaved) {
-            setLastSaved(new Date(lastSaved));
-          }
-          console.log('[Canvas Load] Loaded saved data successfully');
-        }
-      } catch (error) {
-        console.error('[Canvas Load] Failed to load canvas data:', error);
-        // Optional: Show error toast or redirect if 401
-      } finally {
-        setIsLoadingCanvas(false);
-      }
-    };
-
-    loadCanvas();
-  }, []); // Empty dependency array = run once on mount
-
-  // -- Task 6.1.1: Auto-Save Functionality --
-  // -- Task 6.1.1: Auto-Save Functionality (Refined) --
-  // Use a ref to keep track of the latest data without triggering effects constantly
-  const canvasDataRef = useRef({ lines, shapes, textAnnotations });
-
-  useEffect(() => {
-    canvasDataRef.current = { lines, shapes, textAnnotations };
-  }, [lines, shapes, textAnnotations]);
-
-  useEffect(() => {
-    const saveCanvas = async () => {
-      // Don't save if empty
-      const data = canvasDataRef.current;
-      if (data.lines.length === 0 && data.shapes.length === 0 && data.textAnnotations.length === 0) {
-        return;
-      }
-
-      setIsSaving(true);
-      try {
-        const payload = {
-          ...data,
-          version: Date.now()
-        };
-
-        console.log('[Auto-Save] Saving payload:', payload);
-
-        // Real API call
-        await api.post('/canvas/save', payload);
-
-        console.log('[Auto-Save] Successfully saved to backend');
-        setLastSaved(new Date());
-      } catch (err) {
-        console.error('[Auto-Save] Error:', err);
-      } finally {
-        setIsSaving(false);
-      }
-    };
-
-    const handler = setTimeout(() => {
-      saveCanvas();
-    }, 2000);
-
-    return () => clearTimeout(handler);
-  }, [lines, shapes, textAnnotations]); // Re-run debounce timer on changes
 
   // Keyboard Shortcuts (Ctrl+A, Escape, Delete)
   useEffect(() => {
@@ -1789,24 +1616,29 @@ export default function Whiteboard() {
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
 
-        canUndo={undoStack.some(a => a.userId === 'local')}
-        canRedo={redoStack.some(a => a.userId === 'local')}
+        canUndo={canUndo}
+        canRedo={canRedo}
         onUndo={performUndo}
         onRedo={performRedo}
       />
 
-      {/* Auto-Save Indicator */}
+      {/* Connection Status Indicator */}
       <div className="fixed top-4 right-4 z-50 pointer-events-none">
-        <div className={`bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 flex items-center gap-2 ${isSaving || lastSaved ? 'opacity-100' : 'opacity-0'}`}>
-          {isSaving ? (
+        <div className={`bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 flex items-center gap-2 ${isConnected ? 'opacity-100' : 'opacity-100'}`}>
+          {isLoadingCanvas ? (
             <>
               <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-              <span>Saving...</span>
+              <span>Loading...</span>
+            </>
+          ) : isConnected ? (
+            <>
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+              <span>Connected</span>
             </>
           ) : (
             <>
-              <div className="w-2 h-2 rounded-full bg-green-400" />
-              <span>Saved {lastSaved?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <div className="w-2 h-2 rounded-full bg-orange-400" />
+              <span>Offline (syncing later)</span>
             </>
           )}
         </div>
@@ -2093,11 +1925,7 @@ export default function Whiteboard() {
         lines={lines}
         shapes={shapes}
         textAnnotations={textAnnotations}
-        onClear={() => {
-          setLines([]);
-          setShapes([]);
-          setTextAnnotations([]);
-        }}
+        onClear={clearAll}
       />
     </div>
   );

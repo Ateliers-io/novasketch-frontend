@@ -128,8 +128,8 @@ const TodoItemComponent = ({ item, onToggle, onEdit, onDelete }: TodoItemProps) 
         <div
             ref={itemRef}
             className={`group flex items-center gap-3 py-2 px-3 rounded-md border transition-all ${item.completed
-                    ? 'bg-[#66FCF1]/5 border-[#66FCF1]/20'
-                    : 'bg-[#1F2833]/30 border-transparent hover:border-[#45A29E]/30'
+                ? 'bg-[#66FCF1]/5 border-[#66FCF1]/20'
+                : 'bg-[#1F2833]/30 border-transparent hover:border-[#45A29E]/30'
                 }`}
         >
             <button
@@ -247,6 +247,7 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: a
     const tlRef = useRef<ReturnType<typeof gsap.timeline> | null>(null);
 
     useLayoutEffect(() => {
+        if (!cardRef.current) return;
         const ctx = gsap.context(() => {
             const shapes = gsap.utils.selector(previewRef.current)('.live-shape');
             tlRef.current = gsap.timeline({ paused: true, repeat: -1, yoyo: true });
@@ -481,8 +482,8 @@ export const Dashboard = () => {
                 </div>
                 <div className="p-2 border-t border-white/10">
                     <div className="flex items-center gap-3 p-2 rounded-sm hover:bg-[#1F2833] cursor-pointer transition-colors">
-                        <div className="w-8 h-8 rounded bg-[#1F2833] border border-white/10 flex items-center justify-center text-xs font-bold text-white">{user?.name?.[0] || 'U'}</div>
-                        {!isSidebarCollapsed && <div className="flex-1 min-w-0"><div className="text-xs font-medium text-white truncate">{user?.name}</div><div className="text-[10px] text-[#45A29E] truncate font-mono">ONLINE</div></div>}
+                        <div className="w-8 h-8 rounded bg-[#1F2833] border border-white/10 flex items-center justify-center text-xs font-bold text-white">{user?.displayName?.[0] || 'U'}</div>
+                        {!isSidebarCollapsed && <div className="flex-1 min-w-0"><div className="text-xs font-medium text-white truncate">{user?.displayName}</div><div className="text-[10px] text-[#45A29E] truncate font-mono">ONLINE</div></div>}
                         {!isSidebarCollapsed && <button onClick={handleLogout} className="text-[#8b9bb4] hover:text-[#66FCF1]"><LogOut size={14} /></button>}
                     </div>
                 </div>

@@ -22,61 +22,103 @@ const getTimestampFilename = (ext: string) => {
 const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, textAnnotations, onClear }) => {
     const [isOpen, setIsOpen] = useState(false);
 
-    // 6.2 Export to Image (PNG/JPG)
+    // Helper: Generate Full SVG Content
+    const generateSVGContent = () => {
+        if (!stageRef.current) return '';
+        const width = stageRef.current.width();
+        const height = stageRef.current.height();
+
+        let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+
+        // 1. Background (Dark Theme)
+        svg += `<rect width="100%" height="100%" fill="#0B0C10"/>`;
+        // Optional: Grid dots
+        // svg += `<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#45A29E" /></pattern></defs>`;
+        // svg += `<rect width="100%" height="100%" fill="url(#grid)" opacity="0.2"/>`;
+
+        // 2. Shapes (Bottom Layer)
+        shapes.map(shape => {
+            // Apply transformations
+            const { rotation, scaleX, scaleY } = shape.transform;
+            const cx = isRectangle(shape) ? shape.position.x + (shape as any).width / 2 : shape.position.x;
+            const cy = isRectangle(shape) ? shape.position.y + (shape as any).height / 2 : shape.position.y;
+            const transform = `translate(${cx}, ${cy}) rotate(${rotation}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
+
+            if (isRectangle(shape)) {
+                const s = shape as RectangleShape;
+                // Note: fill should be 'none' if !hasFill
+                const fill = s.style.hasFill ? s.style.fill : 'none';
+                svg += `<rect x="${s.position.x}" y="${s.position.y}" width="${s.width}" height="${s.height}" rx="${s.cornerRadius}" stroke="${s.style.stroke}" stroke-width="${s.style.strokeWidth}" fill="${fill}" transform="${transform}" />`;
+            } else if (isCircle(shape)) {
+                const s = shape as CircleShape;
+                const fill = s.style.hasFill ? s.style.fill : 'none';
+                svg += `<circle cx="${s.position.x}" cy="${s.position.y}" r="${s.radius}" stroke="${s.style.stroke}" stroke-width="${s.style.strokeWidth}" fill="${fill}" transform="${transform}" />`;
+            }
+        });
+
+        // 3. Konva Lines (Middle Layer)
+        lines.forEach(line => {
+            const points = line.points;
+            if (points.length < 2) return;
+            let d = `M ${points[0]} ${points[1]}`;
+            for (let i = 2; i < points.length; i += 2) {
+                d += ` L ${points[i]} ${points[i + 1]}`;
+            }
+            svg += `<path d="${d}" stroke="${line.color}" stroke-width="${line.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
+        });
+
+        // 4. Text Annotations (Top Layer)
+        textAnnotations.forEach(text => {
+            const style = `font-family: ${text.fontFamily}; font-size: ${text.fontSize}px; font-weight: ${text.fontWeight}; font-style: ${text.fontStyle}; text-decoration: ${text.textDecoration}; fill: ${text.color}; white-space: pre;`;
+            // Creating foreignObject for better text rendering might be complex, sticking to simple text for now
+            // Or using <text> element:
+            svg += `<text x="${text.x}" y="${text.y + text.fontSize}" style="${style}">${text.text}</text>`;
+        });
+
+        svg += `</svg>`;
+        return svg;
+    };
+
+    // 6.2 Export to Image (PNG/JPG) - NOW SUPPORTS SHAPES & TEXT + DARK BG
     const handleExportImage = (format: 'png' | 'jpeg' = 'png') => {
         if (!stageRef.current) return;
-        const uri = stageRef.current.toDataURL({ pixelRatio: 2, mimeType: `image/${format}` });
 
-        const link = document.createElement('a');
-        link.download = getTimestampFilename(format === 'jpeg' ? 'jpg' : format);
-        link.href = uri;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setIsOpen(false);
+        const svgString = generateSVGContent();
+        const width = stageRef.current.width();
+        const height = stageRef.current.height();
+
+        const img = new Image();
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width * 2; // High DPI
+            canvas.height = height * 2;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            ctx.scale(2, 2);
+            ctx.drawImage(img, 0, 0);
+
+            // Trigger Download
+            const dataUrl = canvas.toDataURL(`image/${format}`);
+            const link = document.createElement('a');
+            link.download = getTimestampFilename(format === 'jpeg' ? 'jpg' : format);
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            URL.revokeObjectURL(url);
+            setIsOpen(false);
+        };
+        img.src = url;
     };
 
     // 6.3 Export to SVG
     const handleExportSVG = () => {
-        if (!stageRef.current) return;
-
-        // Generate valid SVG string from state
-        // Note: Konva doesn't natively export to SVG string in browser without plugins easily, 
-        // but we can construct it since we have the state (lines, shapes, text).
-
-        let svgContent = `<svg width="${stageRef.current?.width() || 800}" height="${stageRef.current?.height() || 600}" xmlns="http://www.w3.org/2000/svg">`;
-
-        // Background (optional)
-        svgContent += `<rect width="100%" height="100%" fill="white"/>`;
-
-        // Shapes
-        shapes.forEach(shape => {
-            if (isRectangle(shape)) {
-                const s = shape as RectangleShape;
-                svgContent += `<rect x="${s.position.x}" y="${s.position.y}" width="${s.width}" height="${s.height}" stroke="${s.style.stroke}" stroke-width="${s.style.strokeWidth}" fill="${s.style.hasFill ? s.style.fill : 'none'}" />`;
-            } else if (isCircle(shape)) {
-                const s = shape as CircleShape;
-                svgContent += `<circle cx="${s.position.x}" cy="${s.position.y}" r="${s.radius}" stroke="${s.style.stroke}" stroke-width="${s.style.strokeWidth}" fill="${s.style.hasFill ? s.style.fill : 'none'}" />`;
-            }
-        });
-
-        // Lines
-        lines.forEach(line => {
-            const points = line.points;
-            let path = `M ${points[0]} ${points[1]}`;
-            for (let i = 2; i < points.length; i += 2) {
-                path += ` L ${points[i]} ${points[i + 1]}`;
-            }
-            svgContent += `<path d="${path}" stroke="${line.color}" stroke-width="${line.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
-        });
-
-        // Text
-        textAnnotations.forEach(text => {
-            svgContent += `<text x="${text.x}" y="${text.y + text.fontSize}" font-family="${text.fontFamily}" font-size="${text.fontSize}" fill="${text.color}" font-weight="${text.fontWeight}" font-style="${text.fontStyle}" text-decoration="${text.textDecoration}">${text.text}</text>`;
-        });
-
-        svgContent += `</svg>`;
-
+        const svgContent = generateSVGContent();
         const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(blob);
 
@@ -94,24 +136,38 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
     const handleExportPDF = () => {
         if (!stageRef.current) return;
 
-        const stageWidth = stageRef.current.width();
-        const stageHeight = stageRef.current.height();
+        // Similar to Image Export flow
+        const svgString = generateSVGContent();
+        const width = stageRef.current.width();
+        const height = stageRef.current.height();
 
-        // Initialize PDF
-        // eslint-disable-next-line new-cap
-        const pdf = new jsPDF({
-            orientation: stageWidth > stageHeight ? 'l' : 'p',
-            unit: 'px',
-            format: [stageWidth, stageHeight]
-        });
+        const img = new Image();
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
 
-        // Convert stage to image data
-        const imgData = stageRef.current.toDataURL({ pixelRatio: 2 });
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width * 2;
+            canvas.height = height * 2;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.scale(2, 2);
+                ctx.drawImage(img, 0, 0);
+                const imgData = canvas.toDataURL('image/png');
 
-        // Add image to PDF
-        pdf.addImage(imgData, 'PNG', 0, 0, stageWidth, stageHeight);
-        pdf.save(getTimestampFilename('pdf'));
-        setIsOpen(false);
+                // eslint-disable-next-line new-cap
+                const pdf = new jsPDF({
+                    orientation: width > height ? 'l' : 'p',
+                    unit: 'px',
+                    format: [width, height]
+                });
+                pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+                pdf.save(getTimestampFilename('pdf'));
+            }
+            URL.revokeObjectURL(url);
+            setIsOpen(false);
+        };
+        img.src = url;
     };
 
     // 6.5 Clear Canvas

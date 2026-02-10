@@ -17,7 +17,10 @@ import {
     ArrowUp,
     ArrowDown,
     Undo2,
-    Redo2
+    Redo2,
+    AlignLeft,
+    AlignCenter,
+    AlignRight
 } from 'lucide-react';
 import { ToolType } from '../../types/shapes';
 
@@ -53,6 +56,9 @@ interface ToolbarProps {
     onItalicChange: (italic: boolean) => void;
     isUnderline: boolean;
     onUnderlineChange: (underline: boolean) => void;
+    textAlign: 'left' | 'center' | 'right';
+    onTextAlignChange: (align: 'left' | 'center' | 'right') => void;
+    isTextSelected: boolean;
 
     // Eraser Props
     eraserMode: EraserMode;
@@ -162,7 +168,10 @@ export default function Toolbar({
     canUndo = false,
     canRedo = false,
     onUndo,
-    onRedo
+    onRedo,
+    textAlign = 'left',
+    onTextAlignChange,
+    isTextSelected = false
 }: ToolbarProps) {
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const eraserMenuRef = useRef<HTMLDivElement>(null);
@@ -182,6 +191,15 @@ export default function Toolbar({
     const isDrawMode = [ToolType.PEN, ToolType.RECTANGLE, ToolType.CIRCLE].includes(activeTool as ToolType);
     const isTextMode = activeTool === 'text';
     const isEraserMode = activeTool === 'eraser';
+
+    // Font size presets
+    const FONT_SIZES = [
+        { label: 'S', size: 14 },
+        { label: 'M', size: 18 },
+        { label: 'L', size: 24 },
+        { label: 'XL', size: 32 }
+    ] as const;
+
 
     return (
         <div
@@ -375,24 +393,31 @@ export default function Toolbar({
                                 onChange={(e) => onFontFamilyChange(e.target.value)}
                                 className="appearance-none bg-[#0f1316] text-xs text-white border border-[#262e35] rounded h-8 pl-3 pr-8 focus:border-[#2dd4bf] focus:outline-none cursor-pointer hover:bg-[#262e35] transition-colors"
                             >
-                                <option value="Inter">Inter</option>
                                 <option value="Arial">Arial</option>
-                                <option value="Times New Roman">Times</option>
-                                <option value="Courier New">Mono</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
                             </select>
                             <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#607383] pointer-events-none" />
                         </div>
 
-                        {/* Font Size */}
-                        <div className="flex items-center gap-1 bg-[#0f1316] border border-[#262e35] rounded h-8 px-1">
-                            <input
-                                type="number"
-                                value={fontSize}
-                                onChange={(e) => onFontSizeChange(Number(e.target.value))}
-                                className="w-8 bg-transparent text-xs text-center text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <span className="text-[10px] text-[#607383] pr-1">px</span>
+
+                        {/* Font Size Presets */}
+                        <div className="flex items-center gap-0.5 bg-[#0f1316] border border-[#262e35] rounded p-0.5">
+                            {FONT_SIZES.map(({ label, size }) => (
+                                <button
+                                    key={label}
+                                    onClick={() => onFontSizeChange(size)}
+                                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${fontSize === size
+                                        ? 'bg-[#262e35] text-white'
+                                        : 'text-[#7e909e] hover:text-white hover:bg-[#1a2026]'
+                                        }`}
+                                    title={`Font Size ${size}px`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
                         </div>
+
 
                         {/* Style Toggles */}
                         <div className="flex items-center gap-0.5 bg-[#0f1316] border border-[#262e35] rounded p-0.5">
@@ -415,6 +440,33 @@ export default function Toolbar({
                                 <Underline size={14} />
                             </button>
                         </div>
+
+                        {/* Text Alignment - Only when text is selected */}
+                        {isTextSelected && (
+                            <div className="flex items-center gap-0.5 bg-[#0f1316] border border-[#262e35] rounded p-0.5 animate-in fade-in slide-in-from-left-2 duration-200">
+                                <button
+                                    onClick={() => onTextAlignChange('left')}
+                                    className={`p-1.5 rounded ${textAlign === 'left' ? 'bg-[#262e35] text-white' : 'text-[#7e909e] hover:text-white'}`}
+                                    title="Align Left"
+                                >
+                                    <AlignLeft size={14} />
+                                </button>
+                                <button
+                                    onClick={() => onTextAlignChange('center')}
+                                    className={`p-1.5 rounded ${textAlign === 'center' ? 'bg-[#262e35] text-white' : 'text-[#7e909e] hover:text-white'}`}
+                                    title="Align Center"
+                                >
+                                    <AlignCenter size={14} />
+                                </button>
+                                <button
+                                    onClick={() => onTextAlignChange('right')}
+                                    className={`p-1.5 rounded ${textAlign === 'right' ? 'bg-[#262e35] text-white' : 'text-[#7e909e] hover:text-white'}`}
+                                    title="Align Right"
+                                >
+                                    <AlignRight size={14} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
                 {/* 4. Layer Controls (When Selection Active) */}
@@ -438,6 +490,6 @@ export default function Toolbar({
                     </>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

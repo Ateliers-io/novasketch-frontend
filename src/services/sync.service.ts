@@ -53,6 +53,7 @@ export interface TextAnnotation {
     fontWeight: string;
     fontStyle: string;
     textDecoration: string;
+    textAlign?: 'left' | 'center' | 'right';
     rotation?: number;
 }
 

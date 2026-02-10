@@ -53,6 +53,8 @@ interface TextAnnotation {
   fontWeight: string;
   fontStyle: string;
   textDecoration: string;
+
+  textAlign?: 'left' | 'center' | 'right';
   rotation?: number;
 }
 
@@ -185,6 +187,16 @@ function moveBackward<T extends { id: string }>(items: T[], selectedIds: Set<str
   return newItems;
 }
 
+// Font family mapping with proper fallbacks (system fonts only)
+function getFontFamilyWithFallback(fontFamily: string): string {
+  const fontMap: Record<string, string> = {
+    'Arial': 'Arial, sans-serif',
+    'Times New Roman': '"Times New Roman", serif',
+    'Courier New': '"Courier New", monospace'
+  };
+  return fontMap[fontFamily] || 'Arial, sans-serif';
+}
+
 // --- HELPER COMPONENTS ---
 const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -219,24 +231,25 @@ const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="bg-white p-1 rounded shadow-xl border-2 border-blue-500">
+      <div className="bg-[#1a2026]/95 backdrop-blur-md p-2 rounded-lg shadow-2xl border border-[#2d2d44] ring-1 ring-white/10">
         <textarea
           ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type text..."
-          className="block w-full h-full bg-transparent text-black outline-none resize-none overflow-hidden min-w-[200px] min-h-[50px]"
+          placeholder="Type something..."
+          className="block w-full h-full bg-transparent text-white outline-none resize-none overflow-hidden min-w-[200px] min-h-[50px] placeholder:text-gray-500"
           style={{
-            fontSize: `${style.size || 16}px`,
-            fontFamily: style.family || 'Inter',
+            fontSize: `${style.size || 18}px`,
+            fontFamily: getFontFamilyWithFallback(style.family || 'Arial'),
             fontWeight: style.bold ? 'bold' : 'normal',
             fontStyle: style.italic ? 'italic' : 'normal',
             textDecoration: style.underline ? 'underline' : 'none',
+            textAlign: style.textAlign || 'left',
             color: style.color,
           }}
         />
-        <div className="text-[10px] text-gray-400 text-right px-1">Press Enter to save</div>
+        <div className="text-[10px] text-gray-500 text-right px-1 pt-1 font-mono">Press Enter to save</div>
       </div>
     </div>
   );
@@ -247,6 +260,7 @@ export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
 
   // connecting to the hive mind (yjs + ws + idb).
   const {
@@ -359,6 +373,7 @@ export default function Whiteboard() {
   // UI State
   const [activeTextInput, setActiveTextInput] = useState<{ x: number, y: number } | null>(null);
   const [textInputValue, setTextInputValue] = useState(''); // Hoisted state
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
 
   // -- 3. STYLE STATE --
@@ -369,17 +384,20 @@ export default function Whiteboard() {
   const [eraserMode, setEraserMode] = useState<EraserMode>('stroke');
 
   const [fontStyles, setFontStyles] = useState({
-    family: 'Inter',
-    size: 16,
+    family: 'Arial', // Default to Arial (system font)
+    size: 18, // Default to M preset
     bold: false,
     italic: false,
-    underline: false
+
+    underline: false,
+    textAlign: 'left' as 'left' | 'center' | 'right'
   });
 
 
 
 
-  // Handle Window Resize
+
+
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', handleResize);
@@ -601,6 +619,26 @@ export default function Whiteboard() {
     }
   }, [selectedShapeIds, selectedLineIds, selectedTextIds, shapes, lines, textAnnotations]);
 
+  // Synchronize Toolbar with Text Selection
+  useEffect(() => {
+    if (selectedTextIds.size === 1) {
+      const textId = Array.from(selectedTextIds)[0];
+      const text = textAnnotations.find(t => t.id === textId);
+      if (text) {
+        setFontStyles(prev => ({
+          ...prev,
+          family: text.fontFamily,
+          size: text.fontSize,
+          bold: text.fontWeight === 'bold',
+          italic: text.fontStyle === 'italic',
+          underline: text.textDecoration === 'underline',
+          textAlign: text.textAlign || 'left'
+        }));
+        setStrokeColor(text.color);
+      }
+    }
+  }, [selectedTextIds, textAnnotations]);
+
 
 
   const performErase = (x: number, y: number) => {
@@ -747,39 +785,97 @@ export default function Whiteboard() {
   // -- 5. ACTION HANDLERS --
 
   const commitText = () => {
-    if (activeTextInput && textInputValue.trim()) {
-      const newTextId = `text-${Date.now()}`;
-      const newText = {
-        id: newTextId,
-        x: activeTextInput.x,
-        y: activeTextInput.y,
-        text: textInputValue,
-        color: strokeColor,
-        fontSize: fontStyles.size,
-        fontFamily: fontStyles.family,
-        fontWeight: fontStyles.bold ? 'bold' : 'normal',
-        fontStyle: fontStyles.italic ? 'italic' : 'normal',
-        textDecoration: fontStyles.underline ? 'underline' : 'none',
-        rotation: 0 // Initialize rotation
-      };
-      setTextAnnotations(prev => [...prev, newText]);
-      addToHistory({
-        type: 'ADD',
-        objectType: 'text',
-        id: newTextId,
-        previousState: null,
-        newState: newText,
-        userId: 'local'
-      });
-
-      // Auto-switch to selection and select the new text (unless locked)
-      if (!isToolLocked) {
-        setActiveTool('select');
-        setSelectedTextIds(new Set([newTextId]));
+    if (activeTextInput) {
+      if (textInputValue.trim()) {
+        if (editingTextId) {
+          // Update existing text
+          setTextAnnotations(prev => prev.map(t => {
+            if (t.id === editingTextId) {
+              const updatedT = {
+                ...t,
+                text: textInputValue,
+                color: strokeColor,
+                fontSize: fontStyles.size,
+                fontFamily: fontStyles.family,
+                fontWeight: fontStyles.bold ? 'bold' : 'normal',
+                fontStyle: fontStyles.italic ? 'italic' : 'normal',
+                textDecoration: fontStyles.underline ? 'underline' : 'none',
+                textAlign: fontStyles.textAlign
+              };
+              addToHistory({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: t, newState: updatedT, userId: 'local' });
+              return updatedT;
+            }
+            return t;
+          }));
+        } else {
+          // Create new text
+          const newTextId = `text-${Date.now()}`;
+          const newText = {
+            id: newTextId,
+            x: activeTextInput.x,
+            y: activeTextInput.y,
+            text: textInputValue,
+            color: strokeColor,
+            fontSize: fontStyles.size,
+            fontFamily: fontStyles.family,
+            fontWeight: fontStyles.bold ? 'bold' : 'normal',
+            fontStyle: fontStyles.italic ? 'italic' : 'normal',
+            textDecoration: fontStyles.underline ? 'underline' : 'none',
+            textAlign: fontStyles.textAlign,
+            rotation: 0
+          };
+          setTextAnnotations(prev => [...prev, newText]);
+          addToHistory({
+            type: 'ADD',
+            objectType: 'text',
+            id: newTextId,
+            previousState: null,
+            newState: newText,
+            userId: 'local'
+          });
+          if (!isToolLocked) {
+            setActiveTool('select');
+            setSelectedTextIds(new Set([newTextId]));
+          }
+        }
+      } else if (editingTextId) {
+        // If empty string and editing, delete the text?
+        // For now, let's keep it simple and just do nothing (restore old), unless explicitly deleting.
+        // Or if user cleared it, they might want to delete.
+        // Let's assume empty = delete for consistency with creation.
+        const textToDelete = textAnnotations.find(t => t.id === editingTextId);
+        if (textToDelete) {
+          setTextAnnotations(prev => prev.filter(t => t.id !== editingTextId));
+          addToHistory({ type: 'DELETE', objectType: 'text', id: editingTextId, previousState: textToDelete, newState: null, userId: 'local' });
+        }
       }
     }
     setActiveTextInput(null);
     setTextInputValue('');
+    setEditingTextId(null);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    const { x, y } = getPointerPos(e);
+    const clickedItem = findElementAtPoint(x, y);
+    if (clickedItem && clickedItem.type === 'text') {
+      const text = textAnnotations.find(t => t.id === clickedItem.id);
+      if (text) {
+        setEditingTextId(text.id);
+        setActiveTextInput({ x: text.x, y: text.y });
+        setTextInputValue(text.text);
+        // Sync styles to toolbar/input
+        setFontStyles({
+          family: text.fontFamily,
+          size: text.fontSize,
+          bold: text.fontWeight === 'bold',
+          italic: text.fontStyle === 'italic',
+          underline: text.textDecoration === 'underline',
+          textAlign: text.textAlign || 'left' as 'left' | 'center' | 'right'
+        });
+        setStrokeColor(text.color);
+      }
+    }
   };
 
   const handlePointerDown = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
@@ -1137,7 +1233,12 @@ export default function Whiteboard() {
               // Use average of scales or max? Max ensures it doesn't shrink weirdly.
               // Or use scaleX if shift held? 
               // Let's use geometric mean or max. Max is safer for visibility.
-              const scale = Math.max(scaleX, scaleY);
+              // Scale choice based on handle
+              let scale = 1;
+              if (['n', 's'].includes(resizeHandle)) scale = scaleY;
+              else if (['e', 'w'].includes(resizeHandle)) scale = scaleX;
+              else scale = Math.max(scaleX, scaleY);
+
               return { ...s, position: { x: finalX, y: finalY }, radius: (initS as CircleShape).radius * scale };
             }
             return { ...s, position: { x: finalX, y: finalY } };
@@ -1172,7 +1273,14 @@ export default function Whiteboard() {
           if (initT) {
             const nx = newX + (initT.x - box.x) * scaleX;
             const ny = newY + (initT.y - box.y) * scaleY;
-            const nFontSize = initT.fontSize * scaleY; // Use Y scale for font size typically
+
+            // Text Scaling:
+            // If dragging width-only handles (e/w), use scaleX. 
+            // If height-only (n/s) or corner, use scaleY (standard).
+            let fontScale = scaleY;
+            if (['e', 'w'].includes(resizeHandle)) fontScale = scaleX;
+
+            const nFontSize = initT.fontSize * fontScale;
             return { ...t, x: nx, y: ny, fontSize: nFontSize };
           }
           return t;
@@ -1561,6 +1669,7 @@ export default function Whiteboard() {
       onMouseMove={handlePointerMove}
       onMouseDown={handlePointerDown}
       onMouseUp={handlePointerUp}
+      onDoubleClick={handleDoubleClick}
       onMouseLeave={() => setCursorPos(null)}
     >
       {/* Loading Overlay */}
@@ -1590,19 +1699,123 @@ export default function Whiteboard() {
         brushSize={brushSize}
         onBrushSizeChange={setBrushSize}
         strokeColor={strokeColor}
-        onColorChange={setStrokeColor}
+        onColorChange={(c) => {
+          setStrokeColor(c);
+          if (selectedTextIds.size > 0) {
+            const updates: Action[] = [];
+            setTextAnnotations(prev => prev.map(t => {
+              if (selectedTextIds.has(t.id) && t.id !== editingTextId) {
+                const newT = { ...t, color: c };
+                updates.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: t, newState: newT, userId: 'local' });
+                return newT;
+              }
+              return t;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
         fillColor={fillColor}
         onFillColorChange={setFillColor}
         fontFamily={fontStyles.family}
-        onFontFamilyChange={(f) => setFontStyles(p => ({ ...p, family: f }))}
+        onFontFamilyChange={(f) => {
+          setFontStyles(p => ({ ...p, family: f }));
+          if (selectedTextIds.size > 0) {
+            const updates: Action[] = [];
+            setTextAnnotations(prev => prev.map(t => {
+              if (selectedTextIds.has(t.id) && t.id !== editingTextId) {
+                const newT = { ...t, fontFamily: f };
+                updates.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: t, newState: newT, userId: 'local' });
+                return newT;
+              }
+              return t;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
         fontSize={fontStyles.size}
-        onFontSizeChange={(s) => setFontStyles(p => ({ ...p, size: s }))}
+        onFontSizeChange={(s) => {
+          // Update font style state
+          setFontStyles(p => ({ ...p, size: s }));
+
+          // Update selected text objects (skip actively edited text)
+          if (selectedTextIds.size > 0) {
+            const updates: Action[] = [];
+            setTextAnnotations(prev => prev.map(t => {
+              if (selectedTextIds.has(t.id) && t.id !== editingTextId) {
+                const newT = { ...t, fontSize: s };
+                updates.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: t, newState: newT, userId: 'local' });
+                return newT;
+              }
+              return t;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
         isBold={fontStyles.bold}
-        onBoldChange={(b) => setFontStyles(p => ({ ...p, bold: b }))}
+        onBoldChange={(b) => {
+          setFontStyles(p => ({ ...p, bold: b }));
+          if (selectedTextIds.size > 0) {
+            const updates: Action[] = [];
+            setTextAnnotations(prev => prev.map(t => {
+              if (selectedTextIds.has(t.id) && t.id !== editingTextId) {
+                const newT = { ...t, fontWeight: b ? 'bold' : 'normal' };
+                updates.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: t, newState: newT, userId: 'local' });
+                return newT;
+              }
+              return t;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
         isItalic={fontStyles.italic}
-        onItalicChange={(i) => setFontStyles(p => ({ ...p, italic: i }))}
+        onItalicChange={(i) => {
+          setFontStyles(p => ({ ...p, italic: i }));
+          if (selectedTextIds.size > 0) {
+            const updates: Action[] = [];
+            setTextAnnotations(prev => prev.map(t => {
+              if (selectedTextIds.has(t.id) && t.id !== editingTextId) {
+                const newT = { ...t, fontStyle: i ? 'italic' : 'normal' };
+                updates.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: t, newState: newT, userId: 'local' });
+                return newT;
+              }
+              return t;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
         isUnderline={fontStyles.underline}
-        onUnderlineChange={(u) => setFontStyles(p => ({ ...p, underline: u }))}
+        onUnderlineChange={(u) => {
+          setFontStyles(p => ({ ...p, underline: u }));
+          if (selectedTextIds.size > 0) {
+            const updates: Action[] = [];
+            setTextAnnotations(prev => prev.map(t => {
+              if (selectedTextIds.has(t.id) && t.id !== editingTextId) {
+                const newT = { ...t, textDecoration: u ? 'underline' : 'none' };
+                updates.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: t, newState: newT, userId: 'local' });
+                return newT;
+              }
+              return t;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
+        textAlign={fontStyles.textAlign}
+        onTextAlignChange={(align) => {
+          setFontStyles(p => ({ ...p, textAlign: align }));
+          if (selectedTextIds.size > 0) {
+            const updates: Action[] = [];
+            setTextAnnotations(prev => prev.map(t => {
+              if (selectedTextIds.has(t.id) && t.id !== editingTextId) {
+                const newT = { ...t, textAlign: align };
+                updates.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: t, newState: newT, userId: 'local' });
+                return newT;
+              }
+              return t;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
+        isTextSelected={selectedTextIds.size > 0}
         eraserMode={eraserMode}
         onEraserModeChange={setEraserMode}
         eraserSize={eraserSize}
@@ -1868,28 +2081,36 @@ export default function Whiteboard() {
 
       {/* LAYER 4: TEXT */}
       <div className="absolute inset-0 z-30 pointer-events-none">
-        {textAnnotations.map((t) => (
-          <div
-            key={t.id}
-            style={{
-              position: 'absolute',
-              left: t.x,
-              top: t.y,
-              color: t.color,
-              fontSize: t.fontSize,
-              fontFamily: t.fontFamily,
-              fontWeight: t.fontWeight,
-              fontStyle: t.fontStyle,
-              textDecoration: t.textDecoration,
-              transform: `rotate(${t.rotation || 0}deg)`,
-              transformOrigin: 'top left', // Or handle properly with offset
-            }}
-            className="whitespace-pre p-1 select-none origin-top-left"
-          >
-            {t.text}
-          </div>
-        ))}
+        {textAnnotations.map((t) => {
+          // Hide text being edited so it doesn't duplicate under the input
+          if (editingTextId === t.id) return null;
+          return (
+            <div
+              key={t.id}
+              style={{
+                position: 'absolute',
+                left: t.x,
+                top: t.y,
+                color: t.color,
+                // Ensure font size is never 0 or invalid to prevent disappearing
+                fontSize: Math.max(1, t.fontSize || 18),
+                fontFamily: getFontFamilyWithFallback(t.fontFamily),
+                fontWeight: t.fontWeight,
+                fontStyle: t.fontStyle,
+                textDecoration: t.textDecoration,
+                textAlign: t.textAlign || 'left',
+                transform: `rotate(${t.rotation || 0}deg)`,
+                transformOrigin: 'top left', // Or handle properly with offset
+              }}
+              className="whitespace-pre p-1 select-none origin-top-left"
+            >
+              {t.text}
+            </div>
+          );
+        })}
       </div>
+
+
 
       {/* LAYER 5: UI OVERLAYS */}
       {activeTextInput && (
@@ -1898,7 +2119,7 @@ export default function Whiteboard() {
           y={activeTextInput.y}
           value={textInputValue}
           onChange={setTextInputValue}
-          style={{ ...fontStyles, color: strokeColor }}
+          style={{ ...fontStyles, fontSize: fontStyles.size, color: strokeColor }}
           onSubmit={commitText}
         />
       )}
@@ -1923,6 +2144,6 @@ export default function Whiteboard() {
         textAnnotations={textAnnotations}
         onClear={clearAll}
       />
-    </div>
+    </div >
   );
 }

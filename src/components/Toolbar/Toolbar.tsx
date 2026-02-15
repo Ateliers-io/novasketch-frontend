@@ -218,10 +218,7 @@ export default function Toolbar({
     const isFillBucket = activeTool === ToolType.FILL_BUCKET;
 
     const FONT_SIZES = [
-        { label: 'S', size: 14 },
-        { label: 'M', size: 18 },
-        { label: 'L', size: 24 },
-        { label: 'XL', size: 32 }
+        12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72
     ] as const;
 
     return (
@@ -253,8 +250,8 @@ export default function Toolbar({
 
                 <Separator />
 
-                {/* ═══ BRUSHES ═══ */}
-                <ToolSection label="Brushes">
+                {/* ═══ TOOLS ═══ */}
+                <ToolSection label="Tools">
                     {/* Pen (just activates pen, no dropdown) */}
                     <ToolButton icon={Pencil} label="Pen (P)" isActive={activeTool === ToolType.PEN} onClick={() => onToolChange(ToolType.PEN)} />
 
@@ -343,6 +340,8 @@ export default function Toolbar({
                             </div>
                         )}
                     </div>
+
+                    <ToolButton icon={Type} label="Text (T)" isActive={activeTool === 'text'} onClick={() => onToolChange('text')} />
                 </ToolSection>
 
                 <Separator />
@@ -359,7 +358,7 @@ export default function Toolbar({
                     <ToolButton icon={Triangle} label="Triangle" isActive={activeTool === ToolType.TRIANGLE} onClick={() => onToolChange(ToolType.TRIANGLE)} />
                     <ToolButton icon={Slash} label="Line (L)" isActive={activeTool === ToolType.LINE} onClick={() => onToolChange(ToolType.LINE)} />
                     <ToolButton icon={ArrowRight} label="Arrow" isActive={activeTool === ToolType.ARROW} onClick={() => onToolChange(ToolType.ARROW)} />
-                    <ToolButton icon={Type} label="Text (T)" isActive={activeTool === 'text'} onClick={() => onToolChange('text')} />
+
                 </ToolSection>
 
                 {/* ═══ STROKE STYLE (only for shapes) ═══ */}
@@ -448,26 +447,26 @@ export default function Toolbar({
                                     {/* No Fill Button */}
                                     <button
                                         onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); }}
-                                        className={`shrink-0 w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-1 ring-red-500 bg-gray-700' : 'bg-[#1a2025] hover:bg-gray-700'}`}
+                                        className={`shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#2dd4bf] border-transparent bg-gray-700' : 'border-gray-600 bg-[#1a2025] hover:bg-gray-700'}`}
                                         title="No Fill"
                                     >
                                         <Slash size={12} className="text-red-400" />
                                     </button>
 
                                     {/* Colors */}
-                                    {PRO_COLORS.map(c => (
-                                        <button
-                                            key={c}
-                                            onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
-                                            className="shrink-0 w-6 h-6 rounded-full border border-gray-700/50 hover:border-white hover:scale-110 transition-transform shadow-sm relative group"
-                                            style={{ background: c }}
-                                            title={c}
-                                        >
-                                            {((activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c)) && (
-                                                <div className="absolute inset-0 m-auto w-1.5 h-1.5 rounded-full bg-white shadow-sm ring-1 ring-black/20" />
-                                            )}
-                                        </button>
-                                    ))}
+                                    {PRO_COLORS.map(c => {
+                                        const isSelected = (activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c);
+                                        return (
+                                            <button
+                                                key={c}
+                                                onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
+                                                className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : 'border-gray-700/50 hover:border-white hover:scale-110'}`}
+                                                style={{ background: c }}
+                                                title={c}
+                                            >
+                                            </button>
+                                        );
+                                    })}
 
                                     {/* Custom Picker Placeholder */}
                                     <div className="relative shrink-0 w-6 h-6 rounded-full border border-gray-600 overflow-hidden hover:scale-110 transition-transform cursor-pointer" title="Custom Color">
@@ -524,47 +523,7 @@ export default function Toolbar({
                     </>
                 )}
 
-                {/* ═══ TEXT FORMATTING ═══ */}
-                {(isTextMode || activeTool === 'select') && (
-                    <>
-                        <Separator />
-                        <ToolSection label="Text">
-                            <div className="flex items-center gap-1.5">
-                                <div className="relative">
-                                    <select value={fontFamily} onChange={(e) => onFontFamilyChange(e.target.value)}
-                                        className="appearance-none bg-[#0d1117] text-[11px] text-white border border-[#1e262d] rounded-md h-7 pl-2 pr-5 focus:border-[#2dd4bf] focus:outline-none cursor-pointer hover:bg-[#1e262d] transition-colors">
-                                        <option value="Arial">Arial</option>
-                                        <option value="Times New Roman">Times</option>
-                                        <option value="Courier New">Courier</option>
-                                    </select>
-                                    <ChevronDown size={10} className="absolute right-1 top-1/2 -translate-y-1/2 text-[#4a5b6a] pointer-events-none" />
-                                </div>
 
-                                <div className="flex items-center gap-[2px] bg-[#0d1117] border border-[#1e262d] rounded-md p-[2px]">
-                                    {FONT_SIZES.map(({ label, size }) => (
-                                        <button key={label} onClick={() => onFontSizeChange(size)}
-                                            className={`px-1.5 py-0.5 text-[9px] font-semibold rounded-sm transition-colors ${fontSize === size ? 'bg-[#1e262d] text-white' : 'text-[#5a6d7e] hover:text-white'}`}
-                                            title={`${size}px`}>{label}</button>
-                                    ))}
-                                </div>
-
-                                <div className="flex items-center gap-[1px] bg-[#0d1117] border border-[#1e262d] rounded-md p-[2px]">
-                                    <button onClick={() => onBoldChange(!isBold)} className={`p-1 rounded-sm ${isBold ? 'bg-[#1e262d] text-white' : 'text-[#5a6d7e] hover:text-white'}`}><Bold size={12} /></button>
-                                    <button onClick={() => onItalicChange(!isItalic)} className={`p-1 rounded-sm ${isItalic ? 'bg-[#1e262d] text-white' : 'text-[#5a6d7e] hover:text-white'}`}><Italic size={12} /></button>
-                                    <button onClick={() => onUnderlineChange(!isUnderline)} className={`p-1 rounded-sm ${isUnderline ? 'bg-[#1e262d] text-white' : 'text-[#5a6d7e] hover:text-white'}`}><Underline size={12} /></button>
-                                </div>
-
-                                {isTextSelected && (
-                                    <div className="flex items-center gap-[1px] bg-[#0d1117] border border-[#1e262d] rounded-md p-[2px]">
-                                        <button onClick={() => onTextAlignChange('left')} className={`p-1 rounded-sm ${textAlign === 'left' ? 'bg-[#1e262d] text-white' : 'text-[#5a6d7e] hover:text-white'}`}><AlignLeft size={12} /></button>
-                                        <button onClick={() => onTextAlignChange('center')} className={`p-1 rounded-sm ${textAlign === 'center' ? 'bg-[#1e262d] text-white' : 'text-[#5a6d7e] hover:text-white'}`}><AlignCenter size={12} /></button>
-                                        <button onClick={() => onTextAlignChange('right')} className={`p-1 rounded-sm ${textAlign === 'right' ? 'bg-[#1e262d] text-white' : 'text-[#5a6d7e] hover:text-white'}`}><AlignRight size={12} /></button>
-                                    </div>
-                                )}
-                            </div>
-                        </ToolSection>
-                    </>
-                )}
 
                 {/* ═══ LAYERS ═══ */}
                 {hasSelection && (
@@ -583,6 +542,52 @@ export default function Toolbar({
                     </>
                 )}
             </div>
+
+            {/* Floating Text Formatting Toolbar */}
+            {(isTextMode || (activeTool === 'select' && isTextSelected)) && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 flex items-center gap-1.5 px-2 py-1.5 bg-[#151a1f] border border-[#2a333b] rounded-lg shadow-xl animate-fadeIn z-[100] whitespace-nowrap">
+                    {/* Font Family */}
+                    <div className="relative group">
+                        <select value={fontFamily} onChange={(e) => onFontFamilyChange(e.target.value)}
+                            className="appearance-none bg-[#0d1117] text-[11px] font-medium text-white border border-[#2a333b] rounded h-7 pl-2 pr-6 hover:bg-[#1e262d] focus:border-blue-500 outline-none cursor-pointer min-w-[120px]">
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Courier New">Courier New</option>
+                        </select>
+                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                    </div>
+
+                    <div className="w-px h-4 bg-[#2a333b]" />
+
+                    {/* Font Size */}
+                    <div className="relative group">
+                        <select value={fontSize} onChange={(e) => onFontSizeChange(Number(e.target.value))}
+                            className="appearance-none bg-[#0d1117] text-[11px] font-medium text-white border border-[#2a333b] rounded h-7 pl-2 pr-6 hover:bg-[#1e262d] focus:border-blue-500 outline-none cursor-pointer min-w-[60px]">
+                            {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                    </div>
+
+                    <div className="w-px h-4 bg-[#2a333b]" />
+
+                    {/* Bold/Italic/Underline */}
+                    <div className="flex bg-[#0d1117] rounded border border-[#2a333b] p-0.5 gap-0.5">
+                        <button onClick={() => onBoldChange(!isBold)} className={`p-1 rounded ${isBold ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><Bold size={13} /></button>
+                        <button onClick={() => onItalicChange(!isItalic)} className={`p-1 rounded ${isItalic ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><Italic size={13} /></button>
+                        <button onClick={() => onUnderlineChange(!isUnderline)} className={`p-1 rounded ${isUnderline ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><Underline size={13} /></button>
+                    </div>
+
+                    {/* Align */}
+                    <>
+                        <div className="w-px h-4 bg-[#2a333b]" />
+                        <div className="flex bg-[#0d1117] rounded border border-[#2a333b] p-0.5 gap-0.5">
+                            <button onClick={() => onTextAlignChange('left')} className={`p-1 rounded ${textAlign === 'left' ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><AlignLeft size={13} /></button>
+                            <button onClick={() => onTextAlignChange('center')} className={`p-1 rounded ${textAlign === 'center' ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><AlignCenter size={13} /></button>
+                            <button onClick={() => onTextAlignChange('right')} className={`p-1 rounded ${textAlign === 'right' ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><AlignRight size={13} /></button>
+                        </div>
+                    </>
+                </div>
+            )}
 
             {/* Dropdown animation */}
             <style>{`

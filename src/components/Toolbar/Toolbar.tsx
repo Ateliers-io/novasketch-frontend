@@ -444,7 +444,7 @@ export default function Toolbar({
 
                             {/* 2. Pro Palette Strip */}
                             <div className="flex flex-col gap-1.5">
-                                <div className="grid grid-cols-8 gap-1.5 p-0.5" style={{ display: 'flex', overflowX: 'auto', maxWidth: '210px', scrollbarWidth: 'none', paddingBottom: '8px' }}>
+                                <div className="flex items-center gap-2 overflow-x-auto max-w-[260px] pb-2 px-1" style={{ scrollbarWidth: 'none' }}>
                                     {/* No Fill Button */}
                                     <button
                                         onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); }}

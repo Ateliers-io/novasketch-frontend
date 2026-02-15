@@ -47,6 +47,7 @@ export interface Shape {
     // Rectangle specific
     width?: number;
     height?: number;
+    cornerRadius?: number;
     // Circle specific
     radius?: number;
 }

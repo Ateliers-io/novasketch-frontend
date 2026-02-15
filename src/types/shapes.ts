@@ -8,7 +8,9 @@ export enum ShapeType {
 }
 
 export enum ToolType {
+    SELECT = 'select',
     PEN = 'pen',
+    HIGHLIGHTER = 'highlighter',
     ERASER = 'eraser',
     RECTANGLE = 'rectangle',
     CIRCLE = 'circle',
@@ -17,7 +19,22 @@ export enum ToolType {
     ARROW = 'arrow',
     TRIANGLE = 'triangle',
     TEXT = 'text',
+    FILL_BUCKET = 'fill_bucket',
 }
+
+export enum BrushType {
+    BRUSH = 'brush',
+    CALLIGRAPHY = 'calligraphy',
+    CALLIGRAPHY_PEN = 'calligraphy_pen',
+    AIRBRUSH = 'airbrush',
+    OIL_BRUSH = 'oil_brush',
+    CRAYON = 'crayon',
+    MARKER = 'marker',
+    NATURAL_PENCIL = 'natural_pencil',
+    WATERCOLOUR = 'watercolour',
+}
+
+export type StrokeStyle = 'solid' | 'dashed' | 'dotted';
 
 export interface BaseCanvasObject {
     id: string;
@@ -254,6 +271,36 @@ export function createArrow(
         arrowAtEnd: true,
         arrowSize: 10,
         style: { ...DEFAULT_SHAPE_STYLE, hasFill: false },
+        transform: { ...DEFAULT_TRANSFORM },
+        zIndex: 0,
+        opacity: 1,
+        visible: true,
+        createdAt: now,
+        updatedAt: now,
+        ...options,
+    };
+}
+
+export function createTriangle(
+    x: number,
+    y: number,
+    size: number,
+    options?: Partial<TriangleShape>
+): TriangleShape {
+    const now = getCurrentTimestamp();
+    // Equilateral triangle centered at (x, y)
+    const h = (Math.sqrt(3) / 2) * size;
+    const points: [Position, Position, Position] = [
+        { x: x + size / 2, y: y },        // top center
+        { x: x + size, y: y + h },         // bottom right
+        { x: x, y: y + h },                // bottom left
+    ];
+    return {
+        id: generateShapeId(),
+        type: ShapeType.TRIANGLE,
+        position: { x, y },
+        points,
+        style: { ...DEFAULT_SHAPE_STYLE },
         transform: { ...DEFAULT_TRANSFORM },
         zIndex: 0,
         opacity: 1,

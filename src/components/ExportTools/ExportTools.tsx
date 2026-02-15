@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { Download, FileDown, FileImage, Trash2, X } from 'lucide-react';
+import { Download, FileDown, FileImage, X } from 'lucide-react';
 import Konva from 'konva';
 import {
     Shape,
@@ -24,9 +24,10 @@ interface ExportToolsProps {
     shapes: Shape[];
     textAnnotations: any[];
     onClear: () => void;
+    backgroundColor?: string;
 }
 
-const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, textAnnotations, onClear }) => {
+const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, textAnnotations, onClear, backgroundColor = '#0b0c10' }) => {
     const [isOpen, setIsOpen] = useState(false);
 
     // --- Helper to Generate Full SVG String ---
@@ -40,7 +41,7 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
                 <polygon points="0 0, 10 3.5, 0 7" fill="#66FCF1" />
             </marker>
         </defs>
-        <rect width="100%" height="100%" fill="#0b0c10"/>`; // Dark background matching the app theme
+        <rect width="100%" height="100%" fill="${backgroundColor}"/>`;
 
         // 2. Shapes (Bottom Layer)
         // Sort by zIndex if available, else default order
@@ -188,7 +189,7 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
             if (ctx) {
                 // Background for JPG (transparent for PNG if desired, but here we forced dark background in SVG)
                 if (format === 'jpeg') {
-                    ctx.fillStyle = '#0b0c10';
+                    ctx.fillStyle = backgroundColor;
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
 
@@ -263,13 +264,6 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
         img.src = url;
     };
 
-    // 6.5 Clear Canvas
-    const handleClear = () => {
-        if (confirm('Are you sure you want to clear the entire canvas? This cannot be undone.')) {
-            onClear();
-        }
-    };
-
     if (!isOpen) {
         return (
             <button
@@ -323,15 +317,6 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
                 <span className="text-[#c5c6c7] group-hover:text-white transition-colors">Export as PDF</span>
             </button>
 
-            <div className="h-px bg-[#66FCF1]/30 my-1"></div>
-
-            <button
-                onClick={handleClear}
-                className="flex items-center gap-2 p-2 hover:bg-red-900/20 rounded text-left text-sm text-red-500 hover:text-red-400"
-            >
-                <Trash2 size={16} />
-                <span>Clear Canvas</span>
-            </button>
         </div>
     );
 };

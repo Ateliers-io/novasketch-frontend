@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { Stage, Layer, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import DOMPurify from 'dompurify';
+import { Trash2 } from 'lucide-react';
 import Toolbar, { ActiveTool, EraserMode } from '../Toolbar/Toolbar';
 import {
   ToolType,
@@ -729,9 +730,9 @@ export default function Whiteboard() {
       case BrushType.OIL_BRUSH:
         return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.9, strokeWidth: size * 1.2, shadowBlur: 2, shadowColor: color };
       case BrushType.CRAYON:
-        return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 0.8, strokeWidth: size, dash: [1, 2] };
+        return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 0.8, strokeWidth: size, dash: [2, 3] };
       case BrushType.MARKER:
-        return { lineCap: 'square', lineJoin: 'miter', tension: 0.2, opacity: 0.5, strokeWidth: size * 3, globalCompositeOperation: 'multiply' }; // Multiply ensures marker blending
+        return { lineCap: 'square', lineJoin: 'miter', tension: 0.2, opacity: 0.6, strokeWidth: size * 3, globalCompositeOperation: 'lighter' }; // Additive blend for neon marker on dark bg
       case BrushType.NATURAL_PENCIL:
         return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.8, strokeWidth: Math.max(1, size * 0.6), dash: [0.5, 0.5] }; // textured look
       case BrushType.WATERCOLOUR:
@@ -1434,21 +1435,38 @@ export default function Whiteboard() {
             const finalY = newY + relY * scaleY;
 
             if (isRectangle(initS)) {
-              return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY };
+              return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY } as Shape;
             } else if (isCircle(initS)) {
-              // Circles usually maintain aspect ratio or become ellipses. 
-              // Novasketch `CircleShape` only has `radius`. It stays a circle.
-              // So we must choose one scale or average.
-              // Use average of scales or max? Max ensures it doesn't shrink weirdly.
-              // Or use scaleX if shift held? 
-              // Let's use geometric mean or max. Max is safer for visibility.
-              // Scale choice based on handle
               let scale = 1;
               if (['n', 's'].includes(resizeHandle)) scale = scaleY;
               else if (['e', 'w'].includes(resizeHandle)) scale = scaleX;
               else scale = Math.max(scaleX, scaleY);
 
-              return { ...s, position: { x: finalX, y: finalY }, radius: (initS as CircleShape).radius * scale };
+              return { ...s, position: { x: finalX, y: finalY }, radius: (initS as CircleShape).radius * scale } as Shape;
+            } else if (isLine(initS) || isArrow(initS)) {
+              const ls = initS as LineShape;
+              return {
+                ...s,
+                position: { x: finalX, y: finalY },
+                startPoint: {
+                  x: newX + (ls.startPoint.x - box.x) * scaleX,
+                  y: newY + (ls.startPoint.y - box.y) * scaleY,
+                },
+                endPoint: {
+                  x: newX + (ls.endPoint.x - box.x) * scaleX,
+                  y: newY + (ls.endPoint.y - box.y) * scaleY,
+                },
+              } as Shape;
+            } else if (isTriangle(initS)) {
+              const ts = initS as TriangleShape;
+              return {
+                ...s,
+                position: { x: finalX, y: finalY },
+                points: ts.points.map((p: Position) => ({
+                  x: newX + (p.x - box.x) * scaleX,
+                  y: newY + (p.y - box.y) * scaleY,
+                })),
+              } as Shape;
             }
             return { ...s, position: { x: finalX, y: finalY } };
           }
@@ -1509,10 +1527,28 @@ export default function Whiteboard() {
       if (selectedShapeIds.size > 0) {
         setShapes(prev => prev.map(s => {
           if (selectedShapeIds.has(s.id)) {
-            return {
+            let updated = {
               ...s,
               position: { x: s.position.x + dx, y: s.position.y + dy }
             };
+            // Lines and Arrows store geometry in startPoint/endPoint, not position
+            if (isLine(s) || isArrow(s)) {
+              const ls = s as LineShape;
+              updated = {
+                ...updated,
+                startPoint: { x: ls.startPoint.x + dx, y: ls.startPoint.y + dy },
+                endPoint: { x: ls.endPoint.x + dx, y: ls.endPoint.y + dy },
+              } as typeof updated;
+            }
+            // Triangles store geometry in points array
+            if (isTriangle(s)) {
+              const ts = s as TriangleShape;
+              updated = {
+                ...updated,
+                points: ts.points.map((p: Position) => ({ x: p.x + dx, y: p.y + dy })),
+              } as typeof updated;
+            }
+            return updated as Shape;
           }
           return s;
         }));
@@ -2508,7 +2544,22 @@ export default function Whiteboard() {
         shapes={shapes}
         textAnnotations={textAnnotations}
         onClear={clearAll}
+        backgroundColor={canvasBackgroundColor}
       />
+
+      {/* Standalone Clear Canvas Button */}
+      <button
+        onClick={() => {
+          if (confirm('Are you sure you want to clear the entire canvas? This cannot be undone.')) {
+            clearAll();
+          }
+        }}
+        className="fixed bottom-4 left-4 bg-transparent border-2 border-red-500/60 text-red-400 p-2.5 rounded-lg shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:bg-red-900/20 hover:text-red-300 transition-all duration-300 z-50 flex items-center gap-2 text-xs font-medium"
+        title="Clear Canvas"
+      >
+        <Trash2 size={16} />
+        <span>Clear</span>
+      </button>
     </div >
   );
 }

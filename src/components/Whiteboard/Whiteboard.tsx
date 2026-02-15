@@ -392,7 +392,8 @@ export default function Whiteboard() {
   // -- 3. STYLE STATE --
   const [brushSize, setBrushSize] = useState(3);
   const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR);
-  const [fillColor, setFillColor] = useState('#45A29E');
+  const [fillColor, setFillColor] = useState('transparent');
+  const [cornerRadius, setCornerRadius] = useState(0); // For rounded corners
   const [eraserSize, setEraserSize] = useState(20);
   const [eraserMode, setEraserMode] = useState<EraserMode>('stroke');
   const [brushType, setBrushType] = useState<BrushType>(BrushType.BRUSH);
@@ -1238,7 +1239,10 @@ export default function Whiteboard() {
       });
     } else if (activeTool === ToolType.RECTANGLE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createRectangle(x, y, 0, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
+      setPreviewShape(createRectangle(x, y, 0, 0, {
+        cornerRadius,
+        style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: fillColor !== 'transparent', strokeDashArray: dashArr }
+      }));
     } else if (activeTool === ToolType.CIRCLE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
       setPreviewShape(createCircle(x, y, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
@@ -2037,7 +2041,27 @@ export default function Whiteboard() {
             const updates: Action[] = [];
             setShapes(prev => prev.map(s => {
               if (selectedShapeIds.has(s.id)) {
-                const newS = { ...s, style: { ...s.style, fill: c, hasFill: true } };
+                // Update hasFill based on transparency
+                const hasFill = c !== 'transparent';
+                const newS = { ...s, style: { ...s.style, fill: c, hasFill } };
+                updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
+                return newS;
+              }
+              return s;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
+        cornerRadius={cornerRadius}
+        onCornerRadiusChange={(r) => {
+          setCornerRadius(r);
+          // Live-edit selected Rectangles
+          if (selectedShapeIds.size > 0) {
+            const updates: Action[] = [];
+            setShapes(prev => prev.map(s => {
+              // Check type via type guard logic if strict, but simple check works
+              if (selectedShapeIds.has(s.id) && s.type === 'rectangle') {
+                const newS = { ...s, cornerRadius: r } as RectangleShape;
                 updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
                 return newS;
               }

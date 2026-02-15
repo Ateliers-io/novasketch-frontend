@@ -27,12 +27,20 @@ import {
     Highlighter,
     PaintBucket,
     Paintbrush,
+    Plus,
 } from 'lucide-react';
 import { ToolType, BrushType, StrokeStyle } from '../../types/shapes';
 
 /* --- TYPES --- */
 export type ActiveTool = ToolType | 'text' | 'select' | 'eraser';
 export type EraserMode = 'partial' | 'stroke';
+
+const PRO_COLORS = [
+    '#000000', '#FFFFFF',
+    '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4',
+    '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e',
+    '#78716c'
+];
 
 interface ToolbarProps {
     activeTool: ActiveTool;
@@ -45,6 +53,8 @@ interface ToolbarProps {
     onColorChange: (color: string) => void;
     fillColor: string;
     onFillColorChange: (color: string) => void;
+    cornerRadius?: number;
+    onCornerRadiusChange?: (radius: number) => void;
     brushType: BrushType;
     onBrushTypeChange: (type: BrushType) => void;
     strokeStyle: StrokeStyle;
@@ -158,9 +168,7 @@ const ToolSection = ({ children, label }: { children: React.ReactNode; label: st
 
 const Separator = () => <div className="w-px h-9 bg-[#2a333b] mx-1.5 self-center" />;
 
-/* --- MS PAINT COLOR PALETTE --- */
-const ROW1_COLORS = ['#000000', '#7f7f7f', '#880015', '#ed1c24', '#ff7f27', '#fff200', '#22b14c', '#00a2e8', '#3f48cc', '#a349a4'];
-const ROW2_COLORS = ['#ffffff', '#c3c3c3', '#b97a57', '#ffaec9', '#ffc90e', '#efe4b0', '#b5e61d', '#99d9ea', '#7092be', '#c8bfe7'];
+
 
 export default function Toolbar({
     activeTool, onToolChange,
@@ -168,6 +176,7 @@ export default function Toolbar({
     brushSize, onBrushSizeChange,
     strokeColor, onColorChange,
     fillColor, onFillColorChange,
+    cornerRadius, onCornerRadiusChange,
     brushType, onBrushTypeChange,
     strokeStyle, onStrokeStyleChange,
     fontFamily, onFontFamilyChange,
@@ -185,6 +194,8 @@ export default function Toolbar({
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const [showBrushMenu, setShowBrushMenu] = useState(false);
     const [showStrokeStyleMenu, setShowStrokeStyleMenu] = useState(false);
+    // Local state for Color Mode (Stroke vs Fill)
+    const [activeColorMode, setActiveColorMode] = useState<'stroke' | 'fill'>('stroke');
     const eraserMenuRef = useRef<HTMLDivElement>(null);
     const brushMenuRef = useRef<HTMLDivElement>(null);
     const strokeStyleRef = useRef<HTMLDivElement>(null);
@@ -393,47 +404,81 @@ export default function Toolbar({
 
                 {/* ═══ COLOURS ═══ */}
                 {!isEraserMode && (
-                    <ToolSection label="Colours">
+                    <ToolSection label="Colors">
                         <div className="flex items-center gap-3 px-1">
-                            {/* Stroke & Fill — large overlapping circles (like MS Paint) */}
-                            <div className="flex flex-col items-center gap-0">
-                                <div className="relative w-[52px] h-[36px]">
-                                    {/* Fill (back, bottom-right) */}
-                                    <div className="absolute bottom-0 right-0 w-[26px] h-[26px] rounded-md border-2 border-[#2a333b] overflow-hidden cursor-pointer hover:border-[#2dd4bf]/60 transition-colors z-[1] shadow-sm"
-                                        title="Fill Color">
-                                        <div className="absolute inset-0" style={{ backgroundColor: fillColor }} />
-                                        <input type="color" value={fillColor} onChange={(e) => onFillColorChange(e.target.value)}
-                                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                            {/* 1. Mode Switcher (Stroke/Fill) */}
+                            <div className="flex flex-col gap-1.5">
+                                <div className="flex gap-2">
+                                    {/* Stroke Bubble */}
+                                    <div
+                                        className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${activeColorMode === 'stroke' ? 'ring-2 ring-blue-500 border-white z-10' : 'border-gray-600 opacity-60 hover:opacity-100'}`}
+                                        onClick={() => setActiveColorMode('stroke')}
+                                        title="Stroke Color"
+                                    >
+                                        <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
+                                        <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                     </div>
-                                    {/* Stroke (front, top-left) */}
-                                    <div className="absolute top-0 left-0 w-[26px] h-[26px] rounded-md border-2 border-[#3d4a56] overflow-hidden cursor-pointer hover:border-[#2dd4bf]/60 transition-colors z-[2] shadow-md"
-                                        title="Stroke Color">
-                                        <div className="absolute inset-0" style={{ backgroundColor: strokeColor }} />
-                                        <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)}
-                                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+
+                                    {/* Fill Bubble */}
+                                    <div
+                                        className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${activeColorMode === 'fill' ? 'ring-2 ring-blue-500 border-white z-10' : 'border-gray-600 opacity-60 hover:opacity-100'}`}
+                                        onClick={() => setActiveColorMode('fill')}
+                                        title="Fill Color"
+                                    >
+                                        {fillColor === 'transparent' ? (
+                                            <div className="absolute inset-0 flex items-center justify-center text-red-500 bg-[#1e262d] rounded-full">
+                                                <Slash size={14} strokeWidth={2.5} />
+                                            </div>
+                                        ) : (
+                                            <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
+                                        )}
+                                        <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                     </div>
                                 </div>
-                                <div className="flex gap-3 mt-0.5">
-                                    <span className="text-[7px] font-bold uppercase text-[#4a5b6a] tracking-wider">Str</span>
-                                    <span className="text-[7px] font-bold uppercase text-[#4a5b6a] tracking-wider">Fill</span>
+                                <div className="text-[9px] font-bold text-gray-400 text-center uppercase tracking-wide">
+                                    {activeColorMode}
                                 </div>
                             </div>
 
-                            {/* Color Grid — 2 rows × 10 cols */}
-                            <div className="flex flex-col gap-[2px]">
-                                <div className="flex gap-[2px]">
-                                    {ROW1_COLORS.map((c) => (
-                                        <button key={c} onClick={() => onColorChange(c)} title={c}
-                                            className={`w-[14px] h-[14px] rounded-[3px] border transition-all duration-100 hover:scale-[1.3] hover:z-10 ${strokeColor === c ? 'border-[#2dd4bf] ring-1 ring-[#2dd4bf]/50 scale-[1.15]' : 'border-[#1e262d]/80 hover:border-white/40'}`}
-                                            style={{ backgroundColor: c }} />
+                            <Separator />
+
+                            {/* 2. Pro Palette Strip */}
+                            <div className="flex flex-col gap-1.5">
+                                <div className="grid grid-cols-8 gap-1.5 p-0.5">
+                                    {/* No Fill Button */}
+                                    <button
+                                        onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); }}
+                                        className={`w-5 h-5 rounded-full border border-gray-600 flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-1 ring-red-500 bg-gray-700' : 'bg-[#1a2025] hover:bg-gray-700'}`}
+                                        title="No Fill"
+                                    >
+                                        <Slash size={10} className="text-red-400" />
+                                    </button>
+
+                                    {/* Colors */}
+                                    {PRO_COLORS.map(c => (
+                                        <button
+                                            key={c}
+                                            onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
+                                            className="w-5 h-5 rounded-full border border-gray-700/50 hover:border-white hover:scale-110 transition-transform shadow-sm relative group"
+                                            style={{ background: c }}
+                                            title={c}
+                                        >
+                                            {((activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c)) && (
+                                                <div className="absolute inset-0 m-auto w-1.5 h-1.5 rounded-full bg-white shadow-sm ring-1 ring-black/20" />
+                                            )}
+                                        </button>
                                     ))}
-                                </div>
-                                <div className="flex gap-[2px]">
-                                    {ROW2_COLORS.map((c) => (
-                                        <button key={c} onClick={() => onColorChange(c)} title={c}
-                                            className={`w-[14px] h-[14px] rounded-[3px] border transition-all duration-100 hover:scale-[1.3] hover:z-10 ${strokeColor === c ? 'border-[#2dd4bf] ring-1 ring-[#2dd4bf]/50 scale-[1.15]' : 'border-[#1e262d]/80 hover:border-white/40'}`}
-                                            style={{ backgroundColor: c }} />
-                                    ))}
+
+                                    {/* Custom Picker Placeholder */}
+                                    <div className="relative w-5 h-5 rounded-full border border-gray-600 overflow-hidden hover:scale-110 transition-transform cursor-pointer" title="Custom Color">
+                                        <div className="absolute inset-0 bg-[conic-gradient(at_center,_red,_orange,_yellow,_green,_blue,_purple,_red)] opacity-80 hover:opacity-100" />
+                                        <Plus size={10} className="absolute inset-0 m-auto text-white drop-shadow-md" />
+                                        <input type="color"
+                                            value={activeColorMode === 'stroke' ? strokeColor : (fillColor === 'transparent' ? '#ffffff' : fillColor)}
+                                            onChange={(e) => activeColorMode === 'stroke' ? onColorChange(e.target.value) : onFillColorChange(e.target.value)}
+                                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -441,18 +486,40 @@ export default function Toolbar({
                 )}
 
                 {/* ═══ WIDTH ═══ */}
-                {(isDrawMode || isFillBucket) && (
+                {/* ═══ WIDTH & RADIUS ═══ */}
+                {(isDrawMode || isFillBucket || (hasSelection && cornerRadius !== undefined)) && (
                     <>
                         <Separator />
-                        <ToolSection label="Width">
-                            <div className="flex flex-col gap-0.5 w-[72px] mx-0.5">
-                                <div className="flex justify-between text-[8px] font-mono text-[#4a5b6a]">
-                                    <span>SIZE</span>
-                                    <span className="text-[#2dd4bf] font-bold">{brushSize}px</span>
+                        <ToolSection label="Properties">
+                            <div className="flex gap-4 px-1">
+                                {/* Size Slider */}
+                                <div className="flex flex-col gap-0.5 w-[72px]">
+                                    <div className="flex justify-between text-[8px] font-mono text-[#4a5b6a]">
+                                        <span>SIZE</span>
+                                        <span className="text-[#2dd4bf] font-bold">{brushSize}px</span>
+                                    </div>
+                                    <input type="range" min={1} max={50} value={brushSize}
+                                        onChange={(e) => onBrushSizeChange(Number(e.target.value))}
+                                        className="w-full h-1 bg-[#1e262d] rounded-lg appearance-none cursor-pointer accent-[#2dd4bf]" />
                                 </div>
-                                <input type="range" min={1} max={20} value={brushSize}
-                                    onChange={(e) => onBrushSizeChange(Number(e.target.value))}
-                                    className="w-full h-1 bg-[#1e262d] rounded-lg appearance-none cursor-pointer accent-[#2dd4bf]" />
+
+                                {/* Corner Radius Slider (Contextual) */}
+                                {(activeTool === ToolType.RECTANGLE || (hasSelection && cornerRadius !== undefined)) && (
+                                    <div className="flex flex-col gap-0.5 w-[72px] animate-fadeIn">
+                                        <div className="flex justify-between text-[8px] font-mono text-[#4a5b6a]">
+                                            <span>ROUNDNESS</span>
+                                            <span className="text-[#a855f7] font-bold">{Math.round(cornerRadius || 0)}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="50"
+                                            value={cornerRadius || 0}
+                                            onChange={(e) => onCornerRadiusChange?.(Number(e.target.value))}
+                                            className="w-full h-1 bg-[#1e262d] rounded-lg appearance-none cursor-pointer accent-[#a855f7]"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </ToolSection>
                     </>

@@ -404,38 +404,41 @@ export default function Toolbar({
                 {/* ═══ COLOURS ═══ */}
                 {!isEraserMode && (
                     <ToolSection label="Colors">
-                        <div className="flex items-center gap-3 px-1">
-                            {/* 1. Mode Switcher (Stroke/Fill) */}
-                            <div className="flex flex-col gap-1.5">
-                                <div className="flex gap-2">
+                        <div className="flex items-start gap-3 px-1">
+                            {/* 1. Mode Switcher (Stroke/Fill) with labels */}
+                            <div className="flex flex-col items-center gap-1">
+                                <div className="flex gap-3">
                                     {/* Stroke Bubble */}
-                                    <div
-                                        className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${activeColorMode === 'stroke' ? 'ring-2 ring-blue-500 border-white z-10' : 'border-gray-600 opacity-60 hover:opacity-100'}`}
-                                        onClick={() => setActiveColorMode('stroke')}
-                                        title="Stroke Color"
-                                    >
-                                        <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
-                                        <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <div
+                                            className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${activeColorMode === 'stroke' ? 'ring-2 ring-[#2dd4bf] border-white z-10' : 'border-gray-600 opacity-60 hover:opacity-100'}`}
+                                            onClick={() => setActiveColorMode('stroke')}
+                                            title="Stroke Color"
+                                        >
+                                            <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
+                                            <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                                        </div>
+                                        <span className={`text-[8px] font-bold uppercase tracking-wider ${activeColorMode === 'stroke' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Stroke</span>
                                     </div>
 
                                     {/* Fill Bubble */}
-                                    <div
-                                        className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${activeColorMode === 'fill' ? 'ring-2 ring-blue-500 border-white z-10' : 'border-gray-600 opacity-60 hover:opacity-100'}`}
-                                        onClick={() => setActiveColorMode('fill')}
-                                        title="Fill Color"
-                                    >
-                                        {fillColor === 'transparent' ? (
-                                            <div className="absolute inset-0 flex items-center justify-center text-red-500 bg-[#1e262d] rounded-full">
-                                                <Slash size={14} strokeWidth={2.5} />
-                                            </div>
-                                        ) : (
-                                            <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
-                                        )}
-                                        <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <div
+                                            className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${activeColorMode === 'fill' ? 'ring-2 ring-[#2dd4bf] border-white z-10' : 'border-gray-600 opacity-60 hover:opacity-100'}`}
+                                            onClick={() => setActiveColorMode('fill')}
+                                            title="Fill Color"
+                                        >
+                                            {fillColor === 'transparent' ? (
+                                                <div className="absolute inset-0 flex items-center justify-center text-red-500 bg-[#1e262d] rounded-full">
+                                                    <Slash size={14} strokeWidth={2.5} />
+                                                </div>
+                                            ) : (
+                                                <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
+                                            )}
+                                            <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                                        </div>
+                                        <span className={`text-[8px] font-bold uppercase tracking-wider ${activeColorMode === 'fill' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Fill</span>
                                     </div>
-                                </div>
-                                <div className="text-[9px] font-bold text-gray-400 text-center uppercase tracking-wide">
-                                    {activeColorMode}
                                 </div>
                             </div>
 
@@ -443,7 +446,7 @@ export default function Toolbar({
 
                             {/* 2. Pro Palette Strip */}
                             <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center gap-2 overflow-x-auto max-w-[260px] pb-2 px-1" style={{ scrollbarWidth: 'none' }}>
+                                <div className="flex items-center gap-2 overflow-x-auto max-w-[260px] pb-3 px-1" style={{ scrollbarWidth: 'none' }}>
                                     {/* No Fill Button */}
                                     <button
                                         onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); }}

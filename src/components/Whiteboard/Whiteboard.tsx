@@ -42,6 +42,25 @@ import Konva from 'konva';
 import { useSync } from '../../services/useSync';
 import { StrokeLine } from '../../services/sync.service';
 
+// -- Extracted modules --
+import { TextAnnotation, Action } from './types';
+import {
+  distSq,
+  eraseAtPosition,
+  removeStrokesAt,
+  isPointInShape,
+  moveForward,
+  moveBackward,
+  getFontFamilyWithFallback,
+  getBrushProperties,
+  getStrokeDashArray,
+} from './utils';
+import FloatingInput from './components/FloatingInput';
+import SelectionOverlay from './components/SelectionOverlay';
+import EraserCursor from './components/EraserCursor';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useSelectionBounds } from './hooks/useSelectionBounds';
+
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
 const ROOM_ID = 'default-room'; // TODO: derive from route params/auth context
@@ -49,221 +68,6 @@ const ROOM_ID = 'default-room'; // TODO: derive from route params/auth context
 // magical constants.
 const GRID_DOT_COLOR = '#45A29E';
 const DEFAULT_STROKE_COLOR = '#66FCF1';
-
-// StrokeLine and TextAnnotation are imported from sync.service via useSync
-
-interface TextAnnotation {
-  id: string;
-  x: number;
-  y: number;
-  text: string;
-  fontSize: number;
-  color: string;
-  fontFamily: string;
-  fontWeight: string;
-  fontStyle: string;
-  textDecoration: string;
-
-  textAlign?: 'left' | 'center' | 'right';
-  rotation?: number;
-}
-
-interface Action {
-  type: 'ADD' | 'UPDATE' | 'DELETE' | 'LAYER_CHANGE' | 'BATCH';
-  objectType?: 'shape' | 'line' | 'text';
-  id?: string;
-  previousState?: any;
-  newState?: any;
-  userId: string;
-  actions?: Action[]; // For BATCH type
-  index?: number; // Order preservation
-}
-
-// collision detection for eraser. expensive but necessary.
-function distSq(p1: { x: number; y: number }, p2: { x: number; y: number }) {
-  return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
-}
-
-function getSegmentCircleIntersections(p1: Position, p2: Position, c: Position, r: number) {
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const fx = p1.x - c.x;
-  const fy = p1.y - c.y;
-  const a = dx * dx + dy * dy;
-  const b = 2 * (fx * dx + fy * dy);
-  const C = fx * fx + fy * fy - r * r;
-  let discriminant = b * b - 4 * a * C;
-  const intersections: Position[] = [];
-
-  if (discriminant >= 0 && a !== 0) {
-    const sqrtDisc = Math.sqrt(discriminant);
-    const t1 = (-b - sqrtDisc) / (2 * a);
-    const t2 = (-b + sqrtDisc) / (2 * a);
-    if (t1 >= 0 && t1 <= 1) intersections.push({ x: p1.x + t1 * dx, y: p1.y + t1 * dy });
-    if (t2 >= 0 && t2 <= 1) intersections.push({ x: p1.x + t2 * dx, y: p1.y + t2 * dy });
-  }
-  return intersections;
-}
-
-function eraseAtPosition(x: number, y: number, strokes: StrokeLine[], eraserRadius: number): StrokeLine[] {
-  const result: StrokeLine[] = [];
-  for (const stroke of strokes) {
-    const points = stroke.points;
-    let currentLinePoints: number[] = [];
-    let segmentCount = 0;
-
-    const finishLine = () => {
-      if (currentLinePoints.length >= 4) {
-        // generating unique ID for split segments to avoid react key collisions.
-        result.push({ ...stroke, id: `${stroke.id}-${Math.floor(Math.random() * 1000000)}`, points: [...currentLinePoints] });
-      }
-      currentLinePoints = [];
-    };
-
-    if (points.length < 4) { result.push(stroke); continue; }
-
-    let px = points[0];
-    let py = points[1];
-
-    if (distSq({ x: px, y: py }, { x, y }) >= eraserRadius ** 2) {
-      currentLinePoints.push(px, py);
-    }
-
-    for (let i = 2; i < points.length; i += 2) {
-      const cx = points[i];
-      const cy = points[i + 1];
-      const p1 = { x: px, y: py };
-      const p2 = { x: cx, y: cy };
-
-      const intersections = getSegmentCircleIntersections(p1, p2, { x, y }, eraserRadius);
-
-      if (intersections.length > 0) {
-        intersections.sort((a, b) => distSq(p1, a) - distSq(p1, b));
-        if (distSq(p1, { x, y }) >= eraserRadius ** 2) {
-          currentLinePoints.push(intersections[0].x, intersections[0].y);
-          finishLine();
-        }
-        if (intersections.length === 2) {
-          currentLinePoints.push(intersections[1].x, intersections[1].y);
-        }
-      }
-
-      if (distSq(p2, { x, y }) >= eraserRadius ** 2) {
-        currentLinePoints.push(cx, cy);
-      } else {
-        if (currentLinePoints.length > 0) {
-          finishLine();
-        }
-      }
-
-      px = cx;
-      py = cy;
-    }
-    finishLine();
-  }
-  return result;
-}
-
-function removeStrokesAt(x: number, y: number, strokes: StrokeLine[], radius: number): StrokeLine[] {
-  return strokes.filter(line => {
-    for (let i = 0; i < line.points.length; i += 2) {
-      if (distSq({ x: line.points[i], y: line.points[i + 1] }, { x, y }) < radius ** 2) {
-        return false;
-      }
-    }
-    return true;
-  });
-}
-
-// z-index manipulation (bring forward). naive array swap.
-function moveForward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
-  const newItems = [...items];
-  for (let i = newItems.length - 2; i >= 0; i--) {
-    if (selectedIds.has(newItems[i].id) && !selectedIds.has(newItems[i + 1].id)) {
-      [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
-    }
-  }
-  return newItems;
-}
-
-// z-index manipulation (send backward).
-function moveBackward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
-  const newItems = [...items];
-  for (let i = 1; i < newItems.length; i++) {
-    if (selectedIds.has(newItems[i].id) && !selectedIds.has(newItems[i - 1].id)) {
-      [newItems[i], newItems[i - 1]] = [newItems[i - 1], newItems[i]];
-    }
-  }
-  return newItems;
-}
-
-// Font family mapping with proper fallbacks (system fonts only)
-function getFontFamilyWithFallback(fontFamily: string): string {
-  const fontMap: Record<string, string> = {
-    'Arial': 'Arial, sans-serif',
-    'Times New Roman': '"Times New Roman", serif',
-    'Courier New': '"Courier New", monospace'
-  };
-  return fontMap[fontFamily] || 'Arial, sans-serif';
-}
-
-// --- HELPER COMPONENTS ---
-const FloatingInput = ({ x, y, style, value, onChange, onSubmit }: any) => {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    // auto-focus on mount with slight delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      ref.current?.focus();
-    }, 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSubmit();
-    }
-    if (e.key === 'Escape') {
-      onChange(''); // clear input
-      onSubmit();   // close
-    }
-  };
-
-  return (
-    <div
-      className="fixed z-[99999]"
-      style={{
-        left: `${x}px`,
-        top: `${y}px`,
-        transform: 'translate(10px, 10px)'
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="bg-[#1a2026]/95 backdrop-blur-md p-2 rounded-lg shadow-2xl border border-[#2d2d44] ring-1 ring-white/10">
-        <textarea
-          ref={ref}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type something..."
-          className="block w-full h-full bg-transparent text-white outline-none resize-none overflow-hidden min-w-[200px] min-h-[50px] placeholder:text-gray-500"
-          style={{
-            fontSize: `${style.size || 18}px`,
-            fontFamily: getFontFamilyWithFallback(style.family || 'Arial'),
-            fontWeight: style.bold ? 'bold' : 'normal',
-            fontStyle: style.italic ? 'italic' : 'normal',
-            textDecoration: style.underline ? 'underline' : 'none',
-            textAlign: style.textAlign || 'left',
-            color: style.color,
-          }}
-        />
-        <div className="text-[10px] text-gray-500 text-right px-1 pt-1 font-mono">Press Enter to save</div>
-      </div>
-    </div>
-  );
-};
 
 // Monolithic whiteboard component. needs splitting up.
 export default function Whiteboard() {
@@ -381,7 +185,7 @@ export default function Whiteboard() {
   const [selectedShapeIds, setSelectedShapeIds] = useState<Set<string>>(new Set());
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
   const [selectedTextIds, setSelectedTextIds] = useState<Set<string>>(new Set());
-  const [selectionBoundingBox, setSelectionBoundingBox] = useState<BoundingBox | null>(null);
+  // selectionBoundingBox computed by useSelectionBounds hook
   const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // UI State
@@ -426,74 +230,28 @@ export default function Whiteboard() {
   // via Yjs + WebSocket (for MongoDB persistence) and IndexedDB (for offline support)
 
 
-  // Keyboard Shortcuts (Ctrl+A, Escape, Delete)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+A: Select All Items (shapes, lines, text)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        e.preventDefault(); // Prevent browser's "Select All" text behavior
-        const hasItems = shapes.length > 0 || lines.length > 0 || textAnnotations.length > 0;
-        if (hasItems) {
-          setSelectedShapeIds(new Set(shapes.map(s => s.id)));
-          setSelectedLineIds(new Set(lines.map(l => l.id)));
-          setSelectedTextIds(new Set(textAnnotations.map(t => t.id)));
-          // Switch to selection tool automatically
-          setActiveTool('select');
-        }
-      }
-
-      // Escape: Deselect All
-      if (e.key === 'Escape') {
-        setSelectedShapeIds(new Set());
-        setSelectedLineIds(new Set());
-        setSelectedTextIds(new Set());
-        setActiveTextInput(null);
-      }
-
-      // Delete/Backspace: Delete All Selected Items
-      const hasSelection = selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && hasSelection) {
-        if (activeTextInput) return;
-
-        // Capture state for undo
-        const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
-        const affectedLines = lines.filter(l => selectedLineIds.has(l.id));
-        const affectedTexts = textAnnotations.filter(t => selectedTextIds.has(t.id));
-
-        affectedShapes.forEach(s => addToHistory({ type: 'DELETE', objectType: 'shape', id: s.id, previousState: s, newState: null, userId: 'local' }));
-        affectedLines.forEach(l => addToHistory({ type: 'DELETE', objectType: 'line', id: l.id, previousState: l, newState: null, userId: 'local', index: lines.findIndex(line => line.id === l.id) }));
-        affectedTexts.forEach(t => addToHistory({ type: 'DELETE', objectType: 'text', id: t.id, previousState: t, newState: null, userId: 'local' }));
-
-        setShapes(prev => prev.filter(s => !selectedShapeIds.has(s.id)));
-        setLines(prev => prev.filter(l => !selectedLineIds.has(l.id)));
-        setTextAnnotations(prev => prev.filter(t => !selectedTextIds.has(t.id)));
-        setSelectedShapeIds(new Set());
-        setSelectedLineIds(new Set());
-        setSelectedTextIds(new Set());
-      }
-
-      // Undo (Ctrl+Z / Cmd+Z)
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        performUndo();
-      }
-
-      // Redo (Ctrl+Y / Cmd+Y) OR (Ctrl+Shift+Z / Cmd+Shift+Z)
-      if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')) {
-        e.preventDefault();
-        performRedo();
-      }
-
-      // Tool shortcuts (only when not typing)
-      if (!activeTextInput && !e.ctrlKey && !e.metaKey) {
-        if (e.key === 'g') setActiveTool(ToolType.FILL_BUCKET);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [shapes, lines, textAnnotations, selectedShapeIds, selectedLineIds, selectedTextIds, activeTextInput, performUndo, performRedo]);
+  // Keyboard shortcuts extracted to hook
+  useKeyboardShortcuts({
+    shapes,
+    lines,
+    textAnnotations,
+    selectedShapeIds,
+    selectedLineIds,
+    selectedTextIds,
+    activeTextInput,
+    activeTool,
+    setSelectedShapeIds,
+    setSelectedLineIds,
+    setSelectedTextIds,
+    setActiveTextInput,
+    setActiveTool,
+    setShapes,
+    setLines,
+    setTextAnnotations,
+    addToHistory,
+    performUndo,
+    performRedo,
+  });
 
   // -- 4. HELPERS --
   const getPointerPos = (e: any) => {
@@ -526,53 +284,7 @@ export default function Whiteboard() {
     return { x: e.nativeEvent?.offsetX || 0, y: e.nativeEvent?.offsetY || 0 };
   };
 
-  // Helper to check if eraser hits a shape
-  function isPointInShape(shape: Shape, x: number, y: number, radius: number): boolean {
-    if (isRectangle(shape)) {
-      const s = shape as RectangleShape;
-      return x >= s.position.x - radius &&
-        x <= s.position.x + s.width + radius &&
-        y >= s.position.y - radius &&
-        y <= s.position.y + s.height + radius;
-    }
-    if (isCircle(shape)) {
-      const s = shape as CircleShape;
-      const dist = Math.sqrt((s.position.x - x) ** 2 + (s.position.y - y) ** 2);
-      return dist <= s.radius + radius;
-    }
-    if (isEllipse(shape)) {
-      const s = shape as EllipseShape;
-      const dx = (x - s.position.x) / (s.radiusX + radius);
-      const dy = (y - s.position.y) / (s.radiusY + radius);
-      return dx * dx + dy * dy <= 1;
-    }
-    if (isLine(shape) || isArrow(shape)) {
-      const s = shape as LineShape;
-      // Point-to-line-segment distance
-      const dx = s.endPoint.x - s.startPoint.x;
-      const dy = s.endPoint.y - s.startPoint.y;
-      const lenSq = dx * dx + dy * dy;
-      if (lenSq === 0) return Math.sqrt((s.startPoint.x - x) ** 2 + (s.startPoint.y - y) ** 2) <= radius + 5;
-      let t = ((x - s.startPoint.x) * dx + (y - s.startPoint.y) * dy) / lenSq;
-      t = Math.max(0, Math.min(1, t));
-      const closestX = s.startPoint.x + t * dx;
-      const closestY = s.startPoint.y + t * dy;
-      const dist = Math.sqrt((x - closestX) ** 2 + (y - closestY) ** 2);
-      return dist <= radius + s.style.strokeWidth / 2 + 5;
-    }
-    if (isTriangle(shape)) {
-      const s = shape as TriangleShape;
-      // Bounding box check
-      const xs = s.points.map(p => p.x);
-      const ys = s.points.map(p => p.y);
-      const minX = Math.min(...xs) - radius;
-      const maxX = Math.max(...xs) + radius;
-      const minY = Math.min(...ys) - radius;
-      const maxY = Math.max(...ys) + radius;
-      return x >= minX && x <= maxX && y >= minY && y <= maxY;
-    }
-    return false;
-  }
+  // isPointInShape is imported from ./utils (eraserUtils)
 
   // Hit test for selection: find item (text, line, shape) at clicked point
   function findElementAtPoint(x: number, y: number): { id: string; type: 'shape' | 'line' | 'text' } | null {
@@ -613,64 +325,15 @@ export default function Whiteboard() {
     return null;
   }
 
-  // Update bounding box when selection changes (includes shapes, lines, text)
-  useEffect(() => {
-    const hasSelection = selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0;
-
-    if (!hasSelection) {
-      setSelectionBoundingBox(null);
-      return;
-    }
-
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    // Include shapes
-    const selectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
-    selectedShapes.forEach(shape => {
-      const bbox = getShapeBoundingBox(shape);
-      minX = Math.min(minX, bbox.minX);
-      minY = Math.min(minY, bbox.minY);
-      maxX = Math.max(maxX, bbox.maxX);
-      maxY = Math.max(maxY, bbox.maxY);
-    });
-
-    // Include lines
-    const selectedLines = lines.filter(l => selectedLineIds.has(l.id));
-    selectedLines.forEach(line => {
-      for (let i = 0; i < line.points.length; i += 2) {
-        minX = Math.min(minX, line.points[i]);
-        minY = Math.min(minY, line.points[i + 1]);
-        maxX = Math.max(maxX, line.points[i]);
-        maxY = Math.max(maxY, line.points[i + 1]);
-      }
-    });
-
-    // Include text
-    const selectedTexts = textAnnotations.filter(t => selectedTextIds.has(t.id));
-    selectedTexts.forEach(text => {
-      const textWidth = text.text.length * (text.fontSize * 0.6);
-      const textHeight = text.fontSize * 1.2;
-      minX = Math.min(minX, text.x);
-      minY = Math.min(minY, text.y);
-      maxX = Math.max(maxX, text.x + textWidth);
-      maxY = Math.max(maxY, text.y + textHeight);
-    });
-
-    if (minX !== Infinity) {
-      setSelectionBoundingBox({
-        x: minX,
-        y: minY,
-        width: maxX - minX,
-        height: maxY - minY,
-        minX,
-        minY,
-        maxX,
-        maxY,
-        centerX: (minX + maxX) / 2,
-        centerY: (minY + maxY) / 2,
-      });
-    }
-  }, [selectedShapeIds, selectedLineIds, selectedTextIds, shapes, lines, textAnnotations]);
+  // Selection bounding box computed by hook
+  const selectionBoundingBox = useSelectionBounds({
+    selectedShapeIds,
+    selectedLineIds,
+    selectedTextIds,
+    shapes,
+    lines,
+    textAnnotations,
+  });
 
   // Synchronize Toolbar with Text Selection
   useEffect(() => {
@@ -716,39 +379,7 @@ export default function Whiteboard() {
       }
     }
   }, [selectedLineIds, lines, selectedShapeIds, selectedTextIds]);
-  // -- BRUSH PROPERTIES HELPER --
-  function getBrushProperties(brush: BrushType, size: number, color: string): Partial<StrokeLine> {
-    switch (brush) {
-      case BrushType.BRUSH:
-        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
-      case BrushType.CALLIGRAPHY:
-        return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.5, opacity: 1, strokeWidth: size * 1.5 };
-      case BrushType.CALLIGRAPHY_PEN:
-        return { lineCap: 'square', lineJoin: 'bevel', tension: 0, opacity: 1, strokeWidth: size, globalCompositeOperation: 'source-over' };
-      case BrushType.AIRBRUSH:
-        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.5, strokeWidth: size * 1.5, shadowBlur: 10, shadowColor: color };
-      case BrushType.OIL_BRUSH:
-        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.9, strokeWidth: size * 1.2, shadowBlur: 2, shadowColor: color };
-      case BrushType.CRAYON:
-        return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 0.8, strokeWidth: size, dash: [2, 3] };
-      case BrushType.MARKER:
-        return { lineCap: 'square', lineJoin: 'miter', tension: 0.2, opacity: 0.6, strokeWidth: size * 3, globalCompositeOperation: 'lighter' }; // Additive blend for neon marker on dark bg
-      case BrushType.NATURAL_PENCIL:
-        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.8, strokeWidth: Math.max(1, size * 0.6), dash: [0.5, 0.5] }; // textured look
-      case BrushType.WATERCOLOUR:
-        return { lineCap: 'round', lineJoin: 'round', tension: 0.6, opacity: 0.3, strokeWidth: size * 2.5, shadowBlur: 5, shadowColor: color };
-      default:
-        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
-    }
-  }
-
-  function getStrokeDashArray(style: StrokeStyle, strokeWidth: number): number[] | undefined {
-    switch (style) {
-      case 'dashed': return [strokeWidth * 4, strokeWidth * 2];
-      case 'dotted': return [strokeWidth, strokeWidth * 2];
-      case 'solid': default: return undefined;
-    }
-  }
+  // getBrushProperties and getStrokeDashArray are now imported from ./utils/brushUtils
 
   const performErase = (x: number, y: number) => {
     // 1. Lines
@@ -2295,160 +1926,18 @@ export default function Whiteboard() {
 
       {/* LAYER 2.5: SELECTION BOUNDING BOX */}
       {selectionBoundingBox && activeTool === 'select' && (
-        <svg
-          className="absolute inset-0 z-15"
-          width={dimensions.width}
-          height={dimensions.height}
-          style={{ pointerEvents: 'none' }}
-        >
-          <g transform={(selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
-            ? `rotate(${shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0}, ${selectionBoundingBox.centerX}, ${selectionBoundingBox.centerY})`
-            : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
-              ? `rotate(${textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0}, ${selectionBoundingBox.centerX}, ${selectionBoundingBox.centerY})`
-              : undefined}>
-            {/* SVG Definitions for filters */}
-            <defs>
-              {/* Drop shadow for handles */}
-              <filter id="handle-shadow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#000" floodOpacity="0.4" />
-              </filter>
-              {/* Glow effect for bounding box */}
-              <filter id="selection-glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="2" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-
-            {/* Main bounding box with glow */}
-            <rect
-              x={selectionBoundingBox.minX - 4}
-              y={selectionBoundingBox.minY - 4}
-              width={selectionBoundingBox.width + 8}
-              height={selectionBoundingBox.height + 8}
-              fill="none"
-              stroke="#2dd4bf"
-              strokeWidth={1.5}
-              strokeDasharray="6,4"
-              rx={2}
-              filter="url(#selection-glow)"
-              opacity={0.8}
-            />
-
-            {/* Corner handles with shadows and cursor hints */}
-            {[
-              { x: selectionBoundingBox.minX, y: selectionBoundingBox.minY, cursor: 'nwse-resize', id: 'nw' }, // Top-left
-              { x: selectionBoundingBox.maxX, y: selectionBoundingBox.minY, cursor: 'nesw-resize', id: 'ne' }, // Top-right
-              { x: selectionBoundingBox.maxX, y: selectionBoundingBox.maxY, cursor: 'nwse-resize', id: 'se' }, // Bottom-right
-              { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY, cursor: 'nesw-resize', id: 'sw' }, // Bottom-left
-            ].map((corner, i) => (
-              <g key={`corner-${i}`} data-resize-handle={corner.id} style={{ pointerEvents: 'auto', cursor: corner.cursor }}>
-                {/* Larger invisible hit area */}
-                <rect
-                  x={corner.x - 8}
-                  y={corner.y - 8}
-                  width={16}
-                  height={16}
-                  fill="transparent"
-                />
-                {/* Visible handle */}
-                <rect
-                  x={corner.x - 5}
-                  y={corner.y - 5}
-                  width={10}
-                  height={10}
-                  fill="#0f1419"
-                  stroke="#2dd4bf"
-                  strokeWidth={1.5}
-                  rx={2}
-                  filter="url(#handle-shadow)"
-                />
-                {/* Inner dot */}
-                <circle
-                  cx={corner.x}
-                  cy={corner.y}
-                  r={2}
-                  fill="#2dd4bf"
-                />
-              </g>
-            ))}
-
-            {/* Midpoint handles with shadows */}
-            {[
-              { x: selectionBoundingBox.centerX, y: selectionBoundingBox.minY, cursor: 'ns-resize', id: 'n' }, // Top-center
-              { x: selectionBoundingBox.maxX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'e' }, // Right-center
-              { x: selectionBoundingBox.centerX, y: selectionBoundingBox.maxY, cursor: 'ns-resize', id: 's' }, // Bottom-center
-              { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'w' }, // Left-center
-            ].map((mid, i) => (
-              <g key={`mid-${i}`} data-resize-handle={mid.id} style={{ pointerEvents: 'auto', cursor: mid.cursor }}>
-                {/* Larger invisible hit area */}
-                <rect
-                  x={mid.x - 8}
-                  y={mid.y - 8}
-                  width={16}
-                  height={16}
-                  fill="transparent"
-                />
-                {/* Visible handle */}
-                <rect
-                  x={mid.x - 5}
-                  y={mid.y - 5}
-                  width={10}
-                  height={10}
-                  fill="#0f1419"
-                  stroke="#2dd4bf"
-                  strokeWidth={1.5}
-                  rx={2}
-                  filter="url(#handle-shadow)"
-                />
-              </g>
-            ))}
-
-            {/* Task 4.3: Rotation Handle */}
-            {selectedTextIds.size === 0 && selectedLineIds.size === 0 && (
-              <g data-rotation-handle="true" style={{ pointerEvents: 'auto', cursor: 'grab' }}>
-                {/* Stalk line connecting to selection box */}
-                <line
-                  x1={selectionBoundingBox.centerX}
-                  y1={selectionBoundingBox.minY - 4}
-                  x2={selectionBoundingBox.centerX}
-                  y2={selectionBoundingBox.minY - 28}
-                  stroke="#2dd4bf"
-                  strokeWidth={1.5}
-                  strokeDasharray="3,2"
-                />
-                {/* Rotation handle circle */}
-                <circle
-                  cx={selectionBoundingBox.centerX}
-                  cy={selectionBoundingBox.minY - 32}
-                  r={10}
-                  fill="#0f1419"
-                  stroke="#2dd4bf"
-                  strokeWidth={2}
-                  filter="url(#handle-shadow)"
-                />
-                {/* Rotation icon (curved arrow) */}
-                <path
-                  d={`M ${selectionBoundingBox.centerX - 4} ${selectionBoundingBox.minY - 35}
-                     a 4 4 0 1 1 8 0`}
-                  stroke="#2dd4bf"
-                  strokeWidth={1.5}
-                  fill="none"
-                  strokeLinecap="round"
-                />
-                <path
-                  d={`M ${selectionBoundingBox.centerX + 4} ${selectionBoundingBox.minY - 35}
-                     l 2 -2 l 0 4 z`}
-                  fill="#2dd4bf"
-                />
-              </g>
-            )}
-
-
-          </g>
-        </svg>
+        <SelectionOverlay
+          selectionBoundingBox={selectionBoundingBox}
+          dimensions={dimensions}
+          rotation={
+            (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
+              ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
+              : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
+                ? (textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0)
+                : undefined
+          }
+          showRotationHandle={selectedTextIds.size === 0 && selectedLineIds.size === 0}
+        />
       )}
 
       {/* LAYER 3: KONVA (Drawings) */}
@@ -2526,15 +2015,7 @@ export default function Whiteboard() {
       )}
 
       {activeTool === 'eraser' && cursorPos && (
-        <div
-          className="absolute z-[100] rounded-full border border-white bg-white/20 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-          style={{
-            width: eraserSize,
-            height: eraserSize,
-            left: cursorPos.x - eraserSize / 2,
-            top: cursorPos.y - eraserSize / 2,
-          }}
-        />
+        <EraserCursor cursorPos={cursorPos} eraserSize={eraserSize} />
       )}
 
       {/* Export Tools Overlay */}

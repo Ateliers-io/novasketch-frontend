@@ -18,6 +18,15 @@ export interface StrokeLine {
     points: number[];
     color: string;
     strokeWidth: number;
+    brushType?: string;
+    opacity?: number;
+    lineCap?: 'butt' | 'round' | 'square';
+    lineJoin?: 'miter' | 'round' | 'bevel';
+    tension?: number;
+    dash?: number[];
+    globalCompositeOperation?: string;
+    shadowBlur?: number;
+    shadowColor?: string;
 }
 
 export interface Shape {

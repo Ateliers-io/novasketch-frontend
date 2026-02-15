@@ -5,14 +5,28 @@ import DOMPurify from 'dompurify';
 import Toolbar, { ActiveTool, EraserMode } from '../Toolbar/Toolbar';
 import {
   ToolType,
+  BrushType,
+  StrokeStyle,
   Shape,
   ShapeType,
   createRectangle,
   createCircle,
+  createEllipse,
+  createLine,
+  createArrow,
+  createTriangle,
   isRectangle,
   isCircle,
+  isEllipse,
+  isLine,
+  isArrow,
+  isTriangle,
   RectangleShape,
   CircleShape,
+  EllipseShape,
+  LineShape,
+  ArrowShape,
+  TriangleShape,
   Position,
 } from '../../types/shapes';
 import SVGShapeRenderer from './SVGShapeRenderer';
@@ -25,6 +39,7 @@ import {
 import ExportTools from '../ExportTools/ExportTools';
 import Konva from 'konva';
 import { useSync } from '../../services/useSync';
+import { StrokeLine } from '../../services/sync.service';
 
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
@@ -34,13 +49,7 @@ const ROOM_ID = 'default-room'; // TODO: derive from route params/auth context
 const GRID_DOT_COLOR = '#45A29E';
 const DEFAULT_STROKE_COLOR = '#66FCF1';
 
-// --- TYPES ---
-interface StrokeLine {
-  id: string;
-  points: number[];
-  color: string;
-  strokeWidth: number;
-}
+// StrokeLine and TextAnnotation are imported from sync.service via useSync
 
 interface TextAnnotation {
   id: string;
@@ -289,8 +298,12 @@ export default function Whiteboard() {
   } = useSync({ roomId: ROOM_ID, wsUrl: WS_URL });
 
   // local ref to avoid staleness in event handlers.
+  // local ref to avoid staleness in event handlers.
   const linesRef = useRef(lines);
   useEffect(() => { linesRef.current = lines; }, [lines]);
+
+  // Current Stroke Ref for efficient drawing updates (bypassing stale state)
+  const currentStrokeRef = useRef<{ id: string, points: number[] } | null>(null);
 
   // Snapshot for Eraser Diffing
   const [initialEraserLines, setInitialEraserLines] = useState<StrokeLine[] | null>(null);
@@ -382,6 +395,9 @@ export default function Whiteboard() {
   const [fillColor, setFillColor] = useState('#45A29E');
   const [eraserSize, setEraserSize] = useState(20);
   const [eraserMode, setEraserMode] = useState<EraserMode>('stroke');
+  const [brushType, setBrushType] = useState<BrushType>(BrushType.BRUSH);
+  const [strokeStyle, setStrokeStyle] = useState<StrokeStyle>('solid');
+  const [canvasBackgroundColor, setCanvasBackgroundColor] = useState('#0B0C10');
 
   const [fontStyles, setFontStyles] = useState({
     family: 'Arial', // Default to Arial (system font)
@@ -466,6 +482,11 @@ export default function Whiteboard() {
         e.preventDefault();
         performRedo();
       }
+
+      // Tool shortcuts (only when not typing)
+      if (!activeTextInput && !e.ctrlKey && !e.metaKey) {
+        if (e.key === 'g') setActiveTool(ToolType.FILL_BUCKET);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -507,7 +528,6 @@ export default function Whiteboard() {
   function isPointInShape(shape: Shape, x: number, y: number, radius: number): boolean {
     if (isRectangle(shape)) {
       const s = shape as RectangleShape;
-      // Check bounds with radius buffer
       return x >= s.position.x - radius &&
         x <= s.position.x + s.width + radius &&
         y >= s.position.y - radius &&
@@ -517,6 +537,37 @@ export default function Whiteboard() {
       const s = shape as CircleShape;
       const dist = Math.sqrt((s.position.x - x) ** 2 + (s.position.y - y) ** 2);
       return dist <= s.radius + radius;
+    }
+    if (isEllipse(shape)) {
+      const s = shape as EllipseShape;
+      const dx = (x - s.position.x) / (s.radiusX + radius);
+      const dy = (y - s.position.y) / (s.radiusY + radius);
+      return dx * dx + dy * dy <= 1;
+    }
+    if (isLine(shape) || isArrow(shape)) {
+      const s = shape as LineShape;
+      // Point-to-line-segment distance
+      const dx = s.endPoint.x - s.startPoint.x;
+      const dy = s.endPoint.y - s.startPoint.y;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) return Math.sqrt((s.startPoint.x - x) ** 2 + (s.startPoint.y - y) ** 2) <= radius + 5;
+      let t = ((x - s.startPoint.x) * dx + (y - s.startPoint.y) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      const closestX = s.startPoint.x + t * dx;
+      const closestY = s.startPoint.y + t * dy;
+      const dist = Math.sqrt((x - closestX) ** 2 + (y - closestY) ** 2);
+      return dist <= radius + s.style.strokeWidth / 2 + 5;
+    }
+    if (isTriangle(shape)) {
+      const s = shape as TriangleShape;
+      // Bounding box check
+      const xs = s.points.map(p => p.x);
+      const ys = s.points.map(p => p.y);
+      const minX = Math.min(...xs) - radius;
+      const maxX = Math.max(...xs) + radius;
+      const minY = Math.min(...ys) - radius;
+      const maxY = Math.max(...ys) + radius;
+      return x >= minX && x <= maxX && y >= minY && y <= maxY;
     }
     return false;
   }
@@ -639,7 +690,63 @@ export default function Whiteboard() {
     }
   }, [selectedTextIds, textAnnotations]);
 
+  // Synchronize Toolbar with Shape Selection (Property Reflection)
+  useEffect(() => {
+    if (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0) {
+      const shapeId = Array.from(selectedShapeIds)[0];
+      const shape = shapes.find(s => s.id === shapeId);
+      if (shape) {
+        setStrokeColor(shape.style.stroke);
+        setFillColor(shape.style.hasFill ? shape.style.fill : '#45A29E');
+        setBrushSize(shape.style.strokeWidth);
+      }
+    }
+  }, [selectedShapeIds, shapes, selectedTextIds, selectedLineIds]);
 
+  // Synchronize Toolbar with Line Selection (Property Reflection)
+  useEffect(() => {
+    if (selectedLineIds.size === 1 && selectedShapeIds.size === 0 && selectedTextIds.size === 0) {
+      const lineId = Array.from(selectedLineIds)[0];
+      const line = lines.find(l => l.id === lineId);
+      if (line) {
+        setStrokeColor(line.color);
+        setBrushSize(line.strokeWidth);
+      }
+    }
+  }, [selectedLineIds, lines, selectedShapeIds, selectedTextIds]);
+  // -- BRUSH PROPERTIES HELPER --
+  function getBrushProperties(brush: BrushType, size: number, color: string): Partial<StrokeLine> {
+    switch (brush) {
+      case BrushType.BRUSH:
+        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
+      case BrushType.CALLIGRAPHY:
+        return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.5, opacity: 1, strokeWidth: size * 1.5 };
+      case BrushType.CALLIGRAPHY_PEN:
+        return { lineCap: 'square', lineJoin: 'bevel', tension: 0, opacity: 1, strokeWidth: size, globalCompositeOperation: 'source-over' };
+      case BrushType.AIRBRUSH:
+        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.5, strokeWidth: size * 1.5, shadowBlur: 10, shadowColor: color };
+      case BrushType.OIL_BRUSH:
+        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.9, strokeWidth: size * 1.2, shadowBlur: 2, shadowColor: color };
+      case BrushType.CRAYON:
+        return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 0.8, strokeWidth: size, dash: [1, 2] };
+      case BrushType.MARKER:
+        return { lineCap: 'square', lineJoin: 'miter', tension: 0.2, opacity: 0.5, strokeWidth: size * 3, globalCompositeOperation: 'multiply' }; // Multiply ensures marker blending
+      case BrushType.NATURAL_PENCIL:
+        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.8, strokeWidth: Math.max(1, size * 0.6), dash: [0.5, 0.5] }; // textured look
+      case BrushType.WATERCOLOUR:
+        return { lineCap: 'round', lineJoin: 'round', tension: 0.6, opacity: 0.3, strokeWidth: size * 2.5, shadowBlur: 5, shadowColor: color };
+      default:
+        return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
+    }
+  }
+
+  function getStrokeDashArray(style: StrokeStyle, strokeWidth: number): number[] | undefined {
+    switch (style) {
+      case 'dashed': return [strokeWidth * 4, strokeWidth * 2];
+      case 'dotted': return [strokeWidth, strokeWidth * 2];
+      case 'solid': default: return undefined;
+    }
+  }
 
   const performErase = (x: number, y: number) => {
     // 1. Lines
@@ -780,6 +887,40 @@ export default function Whiteboard() {
       });
       // socket.emit('layer-update', { ... });
     }
+  };
+
+  // -- Delete Selected Items --
+  const handleDeleteSelected = () => {
+    const actions: Action[] = [];
+
+    if (selectedShapeIds.size > 0) {
+      shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
+        actions.push({ type: 'DELETE', objectType: 'shape', id: s.id, previousState: s, newState: null, userId: 'local' });
+      });
+      setShapes(prev => prev.filter(s => !selectedShapeIds.has(s.id)));
+    }
+
+    if (selectedLineIds.size > 0) {
+      lines.filter(l => selectedLineIds.has(l.id)).forEach(l => {
+        actions.push({ type: 'DELETE', objectType: 'line', id: l.id, previousState: l, newState: null, userId: 'local' });
+      });
+      setLines(prev => prev.filter(l => !selectedLineIds.has(l.id)));
+    }
+
+    if (selectedTextIds.size > 0) {
+      textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
+        actions.push({ type: 'DELETE', objectType: 'text', id: t.id, previousState: t, newState: null, userId: 'local' });
+      });
+      setTextAnnotations(prev => prev.filter(t => !selectedTextIds.has(t.id)));
+    }
+
+    if (actions.length > 0) {
+      addToHistory({ type: 'BATCH', userId: 'local', actions });
+    }
+
+    setSelectedShapeIds(new Set());
+    setSelectedLineIds(new Set());
+    setSelectedTextIds(new Set());
   };
 
   // -- 5. ACTION HANDLERS --
@@ -1034,21 +1175,85 @@ export default function Whiteboard() {
       return;
     }
 
-    // C. DRAWING/SHAPE TOOLS
+    // C. FILL BUCKET TOOL
+    if (activeTool === ToolType.FILL_BUCKET) {
+      // Check if clicking on a shape — fill it
+      let filled = false;
+      for (let i = shapes.length - 1; i >= 0; i--) {
+        const shape = shapes[i];
+        if (isPointInShape(shape, x, y, 5)) {
+          const prevShape = shape;
+          const newShape = { ...shape, style: { ...shape.style, fill: fillColor, hasFill: true } };
+          setShapes(prev => prev.map(s => s.id === shape.id ? newShape : s));
+          addToHistory({ type: 'UPDATE', objectType: 'shape', id: shape.id, previousState: prevShape, newState: newShape, userId: 'local' });
+          filled = true;
+          break;
+        }
+      }
+      // If no shape clicked, change canvas background
+      if (!filled) {
+        setCanvasBackgroundColor(fillColor);
+      }
+      return;
+    }
+
+    // D. DRAWING/SHAPE TOOLS
     setIsDrawing(true);
     setDragStart({ x, y });
 
     if (activeTool === ToolType.PEN) {
-      setLines([...lines, {
-        id: `stroke-${Date.now()}`,
-        points: [x, y],
+      const brushProps = getBrushProperties(brushType, brushSize, strokeColor);
+      const newLineId = `stroke-${Date.now()}`;
+      const newPoints = [x, y];
+
+      // Store in ref for immediate access in pointerMove
+      currentStrokeRef.current = { id: newLineId, points: newPoints };
+
+      // Use addLine which is more efficient than setLines full rewrite
+      addLine({
+        id: newLineId,
+        points: newPoints,
         color: strokeColor,
-        strokeWidth: brushSize
-      }]);
+        strokeWidth: brushSize,
+        brushType: brushType,
+        ...brushProps, // Apply all enhanced properties (shadows, opacity, etc.)
+      });
+    } else if (activeTool === ToolType.HIGHLIGHTER) {
+      const highlighterColor = strokeColor + '66';
+      const newLineId = `highlight-${Date.now()}`;
+      const newPoints = [x, y];
+
+      currentStrokeRef.current = { id: newLineId, points: newPoints };
+
+      addLine({
+        id: newLineId,
+        points: newPoints,
+        color: highlighterColor,
+        strokeWidth: brushSize * 3,
+        brushType: BrushType.MARKER,
+        opacity: 0.5,
+        lineCap: 'square',
+        lineJoin: 'miter',
+        tension: 0.4,
+      });
     } else if (activeTool === ToolType.RECTANGLE) {
-      setPreviewShape(createRectangle(x, y, 0, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true } }));
+      const dashArr = getStrokeDashArray(strokeStyle, brushSize);
+      setPreviewShape(createRectangle(x, y, 0, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
     } else if (activeTool === ToolType.CIRCLE) {
-      setPreviewShape(createCircle(x, y, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true } }));
+      const dashArr = getStrokeDashArray(strokeStyle, brushSize);
+      setPreviewShape(createCircle(x, y, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
+    } else if (activeTool === ToolType.ELLIPSE) {
+      const dashArr = getStrokeDashArray(strokeStyle, brushSize);
+      setPreviewShape(createEllipse(x, y, 0, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
+    } else if (activeTool === ToolType.LINE) {
+      const dashArr = getStrokeDashArray(strokeStyle, brushSize);
+      setPreviewShape(createLine(x, y, x, y, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
+    } else if (activeTool === ToolType.ARROW) {
+      const dashArr = getStrokeDashArray(strokeStyle, brushSize);
+      setPreviewShape(createArrow(x, y, x, y, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
+    } else if (activeTool === ToolType.TRIANGLE) {
+      const dashArr = getStrokeDashArray(strokeStyle, brushSize);
+      setPreviewShape(createTriangle(x, y, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
     }
   };
 
@@ -1355,14 +1560,17 @@ export default function Whiteboard() {
       return;
     }
 
-    // B. DRAWING PEN
-    if (activeTool === ToolType.PEN) {
-      setLines(prev => {
-        const last = prev[prev.length - 1];
-        if (!last) return prev;
-        const newPoints = last.points.concat([x, y]);
-        return [...prev.slice(0, -1), { ...last, points: newPoints }];
-      });
+    // B. DRAWING PEN / HIGHLIGHTER
+    if (activeTool === ToolType.PEN || activeTool === ToolType.HIGHLIGHTER) {
+      if (currentStrokeRef.current) {
+        const { id, points } = currentStrokeRef.current;
+        // Efficiently append new point
+        const newPoints = [...points, x, y];
+        currentStrokeRef.current.points = newPoints;
+
+        // Use syncUpdateLine to update only this line, not rewrite the whole array
+        syncUpdateLine(id, { points: newPoints });
+      }
     }
     // C. RESIZING PREVIEW SHAPE
     else if (dragStart && previewShape) {
@@ -1378,11 +1586,49 @@ export default function Whiteboard() {
       } else if (activeTool === ToolType.CIRCLE) {
         const radius = Math.sqrt(width ** 2 + height ** 2);
         setPreviewShape({ ...previewShape, radius } as CircleShape);
+      } else if (activeTool === ToolType.ELLIPSE) {
+        const radiusX = Math.abs(width);
+        const radiusY = Math.abs(height);
+        setPreviewShape({
+          ...previewShape,
+          position: { x: dragStart.x, y: dragStart.y },
+          radiusX,
+          radiusY,
+        } as EllipseShape);
+      } else if (activeTool === ToolType.LINE) {
+        setPreviewShape({
+          ...previewShape,
+          startPoint: { x: dragStart.x, y: dragStart.y },
+          endPoint: { x, y },
+        } as LineShape);
+      } else if (activeTool === ToolType.ARROW) {
+        setPreviewShape({
+          ...previewShape,
+          startPoint: { x: dragStart.x, y: dragStart.y },
+          endPoint: { x, y },
+        } as ArrowShape);
+      } else if (activeTool === ToolType.TRIANGLE) {
+        const size = Math.max(Math.abs(width), Math.abs(height));
+        const h = (Math.sqrt(3) / 2) * size;
+        const baseX = width < 0 ? dragStart.x - size : dragStart.x;
+        const baseY = height < 0 ? dragStart.y - h : dragStart.y;
+        setPreviewShape({
+          ...previewShape,
+          position: { x: baseX, y: baseY },
+          points: [
+            { x: baseX + size / 2, y: baseY },
+            { x: baseX + size, y: baseY + h },
+            { x: baseX, y: baseY + h },
+          ],
+        } as TriangleShape);
       }
     }
   };
 
   const handlePointerUp = () => {
+    // Reset drawing ref
+    currentStrokeRef.current = null;
+
     // 1. History & Logic for Eraser (MUST BE BEFORE EARLY RETURNS)
     // Task 4.5.3 Partial Eraser Logic: Detect Changes
     if (activeTool === 'eraser' && initialEraserLines) {
@@ -1624,30 +1870,41 @@ export default function Whiteboard() {
 
     // Handle Shape Creation
     if (previewShape) {
-      const isRect = isRectangle(previewShape) && (previewShape as RectangleShape).width > 5;
-      const isCirc = isCircle(previewShape) && (previewShape as CircleShape).radius > 5;
+      let isValidShape = false;
 
-      if (isRect || isCirc) {
+      if (isRectangle(previewShape)) {
+        isValidShape = (previewShape as RectangleShape).width > 5 && (previewShape as RectangleShape).height > 5;
+      } else if (isCircle(previewShape)) {
+        isValidShape = (previewShape as CircleShape).radius > 5;
+      } else if (isEllipse(previewShape)) {
+        isValidShape = (previewShape as EllipseShape).radiusX > 5 || (previewShape as EllipseShape).radiusY > 5;
+      } else if (isLine(previewShape) || isArrow(previewShape)) {
+        const s = previewShape as LineShape;
+        const dist = Math.sqrt((s.endPoint.x - s.startPoint.x) ** 2 + (s.endPoint.y - s.startPoint.y) ** 2);
+        isValidShape = dist > 5;
+      } else if (isTriangle(previewShape)) {
+        const s = previewShape as TriangleShape;
+        const xs = s.points.map(p => p.x);
+        const ys = s.points.map(p => p.y);
+        isValidShape = (Math.max(...xs) - Math.min(...xs)) > 5 || (Math.max(...ys) - Math.min(...ys)) > 5;
+      }
+
+      if (isValidShape) {
         const newShape = previewShape;
-        setShapes(prev => [...prev, newShape]); // Use functional update
+        setShapes(prev => [...prev, newShape]);
         addToHistory({ type: 'ADD', objectType: 'shape', id: newShape.id, previousState: null, newState: newShape, userId: 'local' });
 
         // Auto-switch to selection tool after drawing (unless locked)
         if (!isToolLocked) {
           setActiveTool('select');
           setSelectedShapeIds(new Set([newShape.id]));
-        } else {
-          // If locked, we need to reset for next shape? actually dragStart handles it.
         }
       }
       setPreviewShape(null);
     }
 
-    // Handle Pen Stroke
-    // Use REF for lines to get latest state in closure
-    if (activeTool === ToolType.PEN && linesRef.current.length > 0) {
-      // Only add history if we actually drew something new (length changed or new id)
-      // Since this runs ONCE per mouse up, we take the last line of the array
+    // Handle Pen/Highlighter Stroke
+    if ((activeTool === ToolType.PEN || activeTool === ToolType.HIGHLIGHTER) && linesRef.current.length > 0) {
       const lastLine = linesRef.current[linesRef.current.length - 1];
       addToHistory({ type: 'ADD', objectType: 'line', id: lastLine.id, previousState: null, newState: lastLine, userId: 'local' });
     }
@@ -1660,12 +1917,15 @@ export default function Whiteboard() {
   return (
     <div
       ref={containerRef}
-      className={`relative w-screen h-screen overflow-hidden bg-[#0B0C10] select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection)
+      className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection)
         ? 'cursor-move'
         : activeTool === 'select'
           ? 'cursor-default'
-          : 'cursor-crosshair'
+          : activeTool === ToolType.FILL_BUCKET
+            ? 'cursor-pointer'
+            : 'cursor-crosshair'
         }`}
+      style={{ backgroundColor: canvasBackgroundColor }}
       onMouseMove={handlePointerMove}
       onMouseDown={handlePointerDown}
       onMouseUp={handlePointerUp}
@@ -1697,10 +1957,65 @@ export default function Whiteboard() {
         isToolLocked={isToolLocked}
         onToolLockChange={setIsToolLocked}
         brushSize={brushSize}
-        onBrushSizeChange={setBrushSize}
+        onBrushSizeChange={(s) => {
+          setBrushSize(s);
+          // Live-edit selected shapes strokeWidth
+          if (selectedShapeIds.size > 0) {
+            const updates: Action[] = [];
+            setShapes(prev => prev.map(sh => {
+              if (selectedShapeIds.has(sh.id)) {
+                const newS = { ...sh, style: { ...sh.style, strokeWidth: s } };
+                updates.push({ type: 'UPDATE', objectType: 'shape', id: sh.id, previousState: sh, newState: newS, userId: 'local' });
+                return newS;
+              }
+              return sh;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+          // Live-edit selected lines strokeWidth
+          if (selectedLineIds.size > 0) {
+            const updates: Action[] = [];
+            setLines(prev => prev.map(l => {
+              if (selectedLineIds.has(l.id)) {
+                const newL = { ...l, strokeWidth: s };
+                updates.push({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: l, newState: newL, userId: 'local' });
+                return newL;
+              }
+              return l;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
         strokeColor={strokeColor}
         onColorChange={(c) => {
           setStrokeColor(c);
+          // Live-edit selected shapes
+          if (selectedShapeIds.size > 0) {
+            const updates: Action[] = [];
+            setShapes(prev => prev.map(s => {
+              if (selectedShapeIds.has(s.id)) {
+                const newS = { ...s, style: { ...s.style, stroke: c } };
+                updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
+                return newS;
+              }
+              return s;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+          // Live-edit selected lines
+          if (selectedLineIds.size > 0) {
+            const updates: Action[] = [];
+            setLines(prev => prev.map(l => {
+              if (selectedLineIds.has(l.id)) {
+                const newL = { ...l, color: c };
+                updates.push({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: l, newState: newL, userId: 'local' });
+                return newL;
+              }
+              return l;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+          // Live-edit selected text
           if (selectedTextIds.size > 0) {
             const updates: Action[] = [];
             setTextAnnotations(prev => prev.map(t => {
@@ -1715,7 +2030,26 @@ export default function Whiteboard() {
           }
         }}
         fillColor={fillColor}
-        onFillColorChange={setFillColor}
+        onFillColorChange={(c) => {
+          setFillColor(c);
+          // Live-edit selected shapes fill
+          if (selectedShapeIds.size > 0) {
+            const updates: Action[] = [];
+            setShapes(prev => prev.map(s => {
+              if (selectedShapeIds.has(s.id)) {
+                const newS = { ...s, style: { ...s.style, fill: c, hasFill: true } };
+                updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
+                return newS;
+              }
+              return s;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
+        brushType={brushType}
+        onBrushTypeChange={setBrushType}
+        strokeStyle={strokeStyle}
+        onStrokeStyleChange={setStrokeStyle}
         fontFamily={fontStyles.family}
         onFontFamilyChange={(f) => {
           setFontStyles(p => ({ ...p, family: f }));
@@ -1824,6 +2158,7 @@ export default function Whiteboard() {
         hasSelection={selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0}
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
+        onDeleteSelected={handleDeleteSelected}
 
         canUndo={canUndo}
         canRedo={canRedo}
@@ -1859,6 +2194,7 @@ export default function Whiteboard() {
           shapes={previewShape ? [...shapes, previewShape] : shapes}
           width={dimensions.width}
           height={dimensions.height}
+          selectedShapeIds={selectedShapeIds}
         />
       </div>
 
@@ -2070,9 +2406,14 @@ export default function Whiteboard() {
                 points={line.points}
                 stroke={line.color}
                 strokeWidth={line.strokeWidth}
-                tension={0.5}
-                lineCap="round"
-                lineJoin="round"
+                tension={line.tension ?? 0.5}
+                lineCap={line.lineCap ?? 'round'}
+                lineJoin={line.lineJoin ?? 'round'}
+                opacity={line.opacity ?? 1}
+                dash={line.dash}
+                globalCompositeOperation={line.globalCompositeOperation as any}
+                shadowBlur={line.shadowBlur}
+                shadowColor={line.shadowColor || line.color}
               />
             ))}
           </Layer>

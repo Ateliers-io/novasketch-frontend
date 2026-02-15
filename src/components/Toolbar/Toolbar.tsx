@@ -444,14 +444,14 @@ export default function Toolbar({
 
                             {/* 2. Pro Palette Strip */}
                             <div className="flex flex-col gap-1.5">
-                                <div className="grid grid-cols-8 gap-1.5 p-0.5">
+                                <div className="grid grid-cols-8 gap-1.5 p-0.5" style={{ display: 'flex', overflowX: 'auto', maxWidth: '210px', scrollbarWidth: 'none', paddingBottom: '8px' }}>
                                     {/* No Fill Button */}
                                     <button
                                         onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); }}
-                                        className={`w-5 h-5 rounded-full border border-gray-600 flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-1 ring-red-500 bg-gray-700' : 'bg-[#1a2025] hover:bg-gray-700'}`}
+                                        className={`shrink-0 w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-1 ring-red-500 bg-gray-700' : 'bg-[#1a2025] hover:bg-gray-700'}`}
                                         title="No Fill"
                                     >
-                                        <Slash size={10} className="text-red-400" />
+                                        <Slash size={12} className="text-red-400" />
                                     </button>
 
                                     {/* Colors */}
@@ -459,7 +459,7 @@ export default function Toolbar({
                                         <button
                                             key={c}
                                             onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
-                                            className="w-5 h-5 rounded-full border border-gray-700/50 hover:border-white hover:scale-110 transition-transform shadow-sm relative group"
+                                            className="shrink-0 w-6 h-6 rounded-full border border-gray-700/50 hover:border-white hover:scale-110 transition-transform shadow-sm relative group"
                                             style={{ background: c }}
                                             title={c}
                                         >
@@ -470,9 +470,9 @@ export default function Toolbar({
                                     ))}
 
                                     {/* Custom Picker Placeholder */}
-                                    <div className="relative w-5 h-5 rounded-full border border-gray-600 overflow-hidden hover:scale-110 transition-transform cursor-pointer" title="Custom Color">
+                                    <div className="relative shrink-0 w-6 h-6 rounded-full border border-gray-600 overflow-hidden hover:scale-110 transition-transform cursor-pointer" title="Custom Color">
                                         <div className="absolute inset-0 bg-[conic-gradient(at_center,_red,_orange,_yellow,_green,_blue,_purple,_red)] opacity-80 hover:opacity-100" />
-                                        <Plus size={10} className="absolute inset-0 m-auto text-white drop-shadow-md" />
+                                        <Plus size={12} className="absolute inset-0 m-auto text-white drop-shadow-md" />
                                         <input type="color"
                                             value={activeColorMode === 'stroke' ? strokeColor : (fillColor === 'transparent' ? '#ffffff' : fillColor)}
                                             onChange={(e) => activeColorMode === 'stroke' ? onColorChange(e.target.value) : onFillColorChange(e.target.value)}
@@ -485,7 +485,6 @@ export default function Toolbar({
                     </ToolSection>
                 )}
 
-                {/* ═══ WIDTH ═══ */}
                 {/* ═══ WIDTH & RADIUS ═══ */}
                 {(isDrawMode || isFillBucket || (hasSelection && cornerRadius !== undefined)) && (
                     <>

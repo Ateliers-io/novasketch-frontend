@@ -20,33 +20,86 @@ const RULES = {
 const Stars = () => {
     const ref = useRef<HTMLCanvasElement>(null);
     useEffect(() => {
-        const c = ref.current!, gl = c.getContext('2d')!;
-        let raf: number, w = (c.width = innerWidth), h = (c.height = innerHeight);
-        const N = Math.min(100, ~~((w * h) / 12000));
-        const pts = Array.from({ length: N }, () => ({
-            x: Math.random() * w, y: Math.random() * h,
-            vx: (Math.random() - .5) * .16, vy: (Math.random() - .5) * .16,
-            r: Math.random() * 1.5 + .3, p: Math.random() * 6.28,
-        }));
-        const draw = () => {
-            gl.fillStyle = 'rgba(11,12,16,.06)'; gl.fillRect(0, 0, w, h);
-            const t = Date.now() * .001;
-            for (let i = 0; i < N; i++) {
-                const a = pts[i]; a.x += a.vx; a.y += a.vy;
-                if (a.x < 0) a.x = w; if (a.x > w) a.x = 0;
-                if (a.y < 0) a.y = h; if (a.y > h) a.y = 0;
-                for (let j = i + 1; j < N; j++) {
-                    const b = pts[j], d = Math.hypot(a.x - b.x, a.y - b.y);
-                    if (d < 130) { gl.strokeStyle = `rgba(102,252,241,${(1 - d / 130) * .09})`; gl.lineWidth = .35; gl.beginPath(); gl.moveTo(a.x, a.y); gl.lineTo(b.x, b.y); gl.stroke(); }
-                }
-                gl.beginPath(); gl.arc(a.x, a.y, a.r, 0, 6.283);
-                gl.fillStyle = `rgba(102,252,241,${.2 + Math.sin(t + a.p) * .3})`; gl.fill();
-            }
-            raf = requestAnimationFrame(draw);
-        }; draw();
-        const rs = () => { w = c.width = innerWidth; h = c.height = innerHeight; };
-        addEventListener('resize', rs);
-        return () => { removeEventListener('resize', rs); cancelAnimationFrame(raf); };
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        let animationId: number;
+        let w = canvas.width = window.innerWidth;
+        let h = canvas.height = window.innerHeight;
+
+        // Stars
+        const stars: { x: number; y: number; vx: number; vy: number; radius: number; brightness: number }[] = [];
+        // Max 80 particles. any more and the double-loop below kills framerate.
+        const starCount = Math.min(80, Math.floor((w * h) / 15000));
+
+        for (let i = 0; i < starCount; i++) {
+            stars.push({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3,
+                radius: Math.random() * 1.5 + 0.5,
+                brightness: Math.random()
+            });
+        }
+
+        const render = () => {
+            ctx.fillStyle = 'rgba(11, 12, 16, 0.08)';
+            ctx.fillRect(0, 0, w, h);
+
+            const time = Date.now() * 0.001;
+
+            stars.forEach((star, i) => {
+                star.x += star.vx;
+                star.y += star.vy;
+                star.brightness = 0.3 + Math.sin(time + i) * 0.3;
+
+                if (star.x < 0) star.x = w;
+                if (star.x > w) star.x = 0;
+                if (star.y < 0) star.y = h;
+                if (star.y > h) star.y = 0;
+
+                // Draw connections (constellation lines)
+                stars.forEach((other, j) => {
+                    if (i >= j) return;
+                    const dx = star.x - other.x;
+                    const dy = star.y - other.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 120) {
+                        ctx.strokeStyle = `rgba(102, 252, 241, ${(1 - dist / 120) * 0.15})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(star.x, star.y);
+                        ctx.lineTo(other.x, other.y);
+                        ctx.stroke();
+                    }
+                });
+
+                // Draw star
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(102, 252, 241, ${star.brightness})`;
+                ctx.fill();
+            });
+
+            animationId = requestAnimationFrame(render);
+        };
+
+        render();
+
+        const handleResize = () => {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            cancelAnimationFrame(animationId);
+        };
     }, []);
     return <canvas ref={ref} className="fixed inset-0 z-0 pointer-events-none" style={{ opacity: .5 }} />;
 };

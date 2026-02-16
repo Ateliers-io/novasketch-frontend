@@ -19,7 +19,9 @@ import { useAuth } from '../../../contexts';
 
 // NOVASKETCH - LOGIN PORTAL
 
-// --- ANIMATED CONSTELLATION BACKGROUND ---
+// --- CONSTELLATION BACKGROUND ---
+// Generates a dynamic star field where adjacent particles are connected by lines.
+// Capped at 80 particles to mitigate O(N^2) complexity of connection checks.
 const ConstellationBackground = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -35,6 +37,7 @@ const ConstellationBackground = () => {
 
         // Stars
         const stars: { x: number; y: number; vx: number; vy: number; radius: number; brightness: number }[] = [];
+        // Max 80 particles. any more and the double-loop below kills framerate.
         const starCount = Math.min(80, Math.floor((w * h) / 15000));
 
         for (let i = 0; i < starCount; i++) {
@@ -131,7 +134,8 @@ export const Login = () => {
         }
     }, [isAuthenticated, navigate]);
 
-    // Google OAuth hook - uses authorization code flow
+    // Implementing Authorization Code Flow instead of Implicit Flow (deprecated).
+    // The code is exchanged for a refresh token on the backend to maintain security.
     const googleLogin = useGoogleLogin({
         flow: 'auth-code',
         onSuccess: async (codeResponse) => {

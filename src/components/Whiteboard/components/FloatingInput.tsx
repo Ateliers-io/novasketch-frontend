@@ -1,7 +1,3 @@
-/**
- * FloatingInput component for text editing on the canvas.
- * Extracted from Whiteboard.tsx (lines 211-266).
- */
 import React, { useRef, useEffect } from 'react';
 import { getFontFamilyWithFallback } from '../utils/mathUtils';
 
@@ -27,7 +23,8 @@ const FloatingInput: React.FC<FloatingInputProps> = ({ x, y, style, value, onCha
     const ref = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
-        // auto-focus on mount with slight delay to ensure DOM is ready
+        // slight delay needed to ensure DOM is ready before focusing.
+        // react sometimes swallows the focus if we do it synchronously on mount.
         const timer = setTimeout(() => {
             ref.current?.focus();
         }, 50);
@@ -35,13 +32,15 @@ const FloatingInput: React.FC<FloatingInputProps> = ({ x, y, style, value, onCha
     }, []);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        // shift+enter for new lines, plain enter to submit/close.
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             onSubmit();
         }
+        // escape to cancel. clearing input effectively deletes the temp text node in parent.
         if (e.key === 'Escape') {
-            onChange(''); // clear input
-            onSubmit();   // close
+            onChange('');
+            onSubmit();
         }
     };
 
@@ -53,6 +52,8 @@ const FloatingInput: React.FC<FloatingInputProps> = ({ x, y, style, value, onCha
                 top: `${y}px`,
                 transform: 'translate(10px, 10px)'
             }}
+            // vital: stop propagation to prevent the canvas underneath from verifying a click
+            // and deselecting us or starting a new shape drawing.
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
         >
@@ -65,6 +66,7 @@ const FloatingInput: React.FC<FloatingInputProps> = ({ x, y, style, value, onCha
                     placeholder="Type something..."
                     className="block w-full h-full bg-transparent text-white outline-none resize-none overflow-hidden min-w-[200px] min-h-[50px] placeholder:text-gray-500"
                     style={{
+                        // fallback logic handled in utils, keeping default just in case.
                         fontSize: `${style.size || style.fontSize || 18}px`,
                         fontFamily: getFontFamilyWithFallback(style.family || 'Arial'),
                         fontWeight: style.bold ? 'bold' : 'normal',

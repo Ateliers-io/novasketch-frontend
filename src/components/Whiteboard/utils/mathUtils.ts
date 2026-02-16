@@ -31,8 +31,10 @@ export function getSegmentCircleIntersections(p1: Position, p2: Position, c: Pos
 }
 
 // z-index manipulation (bring forward). naive array swap.
+// inefficient for massive arrays (O(N)), but adequate for typical whiteboard object counts (<1000).
 export function moveForward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
     const newItems = [...items];
+    // iterating backwards to bubble selected items towards the end (top z-index).
     for (let i = newItems.length - 2; i >= 0; i--) {
         if (selectedIds.has(newItems[i].id) && !selectedIds.has(newItems[i + 1].id)) {
             [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
@@ -42,10 +44,13 @@ export function moveForward<T extends { id: string }>(items: T[], selectedIds: S
 }
 
 // z-index manipulation (send backward).
+// same logic as forward but reversed direction.
 export function moveBackward<T extends { id: string }>(items: T[], selectedIds: Set<string>): T[] {
     const newItems = [...items];
+    // iterating forwards to push selected items towards the start (bottom z-index).
     for (let i = 1; i < newItems.length; i++) {
         if (selectedIds.has(newItems[i].id) && !selectedIds.has(newItems[i - 1].id)) {
+            // only swap if the item below is NOT selected (blocks moving past other selected items).
             [newItems[i], newItems[i - 1]] = [newItems[i - 1], newItems[i]];
         }
     }

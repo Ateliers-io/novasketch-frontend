@@ -108,6 +108,8 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
     }, [roomId, wsUrl]);
 
     // Update undo/redo state after operations
+    // forced re-render hook because Yjs events happen outside React's lifecycle.
+    // without this, buttons stay disabled until the next unrelated state change.
     const updateUndoRedoState = useCallback(() => {
         if (serviceRef.current) {
             setCanUndo(serviceRef.current.canUndo());

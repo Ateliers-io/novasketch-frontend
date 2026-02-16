@@ -139,11 +139,11 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
 
         // 4. Text (Top Layer)
         textAnnotations.forEach(text => {
-            // HTML text uses top-left origin. SVG text 'y' is baseline. usage of dominant-baseline="hanging" aligns it to top.
-            // Rotation in HTML is transform-origin: top left.
-            // SVG rotate(deg, x, y) rotates around (x,y).
-            // We need to ensure font styles match.
-            // Escape special chars in text
+            // HTML text uses top-left origin. SVG text 'y' is baseline. 
+            // 'dominant-baseline="hanging"' forces SVG to behave like HTML (coords = top-left).
+            // this saves us from having to calculate the font ascent/descent metrics manually.
+
+            // SECURITY: sanitize input to prevent script injection in the exported SVG file.
             const escapedText = text.text
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")

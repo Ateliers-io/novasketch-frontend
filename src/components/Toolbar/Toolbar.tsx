@@ -41,6 +41,9 @@ const PRO_COLORS = [
     '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4',
     '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e',
     '#78716c'
+    // hardcoded set of tailwind default colors.
+    // keep this list small to avoid overwhelming user choice. 
+    // if expand, need a scrollable container.
 ];
 
 interface ToolbarProps {
@@ -418,6 +421,7 @@ export default function Toolbar({
                                             title="Stroke Color"
                                         >
                                             <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
+                                            {/* hidden native input overlay. allows opening system picker by clicking the bubble. */}
                                             <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                         </div>
                                         <span className={`text-[8px] font-bold uppercase tracking-wider ${activeColorMode === 'stroke' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Stroke</span>
@@ -437,6 +441,7 @@ export default function Toolbar({
                                             ) : (
                                                 <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
                                             )}
+                                            {/* forcing white hex if transparent, otherwise input[type=color] defaults to black and confuses users. */}
                                             <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                         </div>
                                         <span className={`text-[8px] font-bold uppercase tracking-wider ${activeColorMode === 'fill' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Fill</span>
@@ -464,6 +469,7 @@ export default function Toolbar({
                                         return (
                                             <button
                                                 key={c}
+                                                // simplistic toggle: click to apply to currently active mode (stroke or fill).
                                                 onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
                                                 className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : 'border-gray-700/50 hover:border-white hover:scale-110'}`}
                                                 style={{ background: c }}
@@ -477,6 +483,7 @@ export default function Toolbar({
                                     <div className="relative shrink-0 w-6 h-6 rounded-full border border-gray-600 overflow-hidden hover:scale-110 transition-transform cursor-pointer" title="Custom Color">
                                         <div className="absolute inset-0 bg-[conic-gradient(at_center,_red,_orange,_yellow,_green,_blue,_purple,_red)] opacity-80 hover:opacity-100" />
                                         <Plus size={12} className="absolute inset-0 m-auto text-white drop-shadow-md" />
+                                        {/* duplicate input logic here for redundancy if users miss clicking the main bubble. */}
                                         <input type="color"
                                             value={activeColorMode === 'stroke' ? strokeColor : (fillColor === 'transparent' ? '#ffffff' : fillColor)}
                                             onChange={(e) => activeColorMode === 'stroke' ? onColorChange(e.target.value) : onFillColorChange(e.target.value)}

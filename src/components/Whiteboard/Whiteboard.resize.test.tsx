@@ -131,7 +131,7 @@ describe('Whiteboard - Resize and Rotate', () => {
         fireEvent.mouseUp(canvasContainer);
 
         expect(mockSetShapes).toHaveBeenCalled();
-        const updater = mockSetShapes.mock.lastCall[0];
+        const updater = mockSetShapes.mock.lastCall![0];
         const newShapes = typeof updater === 'function' ? updater(defaultShapes) : updater;
 
         // Original size 100x100. New size should be larger.
@@ -173,7 +173,7 @@ describe('Whiteboard - Resize and Rotate', () => {
         });
         fireEvent.mouseUp(canvasContainer);
 
-        const updater = mockSetShapes.mock.lastCall[0];
+        const updater = mockSetShapes.mock.lastCall![0];
         const newShapes = typeof updater === 'function' ? updater(defaultShapes) : updater;
         const updatedShape = newShapes.find((s: any) => s.id === 'shape-1');
 

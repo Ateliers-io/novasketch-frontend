@@ -148,7 +148,7 @@ describe('Whiteboard - Z-Index Layers', () => {
         // Initial: [S1, S2, S3]
         // Move S1 forward -> Swap with S2 -> [S2, S1, S3]
         expect(mockSetShapes).toHaveBeenCalled();
-        const updater = mockSetShapes.mock.lastCall[0];
+        const updater = mockSetShapes.mock.lastCall![0];
         // updater is likely arrays or function returning array because we mocked it as vi.fn()
         // but implementation calls setShapes(newShapes) directly with array for layers
         // Let's check.
@@ -212,11 +212,11 @@ describe('Whiteboard - Z-Index Layers', () => {
         // Expect [S2, S1, S3].
 
         expect(mockSetShapes).toHaveBeenCalled();
-        const newShapes = mockSetShapes.mock.lastCall[0];
+        const newShapesBack = mockSetShapes.mock.lastCall![0];
 
-        expect(newShapes[0].id).toBe('shape-2');
-        expect(newShapes[1].id).toBe('shape-1');
-        expect(newShapes[2].id).toBe('shape-3');
+        expect(newShapesBack[0].id).toBe('shape-2');
+        expect(newShapesBack[1].id).toBe('shape-1');
+        expect(newShapesBack[2].id).toBe('shape-3');
     });
 
     it('broadcasts layer reorder event', () => {
@@ -240,7 +240,7 @@ describe('Whiteboard - Z-Index Layers', () => {
 
         // Specifically check the order in the broadcast
         const logCall = (console.log as any).mock.calls.find((call: any[]) => call[0] === '[Broadcast] Layer Reorder:');
-        const payload = logCall[1];
+        const payload = logCall![1];
         expect(payload.shapeOrder).toEqual(['shape-2', 'shape-1', 'shape-3']);
     });
 });

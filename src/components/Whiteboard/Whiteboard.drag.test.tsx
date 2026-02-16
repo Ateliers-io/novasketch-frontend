@@ -123,7 +123,7 @@ describe('Whiteboard - Move and Translate', () => {
 
         expect(mockSetShapes).toHaveBeenCalled();
 
-        const updater = mockSetShapes.mock.lastCall[0];
+        const updater = mockSetShapes.mock.lastCall![0];
         const newShapes = typeof updater === 'function' ? updater(defaultShapes) : updater;
 
         expect(newShapes[0].position).toEqual({ x: 150, y: 150 });
@@ -146,7 +146,7 @@ describe('Whiteboard - Move and Translate', () => {
         expect(console.log).toHaveBeenCalled();
         const logCall = (console.log as any).mock.calls.find((call: any[]) => call[0] === '[Broadcast] Object Update:');
         expect(logCall).toBeTruthy();
-        expect(logCall[1]).toMatchObject({
+        expect(logCall![1]).toMatchObject({
             type: 'move',
             shapes: expect.arrayContaining([
                 expect.objectContaining({

@@ -62,7 +62,9 @@ interface Project {
     isCollab: boolean;
 }
 
-/* --- 1. MOCK DATA --- */
+/* --- MOCK DATA --- */
+// Temporary hardcoded data for UI development.
+// TODO: Replace with fetch calls to the User Service once API endpoints are ready.
 const INITIAL_TODOS: TodoItem[] = [
     { id: 1, label: "Initialize first workspace", completed: false },
     { id: 2, label: "Invite a collaborator", completed: false },
@@ -248,6 +250,8 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: a
 
     useLayoutEffect(() => {
         if (!cardRef.current) return;
+        // Proper GSAP context cleanup is critical here to handle React's Strict Mode double-invoke 
+        // and prevent timeline duplicates.
         const ctx = gsap.context(() => {
             const shapes = gsap.utils.selector(previewRef.current)('.live-shape');
             tlRef.current = gsap.timeline({ paused: true, repeat: -1, yoyo: true });
@@ -348,6 +352,7 @@ export const Dashboard = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    // keeping context menu simple, just x/y coordinates
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
     const [projectFilter, setProjectFilter] = useState<'all' | 'collab' | 'personal'>('all');
 

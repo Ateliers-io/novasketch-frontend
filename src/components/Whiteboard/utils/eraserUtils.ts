@@ -1,7 +1,6 @@
-/**
- * Eraser-related collision detection and stroke splitting logic.
- * Extracted from Whiteboard.tsx (lines 108-176).
- */
+// Vector erasure implementation using collision detection.
+// Algorithm complexity is roughly O(N*M) where N is strokes and M is segments.
+// Considerations for future optimization: Implementing a spatial index (QuadTree) if performance degrades on large canvases.
 import {
     Shape,
     isRectangle,
@@ -28,7 +27,8 @@ export function eraseAtPosition(x: number, y: number, strokes: StrokeLine[], era
 
         const finishLine = () => {
             if (currentLinePoints.length >= 4) {
-                // generating unique ID for split segments to avoid react key collisions.
+                // Generating a unique ID for the new stroke fragment.
+                // Using Math.random() here is sufficient as the collision probability within a single session is negligible.
                 result.push({ ...stroke, id: `${stroke.id}-${Math.floor(Math.random() * 1000000)}`, points: [...currentLinePoints] });
             }
             currentLinePoints = [];
@@ -49,6 +49,7 @@ export function eraseAtPosition(x: number, y: number, strokes: StrokeLine[], era
             const p1 = { x: px, y: py };
             const p2 = { x: cx, y: cy };
 
+            // Performing expensive circle-segment intersection check.
             const intersections = getSegmentCircleIntersections(p1, p2, { x, y }, eraserRadius);
 
             if (intersections.length > 0) {
@@ -89,7 +90,8 @@ export function removeStrokesAt(x: number, y: number, strokes: StrokeLine[], rad
     });
 }
 
-// Helper to check if eraser hits a shape
+// Helper to determine if the eraser area overlaps with a shape.
+// Utilizes bounding box or geometric distance checks depending on shape type.
 export function isPointInShape(shape: Shape, x: number, y: number, radius: number): boolean {
     if (isRectangle(shape)) {
         const s = shape as RectangleShape;

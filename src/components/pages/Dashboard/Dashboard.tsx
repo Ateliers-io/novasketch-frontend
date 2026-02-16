@@ -489,7 +489,7 @@ export const Dashboard = () => {
                     <div className="flex items-center gap-3 p-2 rounded-sm hover:bg-[#1F2833] cursor-pointer transition-colors">
                         <div className="w-8 h-8 rounded bg-[#1F2833] border border-white/10 flex items-center justify-center text-xs font-bold text-white">{user?.displayName?.[0] || 'U'}</div>
                         {!isSidebarCollapsed && <div className="flex-1 min-w-0"><div className="text-xs font-medium text-white truncate">{user?.displayName}</div><div className="text-[10px] text-[#45A29E] truncate font-mono">ONLINE</div></div>}
-                        {!isSidebarCollapsed && <button onClick={handleLogout} className="text-[#8b9bb4] hover:text-[#66FCF1]"><LogOut size={14} /></button>}
+                        {!isSidebarCollapsed && <button onClick={handleLogout} className="text-[#8b9bb4] hover:text-[#66FCF1]" title="Log Out"><LogOut size={14} /></button>}
                     </div>
                 </div>
             </aside>

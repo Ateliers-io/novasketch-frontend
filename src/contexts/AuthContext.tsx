@@ -6,6 +6,7 @@ export interface User {
     email: string;
     displayName: string;
     avatar: string;
+    authProvider?: string;
 }
 
 interface AuthContextType {
@@ -14,6 +15,8 @@ interface AuthContextType {
     isLoading: boolean;
     error: string | null;
     loginWithGoogle: (code: string) => Promise<void>;
+    loginWithEmail: (email: string, password: string) => Promise<void>;
+    register: (name: string, email: string, password: string) => Promise<void>;
     logout: () => void;
     clearError: () => void;
 }
@@ -65,6 +68,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         initAuth();
     }, []);
 
+    // Shared handler for saving auth response
+    const handleAuthSuccess = (token: string, userData: User) => {
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
+        setUser(userData);
+    };
+
     const loginWithGoogle = async (code: string) => {
         setIsLoading(true);
         setError(null);
@@ -73,14 +83,42 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             // backend validates code with Google, we just forward it.
             const response = await api.post('/auth/google', { code });
             const { token, user: userData } = response.data;
-
-            localStorage.setItem(TOKEN_KEY, token);
-            localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
-
-            setUser(userData);
+            handleAuthSuccess(token, userData);
         } catch (err: any) {
             // generic error handler, backend messages might not always be user-friendly
             const message = err.response?.data?.error || err.message || 'Google login failed';
+            setError(message);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const loginWithEmail = async (email: string, password: string) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await api.post('/auth/login', { email, password });
+            const { token, user: userData } = response.data;
+            handleAuthSuccess(token, userData);
+        } catch (err: any) {
+            const message = err.response?.data?.error || err.message || 'Login failed';
+            setError(message);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const register = async (name: string, email: string, password: string) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await api.post('/auth/register', { name, email, password });
+            const { token, user: userData } = response.data;
+            handleAuthSuccess(token, userData);
+        } catch (err: any) {
+            const message = err.response?.data?.error || err.message || 'Registration failed';
             setError(message);
             throw err;
         } finally {
@@ -104,6 +142,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 isLoading,
                 error,
                 loginWithGoogle,
+                loginWithEmail,
+                register,
                 logout,
                 clearError,
             }}

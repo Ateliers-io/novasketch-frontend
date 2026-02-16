@@ -32,7 +32,7 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             localStorage.removeItem('nova_sketch_token');
             localStorage.removeItem('nova_sketch_session');
-            window.location.href = '/login';
+            window.location.href = '/auth';
         }
         return Promise.reject(error);
     }

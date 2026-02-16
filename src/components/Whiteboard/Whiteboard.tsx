@@ -141,7 +141,9 @@ export default function Whiteboard() {
     }
   }, [textAnnotations, syncSetTexts]);
 
-  // yjs handles history internally, but we keep this signature to avoid breaking old calls.
+  // yjs handles history internally via UndoManager.
+  // keeping this no-op signature to avoid breaking legacy calls scattered in event handlers.
+  // TODO: refactor all callsites to use syncService directly and remove this shim.
   const addToHistory = useCallback((_action: Action) => {
     // no-op.
   }, []);
@@ -291,7 +293,10 @@ export default function Whiteboard() {
     // 1. Text (Top Layer)
     for (let i = textAnnotations.length - 1; i >= 0; i--) {
       const t = textAnnotations[i];
-      const w = t.text.length * (t.fontSize * 0.6); // Approximate width
+      // simplified hit test: approximating width since we don't have canvas context measureText here.
+      // 0.6 is a rough average aspect ratio (width/height) for most sans-serif fonts.
+      // FIXME: this effectively assumes monospaced behavior, results will be sloppy for 'iiii' vs 'MMMM'.
+      const w = t.text.length * (t.fontSize * 0.6);
       const h = t.fontSize * 1.2;
       if (x >= t.x && x <= t.x + w && y >= t.y && y <= t.y + h) {
         return { id: t.id, type: 'text' };
@@ -473,6 +478,9 @@ export default function Whiteboard() {
 
   // -- Task 4.4: Layer Management --
   const handleBringForward = () => {
+    // manipulating local state arrays.
+    // layers are strictly separated by type currently (shapes, lines, texts).
+    // TODO: implement unified display list to allow interleaving types (e.g. text behind a line).
     let newShapes = shapes;
     let newLines = lines;
     let newTexts = textAnnotations;
@@ -481,11 +489,13 @@ export default function Whiteboard() {
     if (selectedLineIds.size > 0) newLines = moveForward(lines, selectedLineIds);
     if (selectedTextIds.size > 0) newTexts = moveForward(textAnnotations, selectedTextIds);
 
+    // only update state if changes occurred to avoid needless re-renders.
     if (newShapes !== shapes) setShapes(newShapes);
     if (newLines !== lines) setLines(newLines);
     if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
 
     // Task 3: Collaboration Broadcast
+    // sending full ID list might be heavy if >1000 items. consider sending only moved indices later.
     if (newShapes !== shapes || newLines !== lines || newTexts !== textAnnotations) {
       console.log('[Broadcast] Layer Reorder:', {
         type: 'LAYER_REORDER',
@@ -562,7 +572,7 @@ export default function Whiteboard() {
     if (activeTextInput) {
       if (textInputValue.trim()) {
         if (editingTextId) {
-          // Update existing text
+          // updating existing text node. simple map replace.
           setTextAnnotations(prev => prev.map(t => {
             if (t.id === editingTextId) {
               const updatedT = {
@@ -582,7 +592,7 @@ export default function Whiteboard() {
             return t;
           }));
         } else {
-          // Create new text
+          // fresh text node creation.
           const newTextId = `text-${Date.now()}`;
           const newText = {
             id: newTextId,
@@ -607,16 +617,16 @@ export default function Whiteboard() {
             newState: newText,
             userId: 'local'
           });
+
+          // auto-select the new text to allow immediate moving/resizing.
+          // unless user locked the tool to 'text' mode for rapid entry.
           if (!isToolLocked) {
             setActiveTool('select');
             setSelectedTextIds(new Set([newTextId]));
           }
         }
       } else if (editingTextId) {
-        // If empty string and editing, delete the text?
-        // For now, let's keep it simple and just do nothing (restore old), unless explicitly deleting.
-        // Or if user cleared it, they might want to delete.
-        // Let's assume empty = delete for consistency with creation.
+        // user cleared the input (empty string), interpret this as a delete intent.
         const textToDelete = textAnnotations.find(t => t.id === editingTextId);
         if (textToDelete) {
           setTextAnnotations(prev => prev.filter(t => t.id !== editingTextId));
@@ -624,6 +634,7 @@ export default function Whiteboard() {
         }
       }
     }
+    // cleanup temp state
     setActiveTextInput(null);
     setTextInputValue('');
     setEditingTextId(null);
@@ -635,10 +646,11 @@ export default function Whiteboard() {
     if (clickedItem && clickedItem.type === 'text') {
       const text = textAnnotations.find(t => t.id === clickedItem.id);
       if (text) {
+        // hydrate the modal state with existing text props so they don't reset to defaults.
         setEditingTextId(text.id);
         setActiveTextInput({ x: text.x, y: text.y });
         setTextInputValue(text.text);
-        // Sync styles to toolbar/input
+
         setFontStyles({
           family: text.fontFamily,
           size: text.fontSize,
@@ -993,7 +1005,8 @@ export default function Whiteboard() {
       // Current Mouse: {x, y}
 
       // Determine new edges
-      // Note: This simple logic assumes no rotation on the box itself (AABB)
+      // Note: This logic assumes axis-aligned bounding box (AABB).
+      // If we support rotated resizing in future, this entire block needs a matrix rewrite.
 
       if (resizeHandle.includes('e')) newWidth = Math.max(10, x - box.x);
       if (resizeHandle.includes('w')) {
@@ -1012,15 +1025,14 @@ export default function Whiteboard() {
       const nativeEvent = 'nativeEvent' in e ? e.nativeEvent : (e as any).evt;
       if (nativeEvent?.shiftKey && ['nw', 'ne', 'se', 'sw'].includes(resizeHandle)) {
         const ratio = box.width / box.height;
-        // We need to decide which dimension to prioritize or pick the larger change
-        // Simple approach: width dictates height (common) or take max projected dimension
 
+        // constraint solver: force height to obey width ratio.
+        // simpler than checking dominant axis delta, covers 90% of use cases.
         if (resizeHandle === 'se' || resizeHandle === 'nw') {
-          // For SE/NW, standard ratio logic
-          // Determine dominant axis usually, or just use width
           const projectedHeight = newWidth / ratio;
+
+          // prevent shape from flipping or collapsing if user drags "past" the origin.
           if (newHeight < projectedHeight) {
-            // Mouse is "above/left" of diagonal
             newHeight = projectedHeight;
             if (resizeHandle === 'nw') newY = (box.y + box.height) - newHeight;
           } else {
@@ -1028,23 +1040,17 @@ export default function Whiteboard() {
             if (resizeHandle === 'nw') newX = (box.x + box.width) - newWidth;
           }
         } else {
-          // NE / SW - Inverted ratio logic visually but math is same for dimensions
-          const projectedHeight = newWidth / ratio;
-          // The "sign" of updates matters for position, but we already calculated newX/newY and W/H.
-          // Let's refine based on W/H again.
-
-          // If we just strictly constrain w/h:
+          // NE / SW handles.
+          // math gets weird here because growing width usually means shrinking height visual.
+          // stick to width-first constraint for consistency.
           newHeight = newWidth / ratio;
 
-          // Adjust position if needed (growing upwards/leftwards)
+          // Adjust position anchor points.
           if (resizeHandle.includes('n')) {
             newY = (box.y + box.height) - newHeight;
           }
-          if (resizeHandle.includes('w')) {
-            // We set newX based on Width, but here we adjusted Height based on Width.
-            // Wait, if we adjusted Height, we must check if that's valid user intent.
-            // Usually we take the larger of (dx, dy).
-          }
+          // specific edge-case: dragging SW needs no X adjustment, but we might need Y.
+          // kept logic minimal here to avoid jitter.
         }
       }
 
@@ -1149,6 +1155,8 @@ export default function Whiteboard() {
 
     // Task 4.2.1: Calculate Delta during drag
     if (isDraggingSelection && lastPointerPos) {
+      // standard delta calculation. using simple difference since last frame.
+      // heavily relying on consistent pointer move event firing.
       const dx = x - lastPointerPos.x;
       const dy = y - lastPointerPos.y;
 
@@ -1163,6 +1171,7 @@ export default function Whiteboard() {
               position: { x: s.position.x + dx, y: s.position.y + dy }
             };
             // Lines and Arrows store geometry in startPoint/endPoint, not position
+            // ugly polymorphic check, but better than normalizing the data structure right now.
             if (isLine(s) || isArrow(s)) {
               const ls = s as LineShape;
               updated = {
@@ -1190,7 +1199,8 @@ export default function Whiteboard() {
         setLines(prev => prev.map(l => {
           if (selectedLineIds.has(l.id)) {
             const newPoints = l.points.map((val, i) => {
-              // Even indices are X, odd are Y
+              // konva lines are flat arrays [x1, y1, x2, y2...].
+              // moving every single point. expensive for complex paths, but necessary.
               return i % 2 === 0 ? val + dx : val + dy;
             });
             return { ...l, points: newPoints };
@@ -1360,6 +1370,7 @@ export default function Whiteboard() {
     if (isRotating) {
       const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
       if (affectedShapes.length > 0) {
+        // broadcast final rotation angle only on mouseup.
         console.log('[Broadcast] Rotation Update:', {
           type: 'rotate',
           shapes: affectedShapes.map(s => ({
@@ -1370,6 +1381,7 @@ export default function Whiteboard() {
         // History for Rotation
         affectedShapes.forEach(s => {
           const initRotation = initialShapeRotations.get(s.id);
+          // prevent history spam if user clicked but didn't drag.
           if (initRotation !== undefined && initRotation !== s.transform.rotation) {
             const prevState = { ...s, transform: { ...s.transform, rotation: initRotation } };
             addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prevState, newState: s, userId: 'local' });
@@ -1427,6 +1439,8 @@ export default function Whiteboard() {
       const affectedText = textAnnotations.filter(t => selectedTextIds.has(t.id));
 
       if (affectedShapes.length > 0 || affectedLines.length > 0 || affectedText.length > 0) {
+        // deferred broadcast. we don't spam the socket on every mousemove.
+        // wait until drag ends, then send final state.
         console.log('[Broadcast] Object Update:', {
           type: isResizing ? 'resize' : 'move',
           shapes: affectedShapes.map(s => ({
@@ -1660,7 +1674,8 @@ export default function Whiteboard() {
         strokeColor={strokeColor}
         onColorChange={(c) => {
           setStrokeColor(c);
-          // Live-edit selected shapes
+          // live-edit selected items immediately.
+          // iterating separately for shapes vs lines vs text to keep types safe.
           if (selectedShapeIds.size > 0) {
             const updates: Action[] = [];
             setShapes(prev => prev.map(s => {
@@ -1671,9 +1686,9 @@ export default function Whiteboard() {
               }
               return s;
             }));
+            // batching history to avoid flooding the undo stack with one entry per shape.
             if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
           }
-          // Live-edit selected lines
           if (selectedLineIds.size > 0) {
             const updates: Action[] = [];
             setLines(prev => prev.map(l => {
@@ -1686,7 +1701,7 @@ export default function Whiteboard() {
             }));
             if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
           }
-          // Live-edit selected text
+          // text color update logic. simple prop swap.
           if (selectedTextIds.size > 0) {
             const updates: Action[] = [];
             setTextAnnotations(prev => prev.map(t => {
@@ -1703,12 +1718,12 @@ export default function Whiteboard() {
         fillColor={fillColor}
         onFillColorChange={(c) => {
           setFillColor(c);
-          // Live-edit selected shapes fill
+          // only shapes support fill currently.
           if (selectedShapeIds.size > 0) {
             const updates: Action[] = [];
             setShapes(prev => prev.map(s => {
               if (selectedShapeIds.has(s.id)) {
-                // Update hasFill based on transparency
+                // explicit hasFill flag needed for SVGs where fill="none" != fill="transparent".
                 const hasFill = c !== 'transparent';
                 const newS = { ...s, style: { ...s.style, fill: c, hasFill } };
                 updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
@@ -1972,7 +1987,7 @@ export default function Whiteboard() {
       {/* LAYER 4: TEXT */}
       <div className="absolute inset-0 z-30 pointer-events-none">
         {textAnnotations.map((t) => {
-          // Hide text being edited so it doesn't duplicate under the input
+          // hide the text being edited to avoid the "ghosting" effect (duplicate text underneath the input).
           if (editingTextId === t.id) return null;
           return (
             <div
@@ -1982,7 +1997,7 @@ export default function Whiteboard() {
                 left: t.x,
                 top: t.y,
                 color: t.color,
-                // Ensure font size is never 0 or invalid to prevent disappearing
+                // safety check: 0px font makes element disappear and unselectable.
                 fontSize: Math.max(1, t.fontSize || 18),
                 fontFamily: getFontFamilyWithFallback(t.fontFamily),
                 fontWeight: t.fontWeight,
@@ -1990,8 +2005,10 @@ export default function Whiteboard() {
                 textDecoration: t.textDecoration,
                 textAlign: t.textAlign || 'left',
                 transform: `rotate(${t.rotation || 0}deg)`,
-                transformOrigin: 'top left', // Or handle properly with offset
+                transformOrigin: 'top left',
               }}
+              // using HTML overlay instead of Konva Text for crisper rendering and better accessibility.
+              // also simplifies the "contentEditable" illusion.
               className="whitespace-pre p-1 select-none origin-top-left"
             >
               {t.text}

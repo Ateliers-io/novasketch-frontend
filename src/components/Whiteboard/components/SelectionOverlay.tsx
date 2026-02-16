@@ -131,7 +131,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                 {/* Task 4.3: Rotation Handle */}
                 {showRotationHandle && (
                     <g data-rotation-handle="true" style={{ pointerEvents: 'auto', cursor: 'grab' }}>
-                        {/* Stalk line connecting to selection box */}
+                        {/* Stalk line connecting to selection box. standard convention for visual clarity. */}
                         <line
                             x1={selectionBoundingBox.centerX}
                             y1={selectionBoundingBox.minY - 4}
@@ -141,7 +141,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                             strokeWidth={1.5}
                             strokeDasharray="3,2"
                         />
-                        {/* Rotation handle circle */}
+                        {/* Rotation handle circle. larger hit area handled by svg event bubbling usually, but here just visual. */}
                         <circle
                             cx={selectionBoundingBox.centerX}
                             cy={selectionBoundingBox.minY - 32}

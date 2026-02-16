@@ -175,6 +175,8 @@ class SyncService {
         });
 
         // 3. Set up UndoManager for undo/redo
+        // utilizing Yjs built-in history management to handle CRDT conflicts automatically.
+        // trackedOrigins: 'local' ensures I only undo MY actions, not my teammate's. critical for UX.
         this.undoManager = new Y.UndoManager([this.yLines, this.yShapes, this.yTexts], {
             trackedOrigins: new Set(['local']),
         });
@@ -303,7 +305,8 @@ class SyncService {
     // --- BATCH OPERATIONS ---
 
     /**
-     * Execute multiple operations in a single transaction
+     * Execute multiple operations in a single transaction.
+     * essential for "atomic" undo steps (e.g. moving 5 shapes = 1 history entry, not 5).
      */
     batch(callback: () => void): void {
         this.doc.transact(callback, 'local');

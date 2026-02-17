@@ -23,7 +23,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
             className="absolute inset-0 z-15"
             width={dimensions.width}
             height={dimensions.height}
-            style={{ pointerEvents: 'none' }}
+            style={{ pointerEvents: 'none', overflow: 'visible' }}
         >
             <g transform={rotation !== undefined
                 ? `rotate(${rotation}, ${selectionBoundingBox.centerX}, ${selectionBoundingBox.centerY})`

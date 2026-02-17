@@ -230,11 +230,34 @@ export default function Whiteboard() {
 
 
 
+  const [isStageDragging, setIsStageDragging] = useState(false);
+
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Spacebar Panning Mode Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !activeTextInput) {
+        setIsPanning(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsPanning(false);
+        setIsStageDragging(false); // Stop dragging if space released
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [activeTextInput]);
 
   // NOTE: Canvas loading and saving is now handled automatically by the SyncService
   // via Yjs + WebSocket (for MongoDB persistence) and IndexedDB (for offline support)
@@ -686,6 +709,26 @@ export default function Whiteboard() {
     }
   };
 
+  const handleWheel = (e: React.WheelEvent | KonvaEventObject<WheelEvent>) => {
+    const evt = (e as any).evt || e;
+    evt.preventDefault();
+
+    const dx = evt.deltaX;
+    const dy = evt.deltaY;
+
+    if (evt.ctrlKey) {
+      // Zoom logic (future task)
+      return;
+    }
+
+    // Panning
+    if (evt.shiftKey && dy !== 0) {
+      setStagePos(prev => ({ ...prev, x: prev.x - dy }));
+    } else {
+      setStagePos(prev => ({ x: prev.x - dx, y: prev.y - dy }));
+    }
+  };
+
   // this function handles all the clicking logic.
   // it's getting kinda big, maybe i should split it up later.
   // Core handler for pointer down events. 
@@ -694,6 +737,19 @@ export default function Whiteboard() {
     // Check if clicking on UI (Toolbar)
     if ((e.target as HTMLElement).closest?.('[data-component="toolbar"]')) {
       if (activeTextInput) commitText();
+      return;
+    }
+
+    // Panning / Hand Tool (Spacebar or explicit tool)
+    if (isPanning) {
+      const nativeEvent = (e as any).nativeEvent || (e as any).evt;
+      const clientX = nativeEvent?.clientX ?? (e as any).clientX;
+      const clientY = nativeEvent?.clientY ?? (e as any).clientY;
+
+      if (typeof clientX === 'number' && typeof clientY === 'number') {
+        setIsStageDragging(true);
+        setLastPointerPos({ x: clientX, y: clientY });
+      }
       return;
     }
 
@@ -718,8 +774,16 @@ export default function Whiteboard() {
         const clientX = (e as any).clientX !== undefined ? (e as any).clientX : (e as any).evt?.clientX;
         const clientY = (e as any).clientY !== undefined ? (e as any).clientY : (e as any).evt?.clientY;
         if (clientX !== undefined && clientY !== undefined) {
-          mouseX = clientX - rect.left;
-          mouseY = clientY - rect.top;
+          const screenX = clientX - rect.left;
+          const screenY = clientY - rect.top;
+          // Convert screen to virtual for rotation logic?
+          // getPointerPos already returns virtual. 
+          // The code block below recalculated mouseX/Y manually.
+          // Since getPointerPos is fixed, we can just use x, y from there.
+          // However, to be safe and match existing logic structure:
+          // We can rely on getPointerPos(x, y).
+          mouseX = x;
+          mouseY = y;
         }
       }
 
@@ -941,6 +1005,21 @@ export default function Whiteboard() {
   // Pointer Move Handler.
   // Logic here runs every frame during drag interactions. Optimized to minimize allocation and avoid lag.
   const handlePointerMove = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
+    // Panning Logic
+    if (isStageDragging && lastPointerPos) {
+      const nativeEvent = (e as any).nativeEvent || (e as any).evt;
+      const clientX = nativeEvent?.clientX ?? (e as any).clientX;
+      const clientY = nativeEvent?.clientY ?? (e as any).clientY;
+
+      if (typeof clientX === 'number' && typeof clientY === 'number') {
+        const dx = clientX - lastPointerPos.x;
+        const dy = clientY - lastPointerPos.y;
+        setStagePos((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+        setLastPointerPos({ x: clientX, y: clientY });
+      }
+      return;
+    }
+
     const { x, y } = getPointerPos(e);
     setCursorPos({ x, y });
 
@@ -1630,8 +1709,8 @@ export default function Whiteboard() {
   return (
     <div
       ref={containerRef}
-      className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection)
-        ? 'cursor-move'
+      className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning
+        ? isPanning || isStageDragging ? 'cursor-grab active:cursor-grabbing' : 'cursor-move'
         : activeTool === 'select'
           ? 'cursor-default'
           : activeTool === ToolType.FILL_BUCKET
@@ -1644,7 +1723,10 @@ export default function Whiteboard() {
       onMouseUp={handlePointerUp}
       onDoubleClick={handleDoubleClick}
       onMouseLeave={() => setCursorPos(null)}
+      onWheel={handleWheel}
     >
+      {/* --- FIXED UI ELEMENTS (Outside Viewport) --- */}
+
       {/* Loading Overlay */}
       {isLoadingCanvas && (
         <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0B0C10] text-[#66FCF1]">
@@ -1655,14 +1737,27 @@ export default function Whiteboard() {
         </div>
       )}
 
-      {/* LAYER 1: BACKGROUND */}
-      <div
-        className="absolute inset-0 pointer-events-none z-0 opacity-20"
-        style={{
-          backgroundImage: `radial-gradient(${GRID_DOT_COLOR} 1px, transparent 1px)`,
-          backgroundSize: '24px 24px'
-        }}
-      />
+      {/* Connection Status Indicator */}
+      <div className="fixed top-4 right-4 z-50 pointer-events-none">
+        <div className={`bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 flex items-center gap-2 ${isConnected ? 'opacity-100' : 'opacity-100'}`}>
+          {isLoadingCanvas ? (
+            <>
+              <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+              <span>Loading...</span>
+            </>
+          ) : isConnected ? (
+            <>
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+              <span>Connected</span>
+            </>
+          ) : (
+            <>
+              <div className="w-2 h-2 rounded-full bg-orange-400" />
+              <span>Offline (syncing later)</span>
+            </>
+          )}
+        </div>
+      </div>
 
       <Toolbar
         activeTool={activeTool}
@@ -1672,7 +1767,6 @@ export default function Whiteboard() {
         brushSize={brushSize}
         onBrushSizeChange={(s) => {
           setBrushSize(s);
-          // Live-edit selected shapes strokeWidth
           if (selectedShapeIds.size > 0) {
             const updates: Action[] = [];
             setShapes(prev => prev.map(sh => {
@@ -1685,7 +1779,6 @@ export default function Whiteboard() {
             }));
             if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
           }
-          // Live-edit selected lines strokeWidth
           if (selectedLineIds.size > 0) {
             const updates: Action[] = [];
             setLines(prev => prev.map(l => {
@@ -1702,8 +1795,6 @@ export default function Whiteboard() {
         strokeColor={strokeColor}
         onColorChange={(c) => {
           setStrokeColor(c);
-          // live-edit selected items immediately.
-          // iterating separately for shapes vs lines vs text to keep types safe.
           if (selectedShapeIds.size > 0) {
             const updates: Action[] = [];
             setShapes(prev => prev.map(s => {
@@ -1714,7 +1805,6 @@ export default function Whiteboard() {
               }
               return s;
             }));
-            // batching history to avoid flooding the undo stack with one entry per shape.
             if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
           }
           if (selectedLineIds.size > 0) {
@@ -1729,7 +1819,6 @@ export default function Whiteboard() {
             }));
             if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
           }
-          // text color update logic. simple prop swap.
           if (selectedTextIds.size > 0) {
             const updates: Action[] = [];
             setTextAnnotations(prev => prev.map(t => {
@@ -1746,12 +1835,10 @@ export default function Whiteboard() {
         fillColor={fillColor}
         onFillColorChange={(c) => {
           setFillColor(c);
-          // only shapes support fill currently.
           if (selectedShapeIds.size > 0) {
             const updates: Action[] = [];
             setShapes(prev => prev.map(s => {
               if (selectedShapeIds.has(s.id)) {
-                // explicit hasFill flag needed for SVGs where fill="none" != fill="transparent".
                 const hasFill = c !== 'transparent';
                 const newS = { ...s, style: { ...s.style, fill: c, hasFill } };
                 updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
@@ -1765,11 +1852,9 @@ export default function Whiteboard() {
         cornerRadius={cornerRadius}
         onCornerRadiusChange={(r) => {
           setCornerRadius(r);
-          // Live-edit selected Rectangles
           if (selectedShapeIds.size > 0) {
             const updates: Action[] = [];
             setShapes(prev => prev.map(s => {
-              // Check type via type guard logic if strict, but simple check works
               if (selectedShapeIds.has(s.id) && s.type === 'rectangle') {
                 const newS = { ...s, cornerRadius: r } as RectangleShape;
                 updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
@@ -1802,10 +1887,7 @@ export default function Whiteboard() {
         }}
         fontSize={fontStyles.size}
         onFontSizeChange={(s) => {
-          // Update font style state
           setFontStyles(p => ({ ...p, size: s }));
-
-          // Update selected text objects (skip actively edited text)
           if (selectedTextIds.size > 0) {
             const updates: Action[] = [];
             setTextAnnotations(prev => prev.map(t => {
@@ -1900,168 +1982,158 @@ export default function Whiteboard() {
         onRedo={performRedo}
       />
 
-      {/* Connection Status Indicator */}
-      <div className="fixed top-4 right-4 z-50 pointer-events-none">
-        <div className={`bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 flex items-center gap-2 ${isConnected ? 'opacity-100' : 'opacity-100'}`}>
-          {isLoadingCanvas ? (
-            <>
-              <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-              <span>Loading...</span>
-            </>
-          ) : isConnected ? (
-            <>
-              <div className="w-2 h-2 rounded-full bg-green-400" />
-              <span>Connected</span>
-            </>
-          ) : (
-            <>
-              <div className="w-2 h-2 rounded-full bg-orange-400" />
-              <span>Offline (syncing later)</span>
-            </>
-          )}
+      {/* --- VIRTUAL VIEWPORT (TRANSFORMED) --- */}
+      <div
+        className="absolute inset-0 w-full h-full origin-top-left will-change-transform"
+        style={{
+          transform: `translate(${stagePos.x}px, ${stagePos.y}px) scale(${stageScale})`,
+          width: '100%', height: '100%'
+        }}
+      >
+        {/* LAYER 1: BACKGROUND */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0 opacity-20"
+          style={{
+            backgroundImage: `radial-gradient(${GRID_DOT_COLOR} 1px, transparent 1px)`,
+            backgroundSize: '24px 24px'
+          }}
+        />
+
+        {/* LAYER 2: SVG SHAPES */}
+        <div className="absolute inset-0 z-10 pointer-events-none">
+          <SVGShapeRenderer
+            shapes={previewShape ? [...shapes, previewShape] : shapes}
+            width={dimensions.width}
+            height={dimensions.height}
+            selectedShapeIds={selectedShapeIds}
+          />
         </div>
-      </div>
 
-      {/* LAYER 2: SVG SHAPES */}
-      <div className="absolute inset-0 z-10 pointer-events-none">
-        <SVGShapeRenderer
-          shapes={previewShape ? [...shapes, previewShape] : shapes}
-          width={dimensions.width}
-          height={dimensions.height}
-          selectedShapeIds={selectedShapeIds}
-        />
-      </div>
+        {/* LAYER 2.3: MARQUEE SELECTION RECTANGLE */}
+        {marqueeRect && marqueeRect.width > 0 && marqueeRect.height > 0 && (
+          <svg
+            className="absolute inset-0 z-12 pointer-events-none"
+            width={dimensions.width}
+            height={dimensions.height}
+            style={{ overflow: 'visible' }}
+          >
+            <defs>
+              <pattern id="marquee-pattern" patternUnits="userSpaceOnUse" width="8" height="8">
+                <path d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" stroke="#2dd4bf" strokeWidth="1" opacity="0.5" />
+              </pattern>
+            </defs>
+            <rect
+              x={marqueeRect.x}
+              y={marqueeRect.y}
+              width={marqueeRect.width}
+              height={marqueeRect.height}
+              fill="#2dd4bf"
+              fillOpacity={0.08}
+            />
+            <rect
+              x={marqueeRect.x}
+              y={marqueeRect.y}
+              width={marqueeRect.width}
+              height={marqueeRect.height}
+              fill="none"
+              stroke="#2dd4bf"
+              strokeWidth={1}
+              strokeDasharray="4,4"
+            />
+          </svg>
+        )}
 
-      {/* LAYER 2.3: MARQUEE SELECTION RECTANGLE */}
-      {marqueeRect && marqueeRect.width > 0 && marqueeRect.height > 0 && (
-        <svg
-          className="absolute inset-0 z-12 pointer-events-none"
-          width={dimensions.width}
-          height={dimensions.height}
-        >
-          <defs>
-            <pattern id="marquee-pattern" patternUnits="userSpaceOnUse" width="8" height="8">
-              <path d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" stroke="#2dd4bf" strokeWidth="1" opacity="0.5" />
-            </pattern>
-          </defs>
-          {/* Marquee fill */}
-          <rect
-            x={marqueeRect.x}
-            y={marqueeRect.y}
-            width={marqueeRect.width}
-            height={marqueeRect.height}
-            fill="#2dd4bf"
-            fillOpacity={0.08}
+        {/* LAYER 2.5: SELECTION BOUNDING BOX */}
+        {selectionBoundingBox && activeTool === 'select' && (
+          <SelectionOverlay
+            selectionBoundingBox={selectionBoundingBox}
+            dimensions={dimensions}
+            rotation={
+              (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
+                ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
+                : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
+                  ? (textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0)
+                  : undefined
+            }
+            showRotationHandle={selectedTextIds.size === 0 && selectedLineIds.size === 0}
           />
-          {/* Marquee border */}
-          <rect
-            x={marqueeRect.x}
-            y={marqueeRect.y}
-            width={marqueeRect.width}
-            height={marqueeRect.height}
-            fill="none"
-            stroke="#2dd4bf"
-            strokeWidth={1}
-            strokeDasharray="4,4"
+        )}
+
+        {/* LAYER 3: KONVA (Drawings) */}
+        <div className="absolute inset-0 z-20 pointer-events-none">
+          <Stage
+            ref={stageRef}
+            width={dimensions.width}
+            height={dimensions.height}
+            style={{ pointerEvents: 'none' }}
+          >
+            <Layer>
+              {lines.map((line) => (
+                <Line
+                  key={line.id}
+                  points={line.points}
+                  stroke={line.color}
+                  strokeWidth={line.strokeWidth}
+                  tension={line.tension ?? 0.5}
+                  lineCap={line.lineCap ?? 'round'}
+                  lineJoin={line.lineJoin ?? 'round'}
+                  opacity={line.opacity ?? 1}
+                  dash={line.dash}
+                  globalCompositeOperation={line.globalCompositeOperation as any}
+                  shadowBlur={line.shadowBlur}
+                  shadowColor={line.shadowColor || line.color}
+                />
+              ))}
+            </Layer>
+          </Stage>
+        </div>
+
+        {/* LAYER 4: TEXT */}
+        <div className="absolute inset-0 z-30 pointer-events-none">
+          {textAnnotations.map((t) => {
+            if (editingTextId === t.id) return null;
+            return (
+              <div
+                key={t.id}
+                style={{
+                  position: 'absolute',
+                  left: t.x,
+                  top: t.y,
+                  color: t.color,
+                  fontSize: Math.max(1, t.fontSize || 18),
+                  fontFamily: getFontFamilyWithFallback(t.fontFamily),
+                  fontWeight: t.fontWeight,
+                  fontStyle: t.fontStyle,
+                  textDecoration: t.textDecoration,
+                  textAlign: t.textAlign || 'left',
+                  transform: `rotate(${t.rotation || 0}deg)`,
+                  transformOrigin: 'top left',
+                }}
+                className="whitespace-pre p-1 select-none origin-top-left"
+              >
+                {t.text}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* LAYER 5: DYNAMIC UI */}
+        {activeTextInput && (
+          <FloatingInput
+            x={activeTextInput.x}
+            y={activeTextInput.y}
+            value={textInputValue}
+            onChange={setTextInputValue}
+            style={{ ...fontStyles, fontSize: fontStyles.size, color: strokeColor }}
+            onSubmit={commitText}
           />
-        </svg>
-      )}
+        )}
 
-      {/* LAYER 2.5: SELECTION BOUNDING BOX */}
-      {selectionBoundingBox && activeTool === 'select' && (
-        <SelectionOverlay
-          selectionBoundingBox={selectionBoundingBox}
-          dimensions={dimensions}
-          rotation={
-            (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
-              ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
-              : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
-                ? (textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0)
-                : undefined
-          }
-          showRotationHandle={selectedTextIds.size === 0 && selectedLineIds.size === 0}
-        />
-      )}
-
-      {/* LAYER 3: KONVA (Drawings) */}
-      <div className="absolute inset-0 z-20 pointer-events-none">
-        <Stage
-          ref={stageRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          style={{ pointerEvents: 'none' }}
-        >
-          <Layer>
-            {lines.map((line) => (
-              <Line
-                key={line.id}
-                points={line.points}
-                stroke={line.color}
-                strokeWidth={line.strokeWidth}
-                tension={line.tension ?? 0.5}
-                lineCap={line.lineCap ?? 'round'}
-                lineJoin={line.lineJoin ?? 'round'}
-                opacity={line.opacity ?? 1}
-                dash={line.dash}
-                globalCompositeOperation={line.globalCompositeOperation as any}
-                shadowBlur={line.shadowBlur}
-                shadowColor={line.shadowColor || line.color}
-              />
-            ))}
-          </Layer>
-        </Stage>
+        {activeTool === 'eraser' && cursorPos && (
+          <EraserCursor cursorPos={cursorPos} eraserSize={eraserSize} />
+        )}
       </div>
 
-      {/* LAYER 4: TEXT */}
-      <div className="absolute inset-0 z-30 pointer-events-none">
-        {textAnnotations.map((t) => {
-          // hide the text being edited to avoid the "ghosting" effect (duplicate text underneath the input).
-          if (editingTextId === t.id) return null;
-          return (
-            <div
-              key={t.id}
-              style={{
-                position: 'absolute',
-                left: t.x,
-                top: t.y,
-                color: t.color,
-                // safety check: 0px font makes element disappear and unselectable.
-                fontSize: Math.max(1, t.fontSize || 18),
-                fontFamily: getFontFamilyWithFallback(t.fontFamily),
-                fontWeight: t.fontWeight,
-                fontStyle: t.fontStyle,
-                textDecoration: t.textDecoration,
-                textAlign: t.textAlign || 'left',
-                transform: `rotate(${t.rotation || 0}deg)`,
-                transformOrigin: 'top left',
-              }}
-              // using HTML overlay instead of Konva Text for crisper rendering and better accessibility.
-              // also simplifies the "contentEditable" illusion.
-              className="whitespace-pre p-1 select-none origin-top-left"
-            >
-              {t.text}
-            </div>
-          );
-        })}
-      </div>
-
-
-
-      {/* LAYER 5: UI OVERLAYS */}
-      {activeTextInput && (
-        <FloatingInput
-          x={activeTextInput.x}
-          y={activeTextInput.y}
-          value={textInputValue}
-          onChange={setTextInputValue}
-          style={{ ...fontStyles, fontSize: fontStyles.size, color: strokeColor }}
-          onSubmit={commitText}
-        />
-      )}
-
-      {activeTool === 'eraser' && cursorPos && (
-        <EraserCursor cursorPos={cursorPos} eraserSize={eraserSize} />
-      )}
 
 
       {/* Export Tools Overlay */}

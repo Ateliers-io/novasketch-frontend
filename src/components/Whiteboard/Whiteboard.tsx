@@ -245,7 +245,8 @@ export default function Whiteboard() {
     const el = containerRef.current;
     if (!el) return;
     const preventNavGesture = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) > 0) {
+      // Block browser zoom (Ctrl+Scroll / pinch) and horizontal swipe navigation
+      if (e.ctrlKey || Math.abs(e.deltaX) > 0) {
         e.preventDefault();
       }
     };
@@ -716,7 +717,31 @@ export default function Whiteboard() {
     const dy = evt.deltaY;
 
     if (evt.ctrlKey) {
-      // Zoom logic (future task)
+      // Task 5.2: Zoom toward cursor on Ctrl+Scroll / pinch
+      const zoomSensitivity = 0.002;
+      const minScale = 0.1;  // 10%
+      const maxScale = 5;    // 500%
+
+      // Calculate new scale — scroll up (negative deltaY) zooms in
+      const scaleDelta = -dy * zoomSensitivity;
+      const newScale = Math.min(maxScale, Math.max(minScale, stageScale + scaleDelta));
+
+      // Get mouse position in screen space relative to container
+      const rect = containerRef.current?.getBoundingClientRect();
+      const mouseScreenX = (evt.clientX ?? 0) - (rect?.left ?? 0);
+      const mouseScreenY = (evt.clientY ?? 0) - (rect?.top ?? 0);
+
+      // Zoom toward cursor: keep the world point under the mouse fixed
+      // worldPoint = (screenPoint - stagePos) / oldScale
+      // After zoom: screenPoint = worldPoint * newScale + newStagePos
+      // So: newStagePos = screenPoint - worldPoint * newScale
+      const worldX = (mouseScreenX - stagePos.x) / stageScale;
+      const worldY = (mouseScreenY - stagePos.y) / stageScale;
+      const newPosX = mouseScreenX - worldX * newScale;
+      const newPosY = mouseScreenY - worldY * newScale;
+
+      setStageScale(newScale);
+      setStagePos({ x: newPosX, y: newPosY });
       return;
     }
 

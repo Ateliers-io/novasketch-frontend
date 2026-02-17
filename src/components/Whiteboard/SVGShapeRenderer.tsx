@@ -23,6 +23,7 @@ interface SVGShapeRendererProps {
     height: number;
     selectedShapeIds?: Set<string>;
     onShapeClick?: (shapeId: string, e: React.MouseEvent) => void;
+    transform?: { x: number; y: number; scale: number };
 }
 
 // --- CONSTANTS ---
@@ -211,8 +212,10 @@ const SVGArrow = ({ shape, isSelected, onClick }: { shape: ArrowShape; isSelecte
 };
 
 const SVGTriangle = ({ shape, isSelected, onClick }: { shape: TriangleShape; isSelected?: boolean; onClick?: (e: React.MouseEvent) => void }) => {
-    const cx = (shape.points[0].x + shape.points[1].x + shape.points[2].x) / 3;
-    const cy = (shape.points[0].y + shape.points[1].y + shape.points[2].y) / 3;
+    const xCoords = shape.points.map(p => p.x);
+    const yCoords = shape.points.map(p => p.y);
+    const cx = (Math.min(...xCoords) + Math.max(...xCoords)) / 2;
+    const cy = (Math.min(...yCoords) + Math.max(...yCoords)) / 2;
 
     const relPoints = shape.points.map(p => `${p.x - cx},${p.y - cy}`).join(' ');
 
@@ -245,6 +248,7 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
     height,
     selectedShapeIds,
     onShapeClick,
+    transform = { x: 0, y: 0, scale: 1 },
 }) => {
     const sortedShapes = useMemo(() =>
         [...shapes].sort((a, b) => a.zIndex - b.zIndex),
@@ -294,21 +298,24 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                 </filter>
             </defs>
 
-            {sortedShapes
-                .filter((shape) => shape.visible)
-                .map((shape) => {
-                    const isSelected = selectedShapeIds?.has(shape.id) || false;
-                    const clickHandler = onShapeClick ? handleClick(shape.id) : undefined;
+            {/* Viewport transform: pan + zoom applied to all shapes */}
+            <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
+                {sortedShapes
+                    .filter((shape) => shape.visible)
+                    .map((shape) => {
+                        const isSelected = selectedShapeIds?.has(shape.id) || false;
+                        const clickHandler = onShapeClick ? handleClick(shape.id) : undefined;
 
-                    if (isRectangle(shape)) return <SVGRectangle key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
-                    if (isCircle(shape)) return <SVGCircle key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
-                    if (isEllipse(shape)) return <SVGEllipse key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
-                    if (isLine(shape)) return <SVGLine key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
-                    if (isArrow(shape)) return <SVGArrow key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
-                    if (isTriangle(shape)) return <SVGTriangle key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
+                        if (isRectangle(shape)) return <SVGRectangle key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
+                        if (isCircle(shape)) return <SVGCircle key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
+                        if (isEllipse(shape)) return <SVGEllipse key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
+                        if (isLine(shape)) return <SVGLine key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
+                        if (isArrow(shape)) return <SVGArrow key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
+                        if (isTriangle(shape)) return <SVGTriangle key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
 
-                    return null;
-                })}
+                        return null;
+                    })}
+            </g>
         </svg>
     );
 };

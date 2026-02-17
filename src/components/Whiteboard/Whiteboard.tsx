@@ -63,7 +63,9 @@ import { useSelectionBounds } from './hooks/useSelectionBounds';
 
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
-const ROOM_ID = 'default-room'; // TODO: derive from route params/auth context
+// Hardcoded room ID for local development. 
+// TODO: Replace with dynamic routing parameter once the backend auth integration is finalized.
+const ROOM_ID = 'default-room';
 
 // magical constants.
 const GRID_DOT_COLOR = '#45A29E';
@@ -76,7 +78,8 @@ export default function Whiteboard() {
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
 
-  // connecting to the hive mind (yjs + ws + idb).
+  // syncing everything with yjs.
+  // this hook does all the heavy lifting for real-time collab.
   const {
     lines,
     shapes,
@@ -107,7 +110,8 @@ export default function Whiteboard() {
   const linesRef = useRef(lines);
   useEffect(() => { linesRef.current = lines; }, [lines]);
 
-  // Current Stroke Ref for efficient drawing updates (bypassing stale state)
+  // Utilizing a ref for current stroke data to bypass React's render cycle for performance.
+  // This helps maintain 60fps responsiveness during rapid drawing actions.
   const currentStrokeRef = useRef<{ id: string, points: number[] } | null>(null);
 
   // Snapshot for Eraser Diffing
@@ -320,7 +324,9 @@ export default function Whiteboard() {
       }
     }
 
-    // 3. Shapes (Bottom Layer)
+    // 3. Shapes
+    // Opting for a bounding box check here as it's significantly more performant (O(1)) 
+    // than a precise point-in-polygon algorithm for hit testing.
     for (let i = shapes.length - 1; i >= 0; i--) {
       const s = shapes[i];
       if (isPointInBoundingBox({ x, y }, getShapeBoundingBox(s), 5)) {
@@ -387,8 +393,12 @@ export default function Whiteboard() {
   // getBrushProperties and getStrokeDashArray are now imported from ./utils/brushUtils
 
   const performErase = (x: number, y: number) => {
+
     // 1. Lines
+    // Vector erasure is computationally expensive as it requires splitting paths.
+    // We detect intersection points and slice the line segments accordingly.
     if (eraserMode === 'stroke') {
+
       const currentLines = linesRef.current;
       // Find lines that would be removed
       const linesHit = currentLines.filter(l => {
@@ -664,6 +674,10 @@ export default function Whiteboard() {
     }
   };
 
+  // this function handles all the clicking logic.
+  // it's getting kinda big, maybe i should split it up later.
+  // Core handler for pointer down events. 
+  // currently manages multiple interaction modes; candidate for refactoring into smaller handlers.
   const handlePointerDown = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
     // Check if clicking on UI (Toolbar)
     if ((e.target as HTMLElement).closest?.('[data-component="toolbar"]')) {
@@ -912,6 +926,8 @@ export default function Whiteboard() {
   // We need to capture the pointer move events.
   // Simpler: Just rely on 'eraseAtPosition' inside 'performErase' to update state, 
   // and PointerUp to diff.
+  // Pointer Move Handler.
+  // Logic here runs every frame during drag interactions. Optimized to minimize allocation and avoid lag.
   const handlePointerMove = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
     const { x, y } = getPointerPos(e);
     setCursorPos({ x, y });
@@ -2034,6 +2050,7 @@ export default function Whiteboard() {
       {activeTool === 'eraser' && cursorPos && (
         <EraserCursor cursorPos={cursorPos} eraserSize={eraserSize} />
       )}
+
 
       {/* Export Tools Overlay */}
       <ExportTools

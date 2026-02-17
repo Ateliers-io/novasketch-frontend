@@ -10,10 +10,7 @@ import {
 
 gsap.registerPlugin(ScrollTrigger);
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// NOVASKETCH LANDING PAGE
-// Modern, Clean Design for Collaborative Whiteboard
-// ═══════════════════════════════════════════════════════════════════════════════
+
 
 // --- FLOATING SHAPES BACKGROUND ---
 const FloatingShapesBackground = () => {
@@ -22,6 +19,7 @@ const FloatingShapesBackground = () => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Using standard 2D canvas here. WebGL adds unnecessary complexity for simple shapes.
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -29,7 +27,7 @@ const FloatingShapesBackground = () => {
     let w = canvas.width = window.innerWidth;
     let h = canvas.height = window.innerHeight;
 
-    // Floating shapes
+    // State management for the floating particles system.
     const shapes: { x: number; y: number; vx: number; vy: number; size: number; type: 'circle' | 'square' | 'triangle'; rotation: number; color: string }[] = [];
     const colors = ['rgba(102, 252, 241, 0.15)', 'rgba(69, 162, 158, 0.12)', 'rgba(236, 72, 153, 0.1)', 'rgba(99, 102, 241, 0.12)'];
 
@@ -47,6 +45,7 @@ const FloatingShapesBackground = () => {
     }
 
     const render = () => {
+      // Clear the canvas each frame to prevent trails.
       ctx.clearRect(0, 0, w, h);
 
       shapes.forEach(shape => {
@@ -82,6 +81,7 @@ const FloatingShapesBackground = () => {
         ctx.restore();
       });
 
+      // Use requestAnimationFrame for smooth 60fps animations.
       animationId = requestAnimationFrame(render);
     };
 
@@ -99,10 +99,12 @@ const FloatingShapesBackground = () => {
     };
   }, []);
 
+  // Disable pointer events so this doesn't block clicks on the main UI elements.
   return <canvas ref={canvasRef} className="fixed inset-0 z-0 opacity-40 pointer-events-none" />;
 };
 
-// --- PRODUCT PREVIEW COMPONENT ---
+// --- PRODUCT PREVIEW ---
+// A lightweight visual mock of the whiteboard to improve initial load time.
 const ProductPreview = () => {
   return (
     <div className="preview-window w-full max-w-5xl mx-auto rounded-2xl overflow-hidden border border-gray-700/50 bg-[#1a1d24] shadow-2xl shadow-black/50 relative">
@@ -230,6 +232,8 @@ export const Landing = () => {
   const previewRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
+
+    // using layout effect so the animations are ready before the user sees weird jumps
     const ctx = gsap.context(() => {
 
       // Hero entrance

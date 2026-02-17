@@ -302,6 +302,46 @@ export default function Whiteboard() {
     performRedo,
   });
 
+  // Task 5.2: Keyboard Zoom Shortcuts (Ctrl+= / Ctrl+- / Ctrl+0)
+  useEffect(() => {
+    const handleZoomKeys = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+
+      const MIN_SCALE = 0.1;
+      const MAX_SCALE = 5;
+      const ZOOM_STEP = 0.1;
+
+      let newScale: number | null = null;
+
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        newScale = Math.min(MAX_SCALE, stageScale + ZOOM_STEP);
+      } else if (e.key === '-') {
+        e.preventDefault();
+        newScale = Math.max(MIN_SCALE, stageScale - ZOOM_STEP);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        newScale = 1;
+      }
+
+      if (newScale !== null && newScale !== stageScale) {
+        // Zoom toward screen center
+        const centerX = dimensions.width / 2;
+        const centerY = dimensions.height / 2;
+        const worldX = (centerX - stagePos.x) / stageScale;
+        const worldY = (centerY - stagePos.y) / stageScale;
+        setStagePos({
+          x: centerX - worldX * newScale,
+          y: centerY - worldY * newScale,
+        });
+        setStageScale(newScale);
+      }
+    };
+
+    window.addEventListener('keydown', handleZoomKeys);
+    return () => window.removeEventListener('keydown', handleZoomKeys);
+  }, [stageScale, stagePos, dimensions]);
+
   // -- 4. HELPERS --
   const getPointerPos = (e: any) => {
     // robustly get client coordinates from various event types (React, Konva, Native)
@@ -2053,7 +2093,7 @@ export default function Whiteboard() {
         className="absolute inset-0 pointer-events-none z-0 opacity-20"
         style={{
           backgroundImage: `radial-gradient(${GRID_DOT_COLOR} 1px, transparent 1px)`,
-          backgroundSize: '24px 24px',
+          backgroundSize: `${24 * stageScale}px ${24 * stageScale}px`,
           backgroundPosition: `${stagePos.x}px ${stagePos.y}px`, // Dynamic panning
         }}
       />
@@ -2206,7 +2246,7 @@ export default function Whiteboard() {
 
         {/* Eraser Cursor */}
         {activeTool === 'eraser' && cursorPos && (
-          <EraserCursor cursorPos={cursorPos} eraserSize={eraserSize} />
+          <EraserCursor cursorPos={cursorPos} eraserSize={eraserSize / stageScale} />
         )}
       </div>
 

@@ -33,6 +33,7 @@ import {
 import SVGShapeRenderer from './SVGShapeRenderer';
 import {
   getShapeBoundingBox,
+  getTransformedBoundingBox,
   getCombinedBoundingBox,
   isPointInBoundingBox,
   BoundingBox,
@@ -1697,7 +1698,8 @@ export default function Whiteboard() {
   // Filter Shapes
   const visibleShapes = useMemo(() => {
     return shapes.filter(s => {
-      const bbox = getShapeBoundingBox(s);
+      // Use transformed bounding box to account for rotation
+      const bbox = getTransformedBoundingBox(s);
       return !(bbox.maxX < visibleBounds.minX || bbox.minX > visibleBounds.maxX ||
         bbox.maxY < visibleBounds.minY || bbox.minY > visibleBounds.maxY);
     });

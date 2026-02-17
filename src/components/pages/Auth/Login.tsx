@@ -178,7 +178,7 @@ export const Login = () => {
                                 <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Create Account</h1>
                                 <p className="text-[13px] text-white/45 mt-1">Start sketching ideas with your team</p>
                             </div>
-                            <button type="button" onClick={() => gLogin()} disabled={!!ldg || isLoading} className="ns-si w-full mb-4 py-2.5 rounded-xl border border-white/[.08] bg-white/[.03] flex items-center justify-center gap-2.5 text-white/60 hover:text-white/90 hover:border-white/15 hover:bg-white/[.06] transition-all duration-300 disabled:opacity-30 disabled:pointer-events-none backdrop-blur-sm text-[.8rem] font-medium">
+                            <button type="button" onClick={() => googleLogin()} disabled={!!ldg || isLoading} className="ns-si w-full mb-4 py-2.5 rounded-xl border border-white/[.08] bg-white/[.03] flex items-center justify-center gap-2.5 text-white/60 hover:text-white/90 hover:border-white/15 hover:bg-white/[.06] transition-all duration-300 disabled:opacity-30 disabled:pointer-events-none backdrop-blur-sm text-[.8rem] font-medium">
                                 <GgI /> Continue with Google
                             </button>
                             <div className="ns-si flex items-center gap-3 mb-4"><div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[.08] to-transparent" /><span className="text-[8px] font-semibold text-white/20 tracking-[.15em] uppercase">or email</span><div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[.08] to-transparent" /></div>
@@ -200,7 +200,7 @@ export const Login = () => {
                                 <h1 className="text-[1.7rem] font-bold text-white tracking-tight">Sign In</h1>
                                 <p className="text-[13px] text-white/45 mt-1">Pick up where you left off</p>
                             </div>
-                            <button type="button" onClick={() => gLogin()} disabled={!!ldg || isLoading} className="w-full mb-4 py-2.5 rounded-xl border border-white/[.08] bg-white/[.03] flex items-center justify-center gap-2.5 text-white/60 hover:text-white/90 hover:border-white/15 hover:bg-white/[.06] transition-all duration-300 disabled:opacity-30 disabled:pointer-events-none backdrop-blur-sm text-[.8rem] font-medium">
+                            <button type="button" onClick={() => googleLogin()} disabled={!!ldg || isLoading} className="w-full mb-4 py-2.5 rounded-xl border border-white/[.08] bg-white/[.03] flex items-center justify-center gap-2.5 text-white/60 hover:text-white/90 hover:border-white/15 hover:bg-white/[.06] transition-all duration-300 disabled:opacity-30 disabled:pointer-events-none backdrop-blur-sm text-[.8rem] font-medium">
                                 <GgI /> Continue with Google
                             </button>
                             <div className="flex items-center gap-3 mb-4"><div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[.08] to-transparent" /><span className="text-[8px] font-semibold text-white/20 tracking-[.15em] uppercase">or email</span><div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[.08] to-transparent" /></div>

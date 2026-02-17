@@ -268,8 +268,60 @@ export function getBoundingBoxHandles(boundingBox: BoundingBox): Position[] {
     ];
 }
 
+/**
+ * Calculates the bounding box of a shape after applying its rotation transformation.
+ * This is crucial for accurate culling of rotated shapes.
+ * @param shape - The shape to transform
+ * @returns The AABB of the rotated shape in world coordinates
+ */
+export function getTransformedBoundingBox(shape: Shape): BoundingBox {
+    const localBox = getShapeBoundingBox(shape);
+    const rotation = shape.transform.rotation || 0;
+
+    if (rotation === 0) {
+        return localBox;
+    }
+
+    const { minX, minY, maxX, maxY, centerX, centerY } = localBox;
+    const rad = (rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    // Rotate the 4 corners around the center
+    const corners = [
+        { x: minX, y: minY },
+        { x: maxX, y: minY },
+        { x: maxX, y: maxY },
+        { x: minX, y: maxY },
+    ];
+
+    let newMinX = Infinity, newMinY = Infinity, newMaxX = -Infinity, newMaxY = -Infinity;
+
+    corners.forEach(p => {
+        // Translate to origin (center)
+        const dx = p.x - centerX;
+        const dy = p.y - centerY;
+
+        // Rotate
+        const rotatedX = dx * cos - dy * sin;
+        const rotatedY = dx * sin + dy * cos;
+
+        // Translate back
+        const finalX = rotatedX + centerX;
+        const finalY = rotatedY + centerY;
+
+        newMinX = Math.min(newMinX, finalX);
+        newMinY = Math.min(newMinY, finalY);
+        newMaxX = Math.max(newMaxX, finalX);
+        newMaxY = Math.max(newMaxY, finalY);
+    });
+
+    return createBoundingBox(newMinX, newMinY, newMaxX, newMaxY);
+}
+
 export default {
     getShapeBoundingBox,
+    getTransformedBoundingBox,
     getCombinedBoundingBox,
     isPointInBoundingBox,
     doBoundingBoxesIntersect,

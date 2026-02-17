@@ -153,6 +153,10 @@ export default function Whiteboard() {
   }, []);
 
   // -- 2. INTERACTION STATE --
+  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+  const [stageScale, setStageScale] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
   const [isDrawing, setIsDrawing] = useState(false);
   const [isToolLocked, setIsToolLocked] = useState(false); // Lock tool for multiple drawings
@@ -261,33 +265,41 @@ export default function Whiteboard() {
 
   // -- 4. HELPERS --
   const getPointerPos = (e: any) => {
+    // If Konva event, use proper methods
     const stage = e.target?.getStage?.();
     if (stage) {
-      return stage.getPointerPosition() || { x: 0, y: 0 };
+      // Logic for infinite canvas: use transform
+      const pointer = stage.getPointerPosition();
+      if (pointer) {
+        const scale = stage.scaleX();
+        const pos = stage.position();
+        return {
+          x: (pointer.x - pos.x) / scale,
+          y: (pointer.y - pos.y) / scale,
+        };
+      }
     }
 
     // Fix for UI Eraser Cursor Jump: Use global client coordinates relative to container
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-
-      // Get client coordinates from various event types (React Synthetic, Native, or Konva wrapped)
       const nativeEvent = e.nativeEvent || e;
       const clientX = e.clientX ?? nativeEvent.clientX ?? e.evt?.clientX;
       const clientY = e.clientY ?? nativeEvent.clientY ?? e.evt?.clientY;
 
       if (typeof clientX === 'number' && typeof clientY === 'number') {
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
+        const screenX = clientX - rect.left;
+        const screenY = clientY - rect.top;
 
-        // Temporary Debug Log
-        // console.log('[Pointer]', { client: { x: clientX, y: clientY }, canvas: { x, y } });
-
-        return { x, y };
+        // Convert to Virtual
+        return {
+          x: (screenX - stagePos.x) / stageScale,
+          y: (screenY - stagePos.y) / stageScale
+        };
       }
     }
 
-    // Fallback (Risk of 0,0 jump if target is child)
-    return { x: e.nativeEvent?.offsetX || 0, y: e.nativeEvent?.offsetY || 0 };
+    return { x: 0, y: 0 };
   };
 
   // isPointInShape is imported from ./utils (eraserUtils)

@@ -2260,6 +2260,54 @@ export default function Whiteboard() {
         backgroundColor={canvasBackgroundColor}
       />
 
+      {/* Task 5.2.3: Zoom Percentage Indicator */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-lg border border-white/10 shadow-lg">
+        <button
+          onClick={() => {
+            const newScale = Math.max(0.1, stageScale - 0.1);
+            const centerX = dimensions.width / 2;
+            const centerY = dimensions.height / 2;
+            const worldX = (centerX - stagePos.x) / stageScale;
+            const worldY = (centerY - stagePos.y) / stageScale;
+            setStagePos({ x: centerX - worldX * newScale, y: centerY - worldY * newScale });
+            setStageScale(newScale);
+          }}
+          className="px-2 py-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-l-lg transition-colors text-sm font-medium"
+          title="Zoom Out (Ctrl+-)"
+        >
+          −
+        </button>
+        <button
+          onClick={() => {
+            const centerX = dimensions.width / 2;
+            const centerY = dimensions.height / 2;
+            const worldX = (centerX - stagePos.x) / stageScale;
+            const worldY = (centerY - stagePos.y) / stageScale;
+            setStagePos({ x: centerX - worldX * 1, y: centerY - worldY * 1 });
+            setStageScale(1);
+          }}
+          className="px-2 py-1.5 text-[#66FCF1] hover:text-white hover:bg-white/10 transition-colors text-xs font-semibold min-w-[52px] text-center tabular-nums"
+          title="Reset Zoom (Ctrl+0)"
+        >
+          {Math.round(stageScale * 100)}%
+        </button>
+        <button
+          onClick={() => {
+            const newScale = Math.min(5, stageScale + 0.1);
+            const centerX = dimensions.width / 2;
+            const centerY = dimensions.height / 2;
+            const worldX = (centerX - stagePos.x) / stageScale;
+            const worldY = (centerY - stagePos.y) / stageScale;
+            setStagePos({ x: centerX - worldX * newScale, y: centerY - worldY * newScale });
+            setStageScale(newScale);
+          }}
+          className="px-2 py-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-r-lg transition-colors text-sm font-medium"
+          title="Zoom In (Ctrl+=)"
+        >
+          +
+        </button>
+      </div>
+
       {/* Standalone Clear Canvas Button */}
       <button
         onClick={() => {

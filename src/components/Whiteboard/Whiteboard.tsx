@@ -238,6 +238,20 @@ export default function Whiteboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Prevent browser back/forward navigation via two-finger horizontal swipe.
+  // Must use native listener with passive:false as React's onWheel can't call preventDefault.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const preventNavGesture = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) > 0) {
+        e.preventDefault();
+      }
+    };
+    el.addEventListener('wheel', preventNavGesture, { passive: false });
+    return () => el.removeEventListener('wheel', preventNavGesture);
+  }, []);
+
   // Spacebar Panning Mode Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -288,40 +302,24 @@ export default function Whiteboard() {
 
   // -- 4. HELPERS --
   const getPointerPos = (e: any) => {
-    // If Konva event, use proper methods
-    const stage = e.target?.getStage?.();
-    if (stage) {
-      // Logic for infinite canvas: use transform
-      const pointer = stage.getPointerPosition();
-      if (pointer) {
-        const scale = stage.scaleX();
-        const pos = stage.position();
-        return {
-          x: (pointer.x - pos.x) / scale,
-          y: (pointer.y - pos.y) / scale,
-        };
-      }
-    }
+    // robustly get client coordinates from various event types (React, Konva, Native)
+    const nativeEvent = e.nativeEvent || e;
+    const clientX = e.clientX ?? nativeEvent.clientX ?? e.evt?.clientX;
+    const clientY = e.clientY ?? nativeEvent.clientY ?? e.evt?.clientY;
 
-    // Fix for UI Eraser Cursor Jump: Use global client coordinates relative to container
-    if (containerRef.current) {
+    if (containerRef.current && typeof clientX === 'number' && typeof clientY === 'number') {
       const rect = containerRef.current.getBoundingClientRect();
-      const nativeEvent = e.nativeEvent || e;
-      const clientX = e.clientX ?? nativeEvent.clientX ?? e.evt?.clientX;
-      const clientY = e.clientY ?? nativeEvent.clientY ?? e.evt?.clientY;
+      const screenX = clientX - rect.left;
+      const screenY = clientY - rect.top;
 
-      if (typeof clientX === 'number' && typeof clientY === 'number') {
-        const screenX = clientX - rect.left;
-        const screenY = clientY - rect.top;
-
-        // Convert to Virtual
-        return {
-          x: (screenX - stagePos.x) / stageScale,
-          y: (screenY - stagePos.y) / stageScale
-        };
-      }
+      // Convert Screen to Virtual: (Screen - Pan) / Scale
+      return {
+        x: (screenX - stagePos.x) / stageScale,
+        y: (screenY - stagePos.y) / stageScale
+      };
     }
 
+    // Fallback should rarely handle active interactions
     return { x: 0, y: 0 };
   };
 
@@ -766,31 +764,11 @@ export default function Whiteboard() {
       if ('stopPropagation' in e) e.stopPropagation();
       setIsRotating(true);
 
-      // Using robust coordinates relative to container
-      let mouseX = x;
-      let mouseY = y;
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const clientX = (e as any).clientX !== undefined ? (e as any).clientX : (e as any).evt?.clientX;
-        const clientY = (e as any).clientY !== undefined ? (e as any).clientY : (e as any).evt?.clientY;
-        if (clientX !== undefined && clientY !== undefined) {
-          const screenX = clientX - rect.left;
-          const screenY = clientY - rect.top;
-          // Convert screen to virtual for rotation logic?
-          // getPointerPos already returns virtual. 
-          // The code block below recalculated mouseX/Y manually.
-          // Since getPointerPos is fixed, we can just use x, y from there.
-          // However, to be safe and match existing logic structure:
-          // We can rely on getPointerPos(x, y).
-          mouseX = x;
-          mouseY = y;
-        }
-      }
-
-      // Calculate initial angle from center of selection to mouse position
+      // Calculate initial angle from center of selection to mouse position.
+      // Both must be in virtual coords — getPointerPos already handles conversion.
       const centerX = selectionBoundingBox.centerX;
       const centerY = selectionBoundingBox.centerY;
-      const startAngle = Math.atan2(mouseY - centerY, mouseX - centerX) * (180 / Math.PI);
+      const startAngle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
       setRotationStartAngle(startAngle);
 
       // Store initial rotations of all selected shapes
@@ -1039,18 +1017,10 @@ export default function Whiteboard() {
       const centerX = selectionBoundingBox.centerX;
       const centerY = selectionBoundingBox.centerY;
 
-      // Use robust coordinates relative to container
-      let mouseX = x;
-      let mouseY = y;
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const clientX = (e as any).clientX !== undefined ? (e as any).clientX : (e as any).evt?.clientX;
-        const clientY = (e as any).clientY !== undefined ? (e as any).clientY : (e as any).evt?.clientY;
-        if (clientX !== undefined && clientY !== undefined) {
-          mouseX = clientX - rect.left;
-          mouseY = clientY - rect.top;
-        }
-      }
+      // Both center and mouse must be in the same coordinate space (virtual).
+      // getPointerPos already returns virtual coords accounting for pan/zoom.
+      const mouseX = x;
+      const mouseY = y;
 
       // Calculate current angle from center to mouse
       const currentAngle = Math.atan2(mouseY - centerY, mouseX - centerX) * (180 / Math.PI);
@@ -1416,6 +1386,11 @@ export default function Whiteboard() {
   const handlePointerUp = () => {
     // Reset drawing ref
     currentStrokeRef.current = null;
+    // Task 5.1: Stop Panning when mouse released
+    setIsStageDragging(false);
+    if (!isDraggingSelection) {
+      setLastPointerPos(null);
+    }
 
     // 1. History & Logic for Eraser (MUST BE BEFORE EARLY RETURNS)
     // Task 4.5.3 Partial Eraser Logic: Detect Changes
@@ -1706,6 +1681,64 @@ export default function Whiteboard() {
 
 
 
+  // -- Task 5.1: Culling (Infinite Panning Optimization) --
+  // Calculate visible viewport bounds in virtual coordinates
+  const visibleBounds = useMemo(() => {
+    // Add a buffer margin (e.g., 500px) to prevent pop-in during fast panning
+    const buffer = 500;
+    return {
+      minX: (-stagePos.x - buffer) / stageScale,
+      minY: (-stagePos.y - buffer) / stageScale,
+      maxX: (dimensions.width - stagePos.x + buffer) / stageScale,
+      maxY: (dimensions.height - stagePos.y + buffer) / stageScale,
+    };
+  }, [stagePos, stageScale, dimensions]);
+
+  // Filter Shapes
+  const visibleShapes = useMemo(() => {
+    return shapes.filter(s => {
+      const bbox = getShapeBoundingBox(s);
+      return !(bbox.maxX < visibleBounds.minX || bbox.minX > visibleBounds.maxX ||
+        bbox.maxY < visibleBounds.minY || bbox.minY > visibleBounds.maxY);
+    });
+  }, [shapes, visibleBounds]);
+
+  // Filter Lines (Performance: Cache bounding boxes if possible, but for now calculate on fly)
+  // Optimization: Only cull if line count is high (>100), otherwise overhead of calc might outweigh render cost?
+  // For now, consistent culling.
+  const visibleLines = useMemo(() => {
+    return lines.filter(l => {
+      // Quick check: if line has no points, skip
+      if (l.points.length < 2) return false;
+
+      // Calculate bbox (simplified: just min/max of points)
+      let minX = l.points[0], maxX = l.points[0], minY = l.points[1], maxY = l.points[1];
+      for (let i = 2; i < l.points.length; i += 2) {
+        const x = l.points[i];
+        const y = l.points[i + 1];
+        if (x < minX) minX = x; else if (x > maxX) maxX = x;
+        if (y < minY) minY = y; else if (y > maxY) maxY = y;
+      }
+
+      // Add stroke width buffer
+      const buf = (l.strokeWidth || 5) / 2;
+      return !(maxX + buf < visibleBounds.minX || minX - buf > visibleBounds.maxX ||
+        maxY + buf < visibleBounds.minY || minY - buf > visibleBounds.maxY);
+    });
+  }, [lines, visibleBounds]);
+
+  // Filter Text
+  const visibleTextAnnotations = useMemo(() => {
+    return textAnnotations.filter(t => {
+      // Approx bbox
+      const w = t.text.length * (t.fontSize || 18) * 0.6;
+      const h = (t.fontSize || 18) * 1.2;
+      return !(t.x + w < visibleBounds.minX || t.x > visibleBounds.maxX ||
+        t.y + h < visibleBounds.minY || t.y > visibleBounds.maxY);
+    });
+  }, [textAnnotations, visibleBounds]);
+
+
   return (
     <div
       ref={containerRef}
@@ -1717,7 +1750,11 @@ export default function Whiteboard() {
             ? 'cursor-pointer'
             : 'cursor-crosshair'
         }`}
-      style={{ backgroundColor: canvasBackgroundColor }}
+      style={{
+        backgroundColor: canvasBackgroundColor,
+        touchAction: 'none',
+        overscrollBehaviorX: 'none' as any,
+      }}
       onMouseMove={handlePointerMove}
       onMouseDown={handlePointerDown}
       onMouseUp={handlePointerUp}
@@ -1982,41 +2019,38 @@ export default function Whiteboard() {
         onRedo={performRedo}
       />
 
-      {/* --- VIRTUAL VIEWPORT (TRANSFORMED) --- */}
+      {/* --- CANVAS LAYERS --- */}
+
+      {/* LAYER 1: BACKGROUND (Infinite Pan using backgroundPosition) */}
       <div
-        className="absolute inset-0 w-full h-full origin-top-left will-change-transform"
+        className="absolute inset-0 pointer-events-none z-0 opacity-20"
         style={{
-          transform: `translate(${stagePos.x}px, ${stagePos.y}px) scale(${stageScale})`,
-          width: '100%', height: '100%'
+          backgroundImage: `radial-gradient(${GRID_DOT_COLOR} 1px, transparent 1px)`,
+          backgroundSize: '24px 24px',
+          backgroundPosition: `${stagePos.x}px ${stagePos.y}px`, // Dynamic panning
         }}
-      >
-        {/* LAYER 1: BACKGROUND */}
-        <div
-          className="absolute inset-0 pointer-events-none z-0 opacity-20"
-          style={{
-            backgroundImage: `radial-gradient(${GRID_DOT_COLOR} 1px, transparent 1px)`,
-            backgroundSize: '24px 24px'
-          }}
+      />
+
+      {/* LAYER 2: SVG SHAPES (Fixed Container, Transformed Content) */}
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        <SVGShapeRenderer
+          shapes={previewShape ? [...visibleShapes, previewShape] : visibleShapes}
+          width={dimensions.width}
+          height={dimensions.height}
+          selectedShapeIds={selectedShapeIds}
+          transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
         />
+      </div>
 
-        {/* LAYER 2: SVG SHAPES */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          <SVGShapeRenderer
-            shapes={previewShape ? [...shapes, previewShape] : shapes}
-            width={dimensions.width}
-            height={dimensions.height}
-            selectedShapeIds={selectedShapeIds}
-          />
-        </div>
-
-        {/* LAYER 2.3: MARQUEE SELECTION RECTANGLE */}
-        {marqueeRect && marqueeRect.width > 0 && marqueeRect.height > 0 && (
-          <svg
-            className="absolute inset-0 z-12 pointer-events-none"
-            width={dimensions.width}
-            height={dimensions.height}
-            style={{ overflow: 'visible' }}
-          >
+      {/* LAYER 2.3: MARQUEE SELECTION RECTANGLE */}
+      {marqueeRect && marqueeRect.width > 0 && marqueeRect.height > 0 && (
+        <svg
+          className="absolute inset-0 z-12 pointer-events-none"
+          width={dimensions.width}
+          height={dimensions.height}
+          style={{ overflow: 'visible' }}
+        >
+          <g transform={`translate(${stagePos.x}, ${stagePos.y}) scale(${stageScale})`}>
             <defs>
               <pattern id="marquee-pattern" patternUnits="userSpaceOnUse" width="8" height="8">
                 <path d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" stroke="#2dd4bf" strokeWidth="1" opacity="0.5" />
@@ -2040,84 +2074,98 @@ export default function Whiteboard() {
               strokeWidth={1}
               strokeDasharray="4,4"
             />
-          </svg>
-        )}
+          </g>
+        </svg>
+      )}
 
-        {/* LAYER 2.5: SELECTION BOUNDING BOX */}
-        {selectionBoundingBox && activeTool === 'select' && (
-          <SelectionOverlay
-            selectionBoundingBox={selectionBoundingBox}
-            dimensions={dimensions}
-            rotation={
-              (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
-                ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
-                : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
-                  ? (textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0)
-                  : undefined
-            }
-            showRotationHandle={selectedTextIds.size === 0 && selectedLineIds.size === 0}
-          />
-        )}
+      {/* LAYER 2.5: SELECTION BOUNDING BOX */}
+      {selectionBoundingBox && activeTool === 'select' && (
+        <SelectionOverlay
+          key={[...selectedShapeIds, ...selectedLineIds, ...selectedTextIds].join(',')}
+          selectionBoundingBox={selectionBoundingBox}
+          dimensions={dimensions}
+          rotation={
+            (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
+              ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
+              : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
+                ? (textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0)
+                : undefined
+          }
+          showRotationHandle={selectedTextIds.size === 0 && selectedLineIds.size === 0}
+          transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
+        />
+      )}
 
-        {/* LAYER 3: KONVA (Drawings) */}
-        <div className="absolute inset-0 z-20 pointer-events-none">
-          <Stage
-            ref={stageRef}
-            width={dimensions.width}
-            height={dimensions.height}
-            style={{ pointerEvents: 'none' }}
-          >
-            <Layer>
-              {lines.map((line) => (
-                <Line
-                  key={line.id}
-                  points={line.points}
-                  stroke={line.color}
-                  strokeWidth={line.strokeWidth}
-                  tension={line.tension ?? 0.5}
-                  lineCap={line.lineCap ?? 'round'}
-                  lineJoin={line.lineJoin ?? 'round'}
-                  opacity={line.opacity ?? 1}
-                  dash={line.dash}
-                  globalCompositeOperation={line.globalCompositeOperation as any}
-                  shadowBlur={line.shadowBlur}
-                  shadowColor={line.shadowColor || line.color}
-                />
-              ))}
-            </Layer>
-          </Stage>
-        </div>
+      {/* LAYER 3: KONVA (Drawings) - Native Konva Transform */}
+      <div className="absolute inset-0 z-20 pointer-events-none">
+        <Stage
+          ref={stageRef}
+          width={dimensions.width}
+          height={dimensions.height}
+          style={{ pointerEvents: 'none' }}
+          x={stagePos.x}
+          y={stagePos.y}
+          scaleX={stageScale}
+          scaleY={stageScale}
+        >
+          <Layer>
+            {visibleLines.map((line) => (
+              <Line
+                key={line.id}
+                points={line.points}
+                stroke={line.color}
+                strokeWidth={line.strokeWidth}
+                tension={line.tension ?? 0.5}
+                lineCap={line.lineCap ?? 'round'}
+                lineJoin={line.lineJoin ?? 'round'}
+                opacity={line.opacity ?? 1}
+                dash={line.dash}
+                globalCompositeOperation={line.globalCompositeOperation as any}
+                shadowBlur={line.shadowBlur}
+                shadowColor={line.shadowColor || line.color}
+              />
+            ))}
+          </Layer>
+        </Stage>
+      </div>
 
-        {/* LAYER 4: TEXT */}
-        <div className="absolute inset-0 z-30 pointer-events-none">
-          {textAnnotations.map((t) => {
-            if (editingTextId === t.id) return null;
-            return (
-              <div
-                key={t.id}
-                style={{
-                  position: 'absolute',
-                  left: t.x,
-                  top: t.y,
-                  color: t.color,
-                  fontSize: Math.max(1, t.fontSize || 18),
-                  fontFamily: getFontFamilyWithFallback(t.fontFamily),
-                  fontWeight: t.fontWeight,
-                  fontStyle: t.fontStyle,
-                  textDecoration: t.textDecoration,
-                  textAlign: t.textAlign || 'left',
-                  transform: `rotate(${t.rotation || 0}deg)`,
-                  transformOrigin: 'top left',
-                }}
-                className="whitespace-pre p-1 select-none origin-top-left"
-              >
-                {t.text}
-              </div>
-            );
-          })}
-        </div>
+      {/* LAYER 4, 5: TEXT & HTML OVERLAYS (Transformed Container) */}
+      <div
+        className="absolute inset-0 z-30 pointer-events-none origin-top-left will-change-transform"
+        style={{
+          transform: `translate(${stagePos.x}px, ${stagePos.y}px) scale(${stageScale})`,
+          width: '100%',
+          height: '100%'
+        }}
+      >
+        {/* Texts */}
+        {visibleTextAnnotations.map((t) => {
+          if (editingTextId === t.id) return null;
+          return (
+            <div
+              key={t.id}
+              style={{
+                position: 'absolute',
+                left: t.x,
+                top: t.y,
+                color: t.color,
+                fontSize: Math.max(1, t.fontSize || 18),
+                fontFamily: getFontFamilyWithFallback(t.fontFamily),
+                fontWeight: t.fontWeight,
+                fontStyle: t.fontStyle,
+                textDecoration: t.textDecoration,
+                textAlign: t.textAlign || 'left',
+                transform: `rotate(${t.rotation || 0}deg)`,
+                transformOrigin: 'top left',
+              }}
+              className="whitespace-pre p-1 select-none origin-top-left"
+            >
+              {t.text}
+            </div>
+          );
+        })}
 
-        {/* LAYER 5: DYNAMIC UI */}
+        {/* Input */}
         {activeTextInput && (
           <FloatingInput
             x={activeTextInput.x}
@@ -2129,12 +2177,11 @@ export default function Whiteboard() {
           />
         )}
 
+        {/* Eraser Cursor */}
         {activeTool === 'eraser' && cursorPos && (
           <EraserCursor cursorPos={cursorPos} eraserSize={eraserSize} />
         )}
       </div>
-
-
 
       {/* Export Tools Overlay */}
       <ExportTools
@@ -2159,6 +2206,6 @@ export default function Whiteboard() {
         <Trash2 size={16} />
         <span>Clear</span>
       </button>
-    </div >
+    </div>
   );
 }

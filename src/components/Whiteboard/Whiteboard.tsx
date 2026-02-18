@@ -60,6 +60,7 @@ import FloatingInput from './components/FloatingInput';
 import SelectionOverlay from './components/SelectionOverlay';
 import EraserCursor from './components/EraserCursor';
 import MiniMap from './components/MiniMap';
+import RecenterButton from './components/RecenterButton';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 
@@ -233,6 +234,12 @@ export default function Whiteboard() {
 
 
   const [isStageDragging, setIsStageDragging] = useState(false);
+
+  // Task 5.4.1: Recenter Button Implementation (Stub for 5.4.2 logic)
+  const handleRecenter = () => {
+    // Logic for 5.4.2 (animate Viewport) and 5.4.3 (reset Zoom) will be implemented next.
+    console.log('Recenter clicked');
+  };
 
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
@@ -2260,6 +2267,9 @@ export default function Whiteboard() {
         onClear={clearAll}
         backgroundColor={canvasBackgroundColor}
       />
+
+      {/* Task 5.4.1: Recenter Button */}
+      <RecenterButton onRecenter={handleRecenter} />
 
       {/* Task 5.3: Mini-Map */}
       <MiniMap

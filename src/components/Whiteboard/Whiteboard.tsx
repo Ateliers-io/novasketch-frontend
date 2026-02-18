@@ -1736,6 +1736,7 @@ export default function Whiteboard() {
       setIsRotating(false);
       setRotationStartAngle(0);
       setInitialShapeRotations(new Map());
+      setInitialSelectionBoundingBox(null);
       return;
     }
 

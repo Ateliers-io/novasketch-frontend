@@ -59,12 +59,13 @@ function createBoundingBox(minX: number, minY: number, maxX: number, maxY: numbe
  * Calculates the bounding box for a Rectangle shape
  */
 function getRectangleBoundingBox(shape: RectangleShape): BoundingBox {
-    const { position, width, height } = shape;
+    const { position, width, height, style } = shape;
+    const padding = (style?.strokeWidth || 0) / 2;
     return createBoundingBox(
-        position.x,
-        position.y,
-        position.x + width,
-        position.y + height
+        position.x - padding,
+        position.y - padding,
+        position.x + width + padding,
+        position.y + height + padding
     );
 }
 
@@ -72,13 +73,14 @@ function getRectangleBoundingBox(shape: RectangleShape): BoundingBox {
  * Calculates the bounding box for a Circle shape
  */
 function getCircleBoundingBox(shape: CircleShape): BoundingBox {
-    const { position, radius } = shape;
+    const { position, radius, style } = shape;
+    const padding = (style?.strokeWidth || 0) / 2;
     // Position is the center for circles
     return createBoundingBox(
-        position.x - radius,
-        position.y - radius,
-        position.x + radius,
-        position.y + radius
+        position.x - radius - padding,
+        position.y - radius - padding,
+        position.x + radius + padding,
+        position.y + radius + padding
     );
 }
 
@@ -86,13 +88,14 @@ function getCircleBoundingBox(shape: CircleShape): BoundingBox {
  * Calculates the bounding box for an Ellipse shape
  */
 function getEllipseBoundingBox(shape: EllipseShape): BoundingBox {
-    const { position, radiusX, radiusY } = shape;
+    const { position, radiusX, radiusY, style } = shape;
+    const padding = (style?.strokeWidth || 0) / 2;
     // Position is the center for ellipses
     return createBoundingBox(
-        position.x - radiusX,
-        position.y - radiusY,
-        position.x + radiusX,
-        position.y + radiusY
+        position.x - radiusX - padding,
+        position.y - radiusY - padding,
+        position.x + radiusX + padding,
+        position.y + radiusY + padding
     );
 }
 
@@ -100,12 +103,13 @@ function getEllipseBoundingBox(shape: EllipseShape): BoundingBox {
  * Calculates the bounding box for a Line shape
  */
 function getLineBoundingBox(shape: LineShape): BoundingBox {
-    const { startPoint, endPoint } = shape;
+    const { startPoint, endPoint, style } = shape;
+    const padding = (style?.strokeWidth || 0) / 2;
     return createBoundingBox(
-        Math.min(startPoint.x, endPoint.x),
-        Math.min(startPoint.y, endPoint.y),
-        Math.max(startPoint.x, endPoint.x),
-        Math.max(startPoint.y, endPoint.y)
+        Math.min(startPoint.x, endPoint.x) - padding,
+        Math.min(startPoint.y, endPoint.y) - padding,
+        Math.max(startPoint.x, endPoint.x) + padding,
+        Math.max(startPoint.y, endPoint.y) + padding
     );
 }
 
@@ -113,9 +117,11 @@ function getLineBoundingBox(shape: LineShape): BoundingBox {
  * Calculates the bounding box for an Arrow shape
  */
 function getArrowBoundingBox(shape: ArrowShape): BoundingBox {
-    const { startPoint, endPoint, arrowSize } = shape;
+    const { startPoint, endPoint, arrowSize, style } = shape;
     // Include arrow head size in the bounding box calculation
-    const padding = arrowSize || 10;
+    // Also include stroke width
+    const strokePadding = (style?.strokeWidth || 0) / 2;
+    const padding = (arrowSize || 10) + strokePadding;
     return createBoundingBox(
         Math.min(startPoint.x, endPoint.x) - padding,
         Math.min(startPoint.y, endPoint.y) - padding,
@@ -128,14 +134,15 @@ function getArrowBoundingBox(shape: ArrowShape): BoundingBox {
  * Calculates the bounding box for a Triangle shape
  */
 function getTriangleBoundingBox(shape: TriangleShape): BoundingBox {
-    const { points } = shape;
+    const { points, style } = shape;
+    const padding = (style?.strokeWidth || 0) / 2;
     const xCoords = points.map(p => p.x);
     const yCoords = points.map(p => p.y);
     return createBoundingBox(
-        Math.min(...xCoords),
-        Math.min(...yCoords),
-        Math.max(...xCoords),
-        Math.max(...yCoords)
+        Math.min(...xCoords) - padding,
+        Math.min(...yCoords) - padding,
+        Math.max(...xCoords) + padding,
+        Math.max(...yCoords) + padding
     );
 }
 

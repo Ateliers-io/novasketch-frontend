@@ -226,10 +226,7 @@ const MiniMap: React.FC<MiniMapProps> = ({
                 backdropFilter: 'blur(8px)',
             }}
         >
-            {/* Mini-map label */}
-            <div className="absolute top-1 left-2 text-[9px] text-white/30 font-medium uppercase tracking-wider select-none pointer-events-none z-10">
-                Map
-            </div>
+
 
             <svg
                 width={MINIMAP_WIDTH}

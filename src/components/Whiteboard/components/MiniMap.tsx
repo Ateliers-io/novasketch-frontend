@@ -177,7 +177,92 @@ const MiniMap: React.FC<MiniMapProps> = ({
                 {/* Background */}
                 <rect width={MINIMAP_WIDTH} height={MINIMAP_HEIGHT} fill="transparent" />
 
-                {/* Simplified object representations will go here (Task 2) */}
+                {/* Task 5.3.2: Simplified object representations */}
+
+                {/* Shapes — rendered as small colored rectangles using their bounding boxes */}
+                {shapes.map(s => {
+                    const bbox = getTransformedBoundingBox(s);
+                    const mx = toMiniX(bbox.minX);
+                    const my = toMiniY(bbox.minY);
+                    const mw = Math.max((bbox.maxX - bbox.minX) * miniScale, 1.5);
+                    const mh = Math.max((bbox.maxY - bbox.minY) * miniScale, 1.5);
+                    const color = s.style.stroke || '#66FCF1';
+                    const fill = s.style.hasFill ? s.style.fill : 'none';
+
+                    // Use actual shape primitives for circles/ellipses
+                    if (isCircle(s)) {
+                        const cx = toMiniX(s.position.x);
+                        const cy = toMiniY(s.position.y);
+                        const r = Math.max((s as CircleShape).radius * miniScale, 1);
+                        return <circle key={s.id} cx={cx} cy={cy} r={r} fill={fill} stroke={color} strokeWidth={0.8} opacity={0.8} />;
+                    }
+                    if (isEllipse(s)) {
+                        const cx = toMiniX(s.position.x);
+                        const cy = toMiniY(s.position.y);
+                        const rx = Math.max((s as EllipseShape).radiusX * miniScale, 1);
+                        const ry = Math.max((s as EllipseShape).radiusY * miniScale, 1);
+                        return <ellipse key={s.id} cx={cx} cy={cy} rx={rx} ry={ry} fill={fill} stroke={color} strokeWidth={0.8} opacity={0.8} />;
+                    }
+                    if (isTriangle(s)) {
+                        const pts = (s as TriangleShape).points.map(p => `${toMiniX(p.x)},${toMiniY(p.y)}`).join(' ');
+                        return <polygon key={s.id} points={pts} fill={fill} stroke={color} strokeWidth={0.8} opacity={0.8} />;
+                    }
+                    if (isLine(s) || isArrow(s)) {
+                        const ls = s as LineShape;
+                        return <line key={s.id} x1={toMiniX(ls.startPoint.x)} y1={toMiniY(ls.startPoint.y)} x2={toMiniX(ls.endPoint.x)} y2={toMiniY(ls.endPoint.y)} stroke={color} strokeWidth={0.8} opacity={0.8} />;
+                    }
+                    // Rectangle and fallback
+                    return <rect key={s.id} x={mx} y={my} width={mw} height={mh} fill={fill} stroke={color} strokeWidth={0.8} rx={0.5} opacity={0.8} />;
+                })}
+
+                {/* Lines (freehand strokes) — simplified polylines, sampling every 4th point */}
+                {lines.map(l => {
+                    if (l.points.length < 4) return null;
+                    // Sample points for performance: take every 4th point
+                    const step = Math.max(2, Math.floor(l.points.length / 50) * 2); // max ~50 points per line
+                    let pathData = '';
+                    for (let i = 0; i < l.points.length; i += step) {
+                        const px = toMiniX(l.points[i]);
+                        const py = toMiniY(l.points[i + 1]);
+                        pathData += (i === 0 ? `M${px},${py}` : ` L${px},${py}`);
+                    }
+                    // Always include the last point
+                    const lastI = l.points.length - 2;
+                    if (lastI > 0) {
+                        pathData += ` L${toMiniX(l.points[lastI])},${toMiniY(l.points[lastI + 1])}`;
+                    }
+                    return (
+                        <path
+                            key={l.id}
+                            d={pathData}
+                            stroke={l.color || '#66FCF1'}
+                            strokeWidth={Math.max(l.strokeWidth * miniScale, 0.5)}
+                            fill="none"
+                            opacity={0.7}
+                            strokeLinecap="round"
+                        />
+                    );
+                })}
+
+                {/* Text — rendered as small colored bars representing text blocks */}
+                {textAnnotations.map(t => {
+                    const mx = toMiniX(t.x);
+                    const my = toMiniY(t.y);
+                    const mw = Math.max(t.text.length * (t.fontSize || 18) * 0.6 * miniScale, 3);
+                    const mh = Math.max((t.fontSize || 18) * 1.2 * miniScale, 1.5);
+                    return (
+                        <rect
+                            key={t.id}
+                            x={mx}
+                            y={my}
+                            width={mw}
+                            height={mh}
+                            fill={t.color || '#C5C6C7'}
+                            rx={0.5}
+                            opacity={0.6}
+                        />
+                    );
+                })}
 
                 {/* Viewport indicator (View Box) */}
                 <rect

@@ -268,7 +268,7 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-4 right-4 bg-transparent border-2 border-[#66FCF1] text-[#66FCF1] p-3 rounded-lg shadow-[0_0_10px_rgba(102,252,241,0.3)] hover:shadow-[0_0_20px_rgba(102,252,241,0.5)] transition-all duration-300 z-50 flex items-center justify-center"
+                className="fixed top-4 left-4 bg-transparent border-2 border-[#66FCF1] text-[#66FCF1] p-3 rounded-lg shadow-[0_0_10px_rgba(102,252,241,0.3)] hover:shadow-[0_0_20px_rgba(102,252,241,0.5)] transition-all duration-300 z-50 flex items-center justify-center"
                 title="Export options"
             >
                 <Download size={24} />
@@ -277,7 +277,7 @@ const ExportTools: React.FC<ExportToolsProps> = ({ stageRef, lines, shapes, text
     }
 
     return (
-        <div className="fixed bottom-4 right-4 bg-black/90 backdrop-blur-sm p-4 rounded-xl border border-[#66FCF1] shadow-[0_0_20px_rgba(102,252,241,0.15)] z-50 flex flex-col gap-2 min-w-[200px]">
+        <div className="fixed top-4 left-4 bg-black/90 backdrop-blur-sm p-4 rounded-xl border border-[#66FCF1] shadow-[0_0_20px_rgba(102,252,241,0.15)] z-50 flex flex-col gap-2 min-w-[200px]">
             <div className="flex justify-between items-center mb-2 border-b border-[#66FCF1]/30 pb-2">
                 <h3 className="font-semibold text-[#66FCF1]">Export & Actions</h3>
                 <button onClick={() => setIsOpen(false)} className="text-[#66FCF1]/70 hover:text-[#66FCF1] transition-colors">

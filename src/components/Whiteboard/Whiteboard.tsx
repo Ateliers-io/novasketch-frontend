@@ -59,6 +59,7 @@ import {
 import FloatingInput from './components/FloatingInput';
 import SelectionOverlay from './components/SelectionOverlay';
 import EraserCursor from './components/EraserCursor';
+import MiniMap from './components/MiniMap';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 
@@ -2258,6 +2259,23 @@ export default function Whiteboard() {
         textAnnotations={textAnnotations}
         onClear={clearAll}
         backgroundColor={canvasBackgroundColor}
+      />
+
+      {/* Task 5.3: Mini-Map */}
+      <MiniMap
+        shapes={shapes}
+        lines={lines}
+        textAnnotations={textAnnotations}
+        stagePos={stagePos}
+        stageScale={stageScale}
+        dimensions={dimensions}
+        onNavigate={(worldX, worldY) => {
+          // Center the viewport on the clicked world position
+          setStagePos({
+            x: -(worldX * stageScale) + dimensions.width / 2,
+            y: -(worldY * stageScale) + dimensions.height / 2,
+          });
+        }}
       />
 
       {/* Task 5.2.3: Zoom Percentage Indicator */}

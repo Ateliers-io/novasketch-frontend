@@ -2,7 +2,7 @@
  * MiniMap component — Task 5.3: Secondary smaller canvas overlay.
  * Shows a bird's-eye view of the entire canvas with a viewport indicator.
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useCallback } from 'react';
 import {
     Shape, isRectangle, isCircle, isEllipse, isLine, isArrow, isTriangle,
     RectangleShape, CircleShape, EllipseShape, LineShape, ArrowShape, TriangleShape
@@ -140,15 +140,78 @@ const MiniMap: React.FC<MiniMapProps> = ({
     const vpMiniW = vpWorldW * miniScale;
     const vpMiniH = vpWorldH * miniScale;
 
-    // 5. Click handler — navigate to clicked position
+    // 5. Drag state for the View Box (using refs to avoid re-render lag)
+    const isDraggingRef = useRef(false);
+    const dragOffsetRef = useRef({ x: 0, y: 0 }); // offset from click to viewport rect top-left
+    const didDragRef = useRef(false); // prevents click-to-navigate after drag
+
+    // Convert minimap pixel position to world coordinates
+    const miniToWorldX = useCallback((mx: number) => (mx - offsetX) / miniScale + worldBounds.minX, [offsetX, miniScale, worldBounds.minX]);
+    const miniToWorldY = useCallback((my: number) => (my - offsetY) / miniScale + worldBounds.minY, [offsetY, miniScale, worldBounds.minY]);
+
+    // Start dragging the View Box
+    const handleViewBoxMouseDown = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        isDraggingRef.current = true;
+        didDragRef.current = false;
+
+        // Store offset between mouse position and the viewport rect's top-left
+        const svgRect = (e.currentTarget as Element).closest('svg')?.getBoundingClientRect();
+        if (svgRect) {
+            const mouseX = e.clientX - svgRect.left;
+            const mouseY = e.clientY - svgRect.top;
+            dragOffsetRef.current = {
+                x: mouseX - vpMiniX,
+                y: mouseY - vpMiniY,
+            };
+        }
+    }, [vpMiniX, vpMiniY]);
+
+    // Handle mouse move on the SVG (drag or hover)
+    const handleSvgMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+        if (!isDraggingRef.current) return;
+        didDragRef.current = true;
+
+        const svgRect = e.currentTarget.getBoundingClientRect();
+        const mouseX = e.clientX - svgRect.left;
+        const mouseY = e.clientY - svgRect.top;
+
+        // New top-left of viewport rect in minimap coords
+        const newMiniX = mouseX - dragOffsetRef.current.x;
+        const newMiniY = mouseY - dragOffsetRef.current.y;
+
+        // Convert to world coords (top-left corner of viewport)
+        const worldX = miniToWorldX(newMiniX);
+        const worldY = miniToWorldY(newMiniY);
+
+        // Navigate: onNavigate expects the CENTER of the viewport
+        onNavigate(worldX + vpWorldW / 2, worldY + vpWorldH / 2);
+    }, [miniToWorldX, miniToWorldY, onNavigate, vpWorldW, vpWorldH]);
+
+    // Handle mouse up — stop dragging
+    const handleSvgMouseUp = useCallback(() => {
+        isDraggingRef.current = false;
+    }, []);
+
+    // Handle mouse leave — stop dragging if cursor leaves minimap
+    const handleSvgMouseLeave = useCallback(() => {
+        isDraggingRef.current = false;
+    }, []);
+
+    // Click handler — navigate to clicked position (only if not dragging)
     const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+        if (didDragRef.current) {
+            didDragRef.current = false;
+            return; // Don't navigate after a drag
+        }
+
         const rect = e.currentTarget.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
         const clickY = e.clientY - rect.top;
 
-        // Convert minimap coords back to world coords
-        const worldX = (clickX - offsetX) / miniScale + worldBounds.minX;
-        const worldY = (clickY - offsetY) / miniScale + worldBounds.minY;
+        const worldX = miniToWorldX(clickX);
+        const worldY = miniToWorldY(clickY);
 
         onNavigate(worldX, worldY);
     };
@@ -171,8 +234,11 @@ const MiniMap: React.FC<MiniMapProps> = ({
             <svg
                 width={MINIMAP_WIDTH}
                 height={MINIMAP_HEIGHT}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: isDraggingRef.current ? 'grabbing' : 'pointer' }}
                 onClick={handleClick}
+                onMouseMove={handleSvgMouseMove}
+                onMouseUp={handleSvgMouseUp}
+                onMouseLeave={handleSvgMouseLeave}
             >
                 {/* Background */}
                 <rect width={MINIMAP_WIDTH} height={MINIMAP_HEIGHT} fill="transparent" />
@@ -264,7 +330,7 @@ const MiniMap: React.FC<MiniMapProps> = ({
                     );
                 })}
 
-                {/* Viewport indicator (View Box) */}
+                {/* Task 5.3.3: Draggable Viewport indicator (View Box) */}
                 <rect
                     x={vpMiniX}
                     y={vpMiniY}
@@ -274,7 +340,8 @@ const MiniMap: React.FC<MiniMapProps> = ({
                     stroke="#66FCF1"
                     strokeWidth={1.5}
                     rx={1}
-                    style={{ pointerEvents: 'none' }}
+                    style={{ pointerEvents: 'auto', cursor: 'grab' }}
+                    onMouseDown={handleViewBoxMouseDown}
                 />
             </svg>
         </div>

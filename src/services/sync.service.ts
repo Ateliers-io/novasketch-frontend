@@ -50,6 +50,9 @@ export interface Shape {
     cornerRadius?: number;
     // Circle specific
     radius?: number;
+    // Ellipse specific
+    radiusX?: number;
+    radiusY?: number;
 }
 
 export interface TextAnnotation {
@@ -71,6 +74,7 @@ export interface SyncState {
     lines: StrokeLine[];
     shapes: Shape[];
     textAnnotations: TextAnnotation[];
+    canvasBackgroundColor: string;
 }
 
 export type SyncStateChangeHandler = (state: SyncState) => void;
@@ -93,6 +97,7 @@ class SyncService {
     private yLines: Y.Array<StrokeLine>;
     private yShapes: Y.Array<Shape>;
     private yTexts: Y.Array<TextAnnotation>;
+    private yMeta: Y.Map<any>;
 
     private config: SyncServiceConfig;
     private isInitialized = false;
@@ -105,6 +110,7 @@ class SyncService {
         this.yLines = this.doc.getArray<StrokeLine>('lines');
         this.yShapes = this.doc.getArray<Shape>('shapes');
         this.yTexts = this.doc.getArray<TextAnnotation>('texts');
+        this.yMeta = this.doc.getMap('meta');
 
         // Set up observers
         this.setupObservers();
@@ -116,12 +122,14 @@ class SyncService {
                 lines: this.yLines.toArray(),
                 shapes: this.yShapes.toArray(),
                 textAnnotations: this.yTexts.toArray(),
+                canvasBackgroundColor: this.yMeta.get('bgColor') || '#0B0C10',
             });
         };
 
         this.yLines.observe(notifyChange);
         this.yShapes.observe(notifyChange);
         this.yTexts.observe(notifyChange);
+        this.yMeta.observe(notifyChange);
     }
 
     /**
@@ -149,6 +157,7 @@ class SyncService {
             lines: this.yLines.toArray(),
             shapes: this.yShapes.toArray(),
             textAnnotations: this.yTexts.toArray(),
+            canvasBackgroundColor: this.yMeta.get('bgColor') || '#0B0C10',
         });
 
         // 2. Set up WebSocket provider for real-time sync
@@ -170,14 +179,15 @@ class SyncService {
                     lines: this.yLines.toArray(),
                     shapes: this.yShapes.toArray(),
                     textAnnotations: this.yTexts.toArray(),
+                    canvasBackgroundColor: this.yMeta.get('bgColor') || '#0B0C10',
                 });
             }
         });
 
         // 3. Set up UndoManager for undo/redo
-        // utilizing Yjs built-in history management to handle CRDT conflicts automatically.
-        // trackedOrigins: 'local' ensures I only undo MY actions, not my teammate's. critical for UX.
-        this.undoManager = new Y.UndoManager([this.yLines, this.yShapes, this.yTexts], {
+        // Utilizing Yjs built-in history management to handle CRDT conflicts automatically.
+        // trackedOrigins: 'local' ensures I only undo MY actions, not my teammate's.
+        this.undoManager = new Y.UndoManager([this.yLines, this.yShapes, this.yTexts, this.yMeta], {
             trackedOrigins: new Set(['local']),
         });
 
@@ -302,6 +312,13 @@ class SyncService {
         }, 'local');
     }
 
+    // --- META OPERATIONS ---
+    setCanvasBackgroundColor(color: string): void {
+        this.doc.transact(() => {
+            this.yMeta.set('bgColor', color);
+        }, 'local');
+    }
+
     // --- BATCH OPERATIONS ---
 
     /**
@@ -337,6 +354,7 @@ class SyncService {
             this.yLines.delete(0, this.yLines.length);
             this.yShapes.delete(0, this.yShapes.length);
             this.yTexts.delete(0, this.yTexts.length);
+            this.yMeta.set('bgColor', '#0B0C10');
         }, 'local');
     }
 
@@ -352,6 +370,10 @@ class SyncService {
 
     getTexts(): TextAnnotation[] {
         return this.yTexts.toArray();
+    }
+
+    getCanvasBackgroundColor(): string {
+        return this.yMeta.get('bgColor') || '#0B0C10';
     }
 
     isConnected(): boolean {

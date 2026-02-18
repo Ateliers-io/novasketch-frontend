@@ -184,8 +184,8 @@ export function getCombinedBoundingBox(shapes: Shape[]): BoundingBox | null {
         return getShapeBoundingBox(shapes[0]);
     }
 
-    // Get bounding boxes for all shapes
-    const boundingBoxes = shapes.map(shape => getShapeBoundingBox(shape));
+    // Get bounding boxes for all shapes, accounting for their rotation
+    const boundingBoxes = shapes.map(shape => getTransformedBoundingBox(shape));
 
     // Find the extremes across all bounding boxes
     const minX = Math.min(...boundingBoxes.map(bb => bb.minX));

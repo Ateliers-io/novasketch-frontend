@@ -235,7 +235,7 @@ export default function Whiteboard() {
 
   const [isStageDragging, setIsStageDragging] = useState(false);
 
-  // Task 5.4.2: Animate Viewport Offset back to (0,0)
+  // Task 5.4.2 + 5.4.3: Animate Viewport Offset back to (0,0) and Zoom to 100%
   const recenterAnimRef = useRef<number | null>(null);
 
   const handleRecenter = useCallback(() => {
@@ -248,6 +248,7 @@ export default function Whiteboard() {
     const DURATION = 400; // ms
     const startX = stagePos.x;
     const startY = stagePos.y;
+    const startScale = stageScale;
     const startTime = performance.now();
 
     // easeOutCubic for a natural deceleration feel
@@ -258,10 +259,14 @@ export default function Whiteboard() {
       const progress = Math.min(elapsed / DURATION, 1);
       const eased = ease(progress);
 
+      // Animate pan back to origin
       setStagePos({
         x: startX + (0 - startX) * eased,
         y: startY + (0 - startY) * eased,
       });
+
+      // Task 5.4.3: Animate zoom back to 100%
+      setStageScale(startScale + (1 - startScale) * eased);
 
       if (progress < 1) {
         recenterAnimRef.current = requestAnimationFrame(animate);
@@ -271,7 +276,7 @@ export default function Whiteboard() {
     };
 
     recenterAnimRef.current = requestAnimationFrame(animate);
-  }, [stagePos]);
+  }, [stagePos, stageScale]);
 
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });

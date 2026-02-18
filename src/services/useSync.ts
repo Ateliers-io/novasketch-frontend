@@ -16,6 +16,7 @@ interface UseSyncResult {
     lines: StrokeLine[];
     shapes: Shape[];
     textAnnotations: TextAnnotation[];
+    canvasBackgroundColor: string;
 
     // Connection status
     isConnected: boolean;
@@ -40,6 +41,9 @@ interface UseSyncResult {
     deleteText: (id: string) => void;
     setTexts: (texts: TextAnnotation[]) => void;
 
+    // Meta operations
+    setCanvasBackgroundColor: (color: string) => void;
+
     // Batch operations
     batch: (callback: () => void) => void;
 
@@ -57,6 +61,7 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
     const [lines, setLinesState] = useState<StrokeLine[]>([]);
     const [shapes, setShapesState] = useState<Shape[]>([]);
     const [textAnnotations, setTextAnnotationsState] = useState<TextAnnotation[]>([]);
+    const [canvasBackgroundColor, setCanvasBackgroundColorState] = useState('#0B0C10');
 
     const [isConnected, setIsConnected] = useState(false);
     const [isSynced, setIsSynced] = useState(false);
@@ -76,6 +81,7 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
                 setLinesState(state.lines);
                 setShapesState(state.shapes as Shape[]);
                 setTextAnnotationsState(state.textAnnotations);
+                setCanvasBackgroundColorState(state.canvasBackgroundColor);
 
                 // Update undo/redo state
                 if (serviceRef.current) {
@@ -180,6 +186,12 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
         updateUndoRedoState();
     }, [updateUndoRedoState]);
 
+    // Meta operations
+    const setCanvasBackgroundColor = useCallback((color: string) => {
+        serviceRef.current?.setCanvasBackgroundColor(color);
+        updateUndoRedoState();
+    }, [updateUndoRedoState]);
+
     // Batch operations
     const batch = useCallback((callback: () => void) => {
         serviceRef.current?.batch(callback);
@@ -207,6 +219,7 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
         lines,
         shapes,
         textAnnotations,
+        canvasBackgroundColor,
         isConnected,
         isSynced,
         isLoading,
@@ -222,6 +235,7 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
         updateText,
         deleteText,
         setTexts,
+        setCanvasBackgroundColor,
         batch,
         undo,
         redo,

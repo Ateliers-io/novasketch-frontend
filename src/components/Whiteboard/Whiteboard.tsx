@@ -106,6 +106,8 @@ export default function Whiteboard() {
     canUndo,
     canRedo,
     clearAll,
+    canvasBackgroundColor,
+    setCanvasBackgroundColor,
   } = useSync({ roomId: ROOM_ID, wsUrl: WS_URL });
 
   // local ref to avoid staleness in event handlers.
@@ -182,6 +184,12 @@ export default function Whiteboard() {
   const [isRotating, setIsRotating] = useState(false);
   const [rotationStartAngle, setRotationStartAngle] = useState<number>(0);
   const [initialShapeRotations, setInitialShapeRotations] = useState<Map<string, number>>(new Map());
+  // Task 4.3: Store initial positions for group rotation
+  const [initialShapePositions, setInitialShapePositions] = useState<Map<string, Position>>(new Map());
+  const [initialShapePoints, setInitialShapePoints] = useState<Map<string, Position[]>>(new Map()); // For lines/tris
+  const [selectionCenter, setSelectionCenter] = useState<Position | null>(null);
+  const [initialSelectionBoundingBox, setInitialSelectionBoundingBox] = useState<BoundingBox | null>(null);
+  const [currentGroupRotation, setCurrentGroupRotation] = useState<number>(0);
 
   // Shape Creation
   const [dragStart, setDragStart] = useState<Position | null>(null);
@@ -216,7 +224,7 @@ export default function Whiteboard() {
   const [eraserMode, setEraserMode] = useState<EraserMode>('stroke');
   const [brushType, setBrushType] = useState<BrushType>(BrushType.BRUSH);
   const [strokeStyle, setStrokeStyle] = useState<StrokeStyle>('solid');
-  const [canvasBackgroundColor, setCanvasBackgroundColor] = useState('#0B0C10');
+  // const [canvasBackgroundColor, setCanvasBackgroundColor] = useState('#0B0C10'); // Managed by useSync now
 
   const [fontStyles, setFontStyles] = useState({
     family: 'Arial', // Default to Arial (system font)
@@ -875,23 +883,57 @@ export default function Whiteboard() {
       if ('stopPropagation' in e) e.stopPropagation();
       setIsRotating(true);
 
-      // Calculate initial angle from center of selection to mouse position.
-      // Both must be in virtual coords — getPointerPos already handles conversion.
       const centerX = selectionBoundingBox.centerX;
       const centerY = selectionBoundingBox.centerY;
+      setSelectionCenter({ x: centerX, y: centerY });
+
       const startAngle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
       setRotationStartAngle(startAngle);
 
-      // Store initial rotations of all selected shapes
+      // Store initial state for all selected items
       const initialRotations = new Map<string, number>();
+      const initialPositions = new Map<string, Position>();
+      const initialPoints = new Map<string, Position[]>();
+
       shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
         initialRotations.set(s.id, s.transform.rotation);
+        initialPositions.set(s.id, { x: s.position.x, y: s.position.y });
+
+        // Capture points for point-based shapes
+        if (isTriangle(s)) {
+          initialPoints.set(s.id, (s as TriangleShape).points);
+        } else if (isLine(s) || isArrow(s)) {
+          // Store start/end as an array of 2 points
+          const ls = s as LineShape;
+          initialPoints.set(s.id, [ls.startPoint, ls.endPoint]);
+        }
       });
-      // Store initial rotations of all selected text
+
+      // Lines need special handling for points
+      lines.filter(l => selectedLineIds.has(l.id)).forEach(l => {
+        // Convert flat array to Position[] for easier rotation math
+        const pts: Position[] = [];
+        for (let i = 0; i < l.points.length; i += 2) {
+          pts.push({ x: l.points[i], y: l.points[i + 1] });
+        }
+        initialPoints.set(l.id, pts);
+      });
+
       textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
         initialRotations.set(t.id, t.rotation || 0);
+        initialPositions.set(t.id, { x: t.x, y: t.y });
       });
+
       setInitialShapeRotations(initialRotations);
+      setInitialShapePositions(initialPositions);
+      setInitialShapePoints(initialPoints);
+
+      // Store initial bounding box for stable visual rotation
+      if (selectionBoundingBox) {
+        setInitialSelectionBoundingBox(selectionBoundingBox);
+      }
+      setCurrentGroupRotation(0);
+
       return;
     }
 
@@ -1014,9 +1056,10 @@ export default function Whiteboard() {
           break;
         }
       }
-      // If no shape clicked, change canvas background
+      // If no shape clicked, change canvas background (Synced)
       if (!filled) {
         setCanvasBackgroundColor(fillColor);
+        // Hint: addToHistory is handled by SyncService metadata tracking automatically
       }
       return;
     }
@@ -1124,47 +1167,144 @@ export default function Whiteboard() {
     }
 
     // Task 4.3: Handle Rotation Logic
-    if (isRotating && selectionBoundingBox && initialShapeRotations.size > 0) {
-      const centerX = selectionBoundingBox.centerX;
-      const centerY = selectionBoundingBox.centerY;
+    if (isRotating && selectionCenter && initialShapeRotations.size > 0) {
+      const { x: centerX, y: centerY } = selectionCenter;
 
-      // Both center and mouse must be in the same coordinate space (virtual).
-      // getPointerPos already returns virtual coords accounting for pan/zoom.
-      const mouseX = x;
-      const mouseY = y;
-
-      // Calculate current angle from center to mouse
-      const currentAngle = Math.atan2(mouseY - centerY, mouseX - centerX) * (180 / Math.PI);
+      const currentAngle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
       let deltaAngle = currentAngle - rotationStartAngle;
 
-      // Shift key: Snap to 15-degree increments
       const nativeEvent = 'nativeEvent' in e ? e.nativeEvent : (e as any).evt;
       if (nativeEvent?.shiftKey) {
         deltaAngle = Math.round(deltaAngle / 15) * 15;
       }
 
+      setCurrentGroupRotation(deltaAngle); // Update visual rotation state
+
+      const rad = (deltaAngle * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+
+      // Rotate Point Helper
+      const rotatePoint = (px: number, py: number) => ({
+        x: centerX + (px - centerX) * cos - (py - centerY) * sin,
+        y: centerY + (px - centerX) * sin + (py - centerY) * cos
+      });
+
       // Update all selected shapes
       setShapes(prev => prev.map(s => {
-        if (selectedShapeIds.has(s.id)) {
-          const initialRotation = initialShapeRotations.get(s.id) || 0;
+        if (!selectedShapeIds.has(s.id)) return s;
+
+        const initPos = initialShapePositions.get(s.id);
+        const initRot = initialShapeRotations.get(s.id) || 0;
+        if (!initPos) return s;
+
+        if (isRectangle(s) || isCircle(s) || isEllipse(s)) {
+          // Rigid Body Rotation for Centered Shapes (Rect, Circle, Ellipse)
+
+          // Calculate Initial Center/Pivot
+          let itemCx = initPos.x;
+          let itemCy = initPos.y;
+
+          if (isRectangle(s)) {
+            itemCx += (s as RectangleShape).width / 2;
+            itemCy += (s as RectangleShape).height / 2;
+          }
+
+          // Rotate the pivot point around the selection center
+          const newCenter = rotatePoint(itemCx, itemCy);
+          const newRot = initRot + deltaAngle;
+
+          // Convert back to Top-Left if necessary
+          let newPos = { x: newCenter.x, y: newCenter.y };
+
+          if (isRectangle(s)) {
+            newPos.x -= (s as RectangleShape).width / 2;
+            newPos.y -= (s as RectangleShape).height / 2;
+          }
+
           return {
             ...s,
-            transform: {
-              ...s.transform,
-              rotation: initialRotation + deltaAngle
-            }
+            position: newPos,
+            transform: { ...s.transform, rotation: newRot }
           };
+        } else if (isLine(s) || isArrow(s)) {
+          // For Lines/Arrows, we rotate the Start and End points physically.
+          // We DO NOT change the transform.rotation, as the geometry rotation covers the "group" rotation.
+          // Existing local rotation (initRot) is preserved.
+
+          const points = initialShapePoints.get(s.id);
+          if (!points || points.length < 2) return s;
+
+          const p1 = rotatePoint(points[0].x, points[0].y);
+          const p2 = rotatePoint(points[1].x, points[1].y);
+
+          return {
+            ...s,
+            // LineShape properties need casting or explicit update
+            ...((isLine(s) ? {
+              startPoint: p1,
+              endPoint: p2
+            } : {
+              startPoint: p1,
+              endPoint: p2
+            }) as any),
+            transform: { ...s.transform, rotation: initRot } // Keep initial local rotation! 
+          };
+        } else if (isTriangle(s)) {
+          // For Triangles, rotate all points physically.
+          const points = initialShapePoints.get(s.id);
+          if (!points) return s;
+
+          const newPoints = points.map(p => rotatePoint(p.x, p.y));
+
+          return {
+            ...s,
+            points: newPoints,
+            transform: { ...s.transform, rotation: initRot } // Keep initial local rotation
+          } as TriangleShape;
         }
+
+        // Fallback
         return s;
       }));
+
+      // Update Lines (Freehand)
+      if (selectedLineIds.size > 0) {
+        setLines(prev => prev.map(l => {
+          if (selectedLineIds.has(l.id)) {
+            const initPts = initialShapePoints.get(l.id);
+            if (!initPts) return l;
+
+            const newPts: number[] = [];
+            initPts.forEach(pt => {
+              const newPt = rotatePoint(pt.x, pt.y);
+              newPts.push(newPt.x, newPt.y);
+            });
+            return { ...l, points: newPts };
+          }
+          return l;
+        }));
+      }
 
       // Update all selected text
       setTextAnnotations(prev => prev.map(t => {
         if (selectedTextIds.has(t.id)) {
-          const initialRotation = initialShapeRotations.get(t.id) || 0;
+          const initPos = initialShapePositions.get(t.id);
+          const initRot = initialShapeRotations.get(t.id) || 0;
+          if (!initPos) return t;
+
+          // Text rotates around top-left
+          // To rotate group properly, we rotate the top-left anchor?
+          // Or center?
+          // Text is rendered: transform: rotate(). transform-origin: top left.
+          // So we should rotate the Top-Left Postion around Selection, then rotate Text.
+
+          const newPos = rotatePoint(initPos.x, initPos.y);
           return {
             ...t,
-            rotation: initialRotation + deltaAngle
+            x: newPos.x,
+            y: newPos.y,
+            rotation: initRot + deltaAngle
           };
         }
         return t;
@@ -1281,6 +1421,18 @@ export default function Whiteboard() {
                   x: newX + (ls.endPoint.x - box.x) * scaleX,
                   y: newY + (ls.endPoint.y - box.y) * scaleY,
                 },
+              } as Shape;
+            } else if (isEllipse(initS)) {
+              const es = initS as EllipseShape;
+              // Proper Ellipse Resize
+              const scaleX = newWidth / box.width;
+              const scaleY = newHeight / box.height;
+
+              return {
+                ...s,
+                position: { x: finalX, y: finalY },
+                radiusX: es.radiusX * scaleX,
+                radiusY: es.radiusY * scaleY
               } as Shape;
             } else if (isTriangle(initS)) {
               const ts = initS as TriangleShape;
@@ -2191,19 +2343,25 @@ export default function Whiteboard() {
       )}
 
       {/* LAYER 2.5: SELECTION BOUNDING BOX */}
-      {selectionBoundingBox && activeTool === 'select' && (
+      {(selectionBoundingBox || (isRotating && initialSelectionBoundingBox)) && activeTool === 'select' && (
         <SelectionOverlay
           key={[...selectedShapeIds, ...selectedLineIds, ...selectedTextIds].join(',')}
-          selectionBoundingBox={selectionBoundingBox}
+          selectionBoundingBox={isRotating && initialSelectionBoundingBox ? initialSelectionBoundingBox : selectionBoundingBox!}
           dimensions={dimensions}
           rotation={
-            (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
-              ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
-              : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
-                ? (textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0)
-                : undefined
+            isRotating
+              ? (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0
+                ? (initialShapeRotations.get(Array.from(selectedShapeIds)[0]) || 0) + currentGroupRotation
+                : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
+                  ? (initialShapeRotations.get(Array.from(selectedTextIds)[0]) || 0) + currentGroupRotation
+                  : currentGroupRotation)
+              : (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
+                ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
+                : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
+                  ? (textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0)
+                  : undefined
           }
-          showRotationHandle={selectedTextIds.size === 0 && selectedLineIds.size === 0}
+          showRotationHandle={true} // Always allow rotation because we support group rotation now!
           transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
         />
       )}

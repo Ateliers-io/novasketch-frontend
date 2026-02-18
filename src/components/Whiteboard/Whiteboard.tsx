@@ -60,6 +60,7 @@ import FloatingInput from './components/FloatingInput';
 import SelectionOverlay from './components/SelectionOverlay';
 import EraserCursor from './components/EraserCursor';
 import MiniMap from './components/MiniMap';
+import RecenterButton from './components/RecenterButton';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 
@@ -233,6 +234,49 @@ export default function Whiteboard() {
 
 
   const [isStageDragging, setIsStageDragging] = useState(false);
+
+  // Task 5.4.2 + 5.4.3: Animate Viewport Offset back to (0,0) and Zoom to 100%
+  const recenterAnimRef = useRef<number | null>(null);
+
+  const handleRecenter = useCallback(() => {
+    // Cancel any in-flight recenter animation
+    if (recenterAnimRef.current !== null) {
+      cancelAnimationFrame(recenterAnimRef.current);
+      recenterAnimRef.current = null;
+    }
+
+    const DURATION = 400; // ms
+    const startX = stagePos.x;
+    const startY = stagePos.y;
+    const startScale = stageScale;
+    const startTime = performance.now();
+
+    // easeOutCubic for a natural deceleration feel
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / DURATION, 1);
+      const eased = ease(progress);
+
+      // Animate pan back to origin
+      setStagePos({
+        x: startX + (0 - startX) * eased,
+        y: startY + (0 - startY) * eased,
+      });
+
+      // Task 5.4.3: Animate zoom back to 100%
+      setStageScale(startScale + (1 - startScale) * eased);
+
+      if (progress < 1) {
+        recenterAnimRef.current = requestAnimationFrame(animate);
+      } else {
+        recenterAnimRef.current = null;
+      }
+    };
+
+    recenterAnimRef.current = requestAnimationFrame(animate);
+  }, [stagePos, stageScale]);
 
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
@@ -2260,6 +2304,9 @@ export default function Whiteboard() {
         onClear={clearAll}
         backgroundColor={canvasBackgroundColor}
       />
+
+      {/* Task 5.4.1: Recenter Button */}
+      <RecenterButton onRecenter={handleRecenter} />
 
       {/* Task 5.3: Mini-Map */}
       <MiniMap

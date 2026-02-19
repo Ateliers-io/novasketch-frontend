@@ -22,7 +22,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
 }) => {
     return (
         <svg
-            className="absolute inset-0 z-15"
+            className="absolute inset-0 z-40"
             width={dimensions.width}
             height={dimensions.height}
             style={{ pointerEvents: 'none', overflow: 'visible' }}

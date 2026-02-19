@@ -165,6 +165,7 @@ export default function Whiteboard() {
   const [isPanning, setIsPanning] = useState(false);
   // Grid Config (Task 5.5)
   const [gridConfig, setGridConfig] = useState<GridConfig>(DEFAULT_GRID_CONFIG);
+  const [snapGuides, setSnapGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
 
   // Initialize tool state
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
@@ -1503,8 +1504,41 @@ export default function Whiteboard() {
     if (isDraggingSelection && lastPointerPos) {
       // standard delta calculation. using simple difference since last frame.
       // heavily relying on consistent pointer move event firing.
-      const dx = x - lastPointerPos.x;
-      const dy = y - lastPointerPos.y;
+      // heavily relying on consistent pointer move event firing.
+      let dx = x - lastPointerPos.x;
+      let dy = y - lastPointerPos.y;
+
+      // Task 5.5.2: Grid Snapping Logic (Magnetic Snapping)
+      if (gridConfig.snapEnabled && selectionBoundingBox) {
+        const size = gridConfig.size;
+        const snapType = gridConfig.snapType || 'all';
+        const threshold = 8 / stageScale; // Snap when within 8 screen pixels
+
+        const proposedX = selectionBoundingBox.minX + dx;
+        const proposedY = selectionBoundingBox.minY + dy;
+
+        const snapX = Math.round(proposedX / size) * size;
+        const snapY = Math.round(proposedY / size) * size;
+
+        const canSnapX = ['all', 'vertical_lines', 'lines', 'points'].includes(snapType);
+        const canSnapY = ['all', 'horizontal_lines', 'lines', 'points'].includes(snapType);
+
+        let activeGuideX = null;
+        let activeGuideY = null;
+
+        // Apply snapping only if within threshold (smooth/magnetic feel)
+        if (canSnapX && Math.abs(proposedX - snapX) < threshold) {
+          dx = snapX - selectionBoundingBox.minX;
+          activeGuideX = snapX;
+        }
+        if (canSnapY && Math.abs(proposedY - snapY) < threshold) {
+          dy = snapY - selectionBoundingBox.minY;
+          activeGuideY = snapY;
+        }
+        setSnapGuides({ x: activeGuideX, y: activeGuideY });
+      } else {
+        setSnapGuides({ x: null, y: null });
+      }
 
       // Task 4.2.2: Update object coordinates locally in real-time
 
@@ -1660,6 +1694,8 @@ export default function Whiteboard() {
     if (!isDraggingSelection) {
       setLastPointerPos(null);
     }
+    setSnapGuides({ x: null, y: null });
+
 
     // 1. History & Logic for Eraser (MUST BE BEFORE EARLY RETURNS)
     // Task 4.5.3 Partial Eraser Logic: Detect Changes
@@ -2338,7 +2374,7 @@ export default function Whiteboard() {
       {/* LAYER 2.3: MARQUEE SELECTION RECTANGLE */}
       {marqueeRect && marqueeRect.width > 0 && marqueeRect.height > 0 && (
         <svg
-          className="absolute inset-0 z-12 pointer-events-none"
+          className="absolute inset-0 z-25 pointer-events-none"
           width={dimensions.width}
           height={dimensions.height}
           style={{ overflow: 'visible' }}
@@ -2430,6 +2466,26 @@ export default function Whiteboard() {
                 shadowColor={line.shadowColor || line.color}
               />
             ))}
+          </Layer>
+
+          {/* LAYER 3.5: Alignment Guides (High Z-Index inside Stage) */}
+          <Layer>
+            {snapGuides.x !== null && (
+              <Line
+                points={[snapGuides.x, visibleBounds.minY, snapGuides.x, visibleBounds.maxY]}
+                stroke="#0099ff"
+                strokeWidth={1 / stageScale}
+                dash={[4 / stageScale, 2 / stageScale]}
+              />
+            )}
+            {snapGuides.y !== null && (
+              <Line
+                points={[visibleBounds.minX, snapGuides.y, visibleBounds.maxX, snapGuides.y]}
+                stroke="#0099ff"
+                strokeWidth={1 / stageScale}
+                dash={[4 / stageScale, 2 / stageScale]}
+              />
+            )}
           </Layer>
         </Stage>
       </div>

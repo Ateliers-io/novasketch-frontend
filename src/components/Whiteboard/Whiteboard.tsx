@@ -1343,16 +1343,52 @@ export default function Whiteboard() {
       // Note: This logic assumes axis-aligned bounding box (AABB).
       // If we support rotated resizing in future, this entire block needs a matrix rewrite.
 
-      if (resizeHandle.includes('e')) newWidth = Math.max(10, x - box.x);
+      let targetX = x;
+      let targetY = y;
+
+      // Task 5.5.3: Resize Snapping (Polish)
+      if (gridConfig.snapEnabled) {
+        const size = gridConfig.size;
+        const snapType = gridConfig.snapType || 'all';
+        const threshold = 8 / stageScale;
+
+        const snapX = Math.round(targetX / size) * size;
+        const snapY = Math.round(targetY / size) * size;
+
+        const canSnapX = ['all', 'vertical_lines', 'lines', 'points'].includes(snapType);
+        const canSnapY = ['all', 'horizontal_lines', 'lines', 'points'].includes(snapType);
+
+        let glX = null;
+        let glY = null;
+
+        if (canSnapX && Math.abs(targetX - snapX) < threshold) {
+          targetX = snapX;
+          glX = snapX;
+        }
+        if (canSnapY && Math.abs(targetY - snapY) < threshold) {
+          targetY = snapY;
+          glY = snapY;
+        }
+
+        // Only show guides if we actually snapped
+        // But we need to filter based on handle?
+        // E.g. pulling 'East' handle should only show Vertical guide (X).
+        // Pulling 'South' should show Horizontal (Y).
+        // It's fine to show both if we snapped both (corner).
+
+        setSnapGuides({ x: glX, y: glY });
+      }
+
+      if (resizeHandle.includes('e')) newWidth = Math.max(10, targetX - box.x);
       if (resizeHandle.includes('w')) {
         const right = box.x + box.width;
-        newWidth = Math.max(10, right - x);
+        newWidth = Math.max(10, right - targetX);
         newX = right - newWidth;
       }
-      if (resizeHandle.includes('s')) newHeight = Math.max(10, y - box.y);
+      if (resizeHandle.includes('s')) newHeight = Math.max(10, targetY - box.y);
       if (resizeHandle.includes('n')) {
         const bottom = box.y + box.height;
-        newHeight = Math.max(10, bottom - y);
+        newHeight = Math.max(10, bottom - targetY);
         newY = bottom - newHeight;
       }
 
@@ -1512,10 +1548,39 @@ export default function Whiteboard() {
       if (gridConfig.snapEnabled && selectionBoundingBox) {
         const size = gridConfig.size;
         const snapType = gridConfig.snapType || 'all';
-        const threshold = 8 / stageScale; // Snap when within 8 screen pixels
+        // User requested smoothness ("not smooth") AND alignment ("not in middle").
+        // Solution: Magnetic Snap during drag (Smooth), Hard Snap on Release (Alignment).
+        const threshold = 10 / stageScale;
 
-        const proposedX = selectionBoundingBox.minX + dx;
-        const proposedY = selectionBoundingBox.minY + dy;
+        // Task 5.5.2 Refinement: Snap to Geometry Anchor (Center/Path) instead of Bounding Box (Stroke Edge)
+        // This ensures the visual line passes THROUGH the grid dots.
+        let anchorX = selectionBoundingBox.minX;
+        let anchorY = selectionBoundingBox.minY;
+
+        // Attempt to find a concrete geometry anchor from selection
+        if (selectedShapeIds.size > 0) {
+          const s = shapes.find(s => selectedShapeIds.has(s.id));
+          if (s) {
+            if (s.type === 'line' || s.type === 'arrow') {
+              const ls = s as any; // Cast for access
+              anchorX = ls.startPoint.x; anchorY = ls.startPoint.y;
+            } else if (s.type === 'triangle') {
+              const ts = s as any;
+              anchorX = ts.points[0].x; anchorY = ts.points[0].y;
+            } else {
+              anchorX = s.position.x; anchorY = s.position.y;
+            }
+          }
+        } else if (selectedTextIds.size > 0) {
+          const t = textAnnotations.find(t => selectedTextIds.has(t.id));
+          if (t) { anchorX = t.x; anchorY = t.y; }
+        } else if (selectedLineIds.size > 0) {
+          const l = lines.find(l => selectedLineIds.has(l.id));
+          if (l && l.points.length >= 2) { anchorX = l.points[0]; anchorY = l.points[1]; }
+        }
+
+        const proposedX = anchorX + dx;
+        const proposedY = anchorY + dy;
 
         const snapX = Math.round(proposedX / size) * size;
         const snapY = Math.round(proposedY / size) * size;
@@ -1528,11 +1593,11 @@ export default function Whiteboard() {
 
         // Apply snapping only if within threshold (smooth/magnetic feel)
         if (canSnapX && Math.abs(proposedX - snapX) < threshold) {
-          dx = snapX - selectionBoundingBox.minX;
+          dx = snapX - anchorX;
           activeGuideX = snapX;
         }
         if (canSnapY && Math.abs(proposedY - snapY) < threshold) {
-          dy = snapY - selectionBoundingBox.minY;
+          dy = snapY - anchorY;
           activeGuideY = snapY;
         }
         setSnapGuides({ x: activeGuideX, y: activeGuideY });
@@ -1802,21 +1867,116 @@ export default function Whiteboard() {
 
       // History for Drag
       if (isDraggingSelection && initialDragState) {
+
+        // Task 5.5.3 Optimization: Snap-On-Release (Polished UX)
+        // If we ended the drag in a "Dead Zone" (Magnetic), strictly snap to grid now.
+        let finalSnapDx = 0;
+        let finalSnapDy = 0;
+
+        if (gridConfig.snapEnabled) {
+          const size = gridConfig.size;
+          const snapType = gridConfig.snapType || 'all';
+
+          // Find Anchor (Same logic as handlePointerMove)
+          let anchorX = selectionBoundingBox?.minX || 0;
+          let anchorY = selectionBoundingBox?.minY || 0;
+
+          // Attempt to find a concrete geometry anchor from selection
+          if (selectedShapeIds.size > 0) {
+            const s = shapes.find(s => selectedShapeIds.has(s.id));
+            if (s) {
+              if (s.type === 'line' || s.type === 'arrow') { const ls = s as any; anchorX = ls.startPoint.x; anchorY = ls.startPoint.y; }
+              else if (s.type === 'triangle') { const ts = s as any; anchorX = ts.points[0].x; anchorY = ts.points[0].y; }
+              else { anchorX = s.position.x; anchorY = s.position.y; }
+            }
+          } else if (selectedTextIds.size > 0) {
+            const t = textAnnotations.find(t => selectedTextIds.has(t.id));
+            if (t) { anchorX = t.x; anchorY = t.y; }
+          } else if (selectedLineIds.size > 0) {
+            const l = lines.find(l => selectedLineIds.has(l.id));
+            if (l && l.points.length >= 2) { anchorX = l.points[0]; anchorY = l.points[1]; }
+          }
+
+          const snapX = Math.round(anchorX / size) * size;
+          const snapY = Math.round(anchorY / size) * size;
+
+          const canSnapX = ['all', 'vertical_lines', 'lines', 'points'].includes(snapType);
+          const canSnapY = ['all', 'horizontal_lines', 'lines', 'points'].includes(snapType);
+
+          if (canSnapX) finalSnapDx = snapX - anchorX;
+          if (canSnapY) finalSnapDy = snapY - anchorY;
+        }
+
+        // Apply Final Snap to State
+        if (finalSnapDx !== 0 || finalSnapDy !== 0) {
+          // Update Shapes
+          if (selectedShapeIds.size > 0) {
+            setShapes(prev => prev.map(s => {
+              if (selectedShapeIds.has(s.id)) {
+                let updated = { ...s, position: { x: s.position.x + finalSnapDx, y: s.position.y + finalSnapDy } };
+                if (s.type === 'line' || s.type === 'arrow') {
+                  const ls = s as any;
+                  updated = { ...updated, startPoint: { x: ls.startPoint.x + finalSnapDx, y: ls.startPoint.y + finalSnapDy }, endPoint: { x: ls.endPoint.x + finalSnapDx, y: ls.endPoint.y + finalSnapDy } };
+                } else if (s.type === 'triangle') {
+                  const ts = s as any;
+                  updated = { ...updated, points: ts.points.map((p: any) => ({ x: p.x + finalSnapDx, y: p.y + finalSnapDy })) };
+                }
+                return updated as Shape;
+              }
+              return s;
+            }));
+          }
+          if (selectedLineIds.size > 0) {
+            setLines(prev => prev.map(l => {
+              if (selectedLineIds.has(l.id)) {
+                return { ...l, points: l.points.map((v, i) => v + (i % 2 === 0 ? finalSnapDx : finalSnapDy)) };
+              }
+              return l;
+            }));
+          }
+          if (selectedTextIds.size > 0) {
+            setTextAnnotations(prev => prev.map(t => {
+              if (selectedTextIds.has(t.id)) return { ...t, x: t.x + finalSnapDx, y: t.y + finalSnapDy };
+              return t;
+            }));
+          }
+        }
+
         shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
           const prev = initialDragState.shapes.get(s.id);
-          // Only add if changed
-          if (prev && (prev.position.x !== s.position.x || prev.position.y !== s.position.y)) {
-            addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prev, newState: s, userId: 'local' });
+          let finalS: any = { ...s };
+          if (finalSnapDx !== 0 || finalSnapDy !== 0) {
+            finalS.position = { x: s.position.x + finalSnapDx, y: s.position.y + finalSnapDy };
+            if (s.type === 'line' || s.type === 'arrow') {
+              const ls = s as any;
+              finalS = { ...finalS, startPoint: { x: ls.startPoint.x + finalSnapDx, y: ls.startPoint.y + finalSnapDy }, endPoint: { x: ls.endPoint.x + finalSnapDx, y: ls.endPoint.y + finalSnapDy } };
+            } else if (s.type === 'triangle') {
+              finalS = { ...finalS, points: (s as any).points.map((p: any) => ({ x: p.x + finalSnapDx, y: p.y + finalSnapDy })) };
+            }
+          }
+
+          if (prev && (prev.position.x !== finalS.position.x || prev.position.y !== finalS.position.y)) {
+            addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prev, newState: finalS, userId: 'local' });
           }
         });
+
         lines.filter(l => selectedLineIds.has(l.id)).forEach(l => {
           const prev = initialDragState.lines.get(l.id);
-          if (prev) addToHistory({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: prev, newState: l, userId: 'local' });
+          let finalL = { ...l };
+          if (finalSnapDx !== 0 || finalSnapDy !== 0) {
+            finalL = { ...finalL, points: l.points.map((v, i) => v + (i % 2 === 0 ? finalSnapDx : finalSnapDy)) };
+          }
+          if (prev) addToHistory({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: prev, newState: finalL, userId: 'local' });
         });
+
         textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
           const prev = initialDragState.texts.get(t.id);
-          if (prev && (prev.x !== t.x || prev.y !== t.y)) {
-            addToHistory({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: prev, newState: t, userId: 'local' });
+          let finalT = { ...t };
+          if (finalSnapDx !== 0 || finalSnapDy !== 0) {
+            finalT = { ...finalT, x: t.x + finalSnapDx, y: t.y + finalSnapDy };
+          }
+          if (prev && (prev.x !== finalT.x || prev.y !== finalT.y)) {
+            addToHistory({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: prev, newState: finalT, userId: 'local' });
           }
         });
       }

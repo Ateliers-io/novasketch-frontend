@@ -59,6 +59,8 @@ import {
 import FloatingInput from './components/FloatingInput';
 import SelectionOverlay from './components/SelectionOverlay';
 import EraserCursor from './components/EraserCursor';
+import { GridConfig, DEFAULT_GRID_CONFIG } from '../../types/grid';
+import GridRenderer from './GridRenderer';
 import MiniMap from './components/MiniMap';
 import RecenterButton from './components/RecenterButton';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -161,8 +163,12 @@ export default function Whiteboard() {
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
   const [stageScale, setStageScale] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
+  // Grid Config (Task 5.5)
+  const [gridConfig, setGridConfig] = useState<GridConfig>(DEFAULT_GRID_CONFIG);
 
+  // Initialize tool state
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
+  const [activeColorMode, setActiveColorMode] = useState<'stroke' | 'fill'>('stroke'); // 'stroke' or 'fill'
   const [isDrawing, setIsDrawing] = useState(false);
   const [isToolLocked, setIsToolLocked] = useState(false); // Lock tool for multiple drawings
   // Task 4.2.1: State for calculating drag delta
@@ -858,7 +864,7 @@ export default function Whiteboard() {
     }
 
     // Panning / Hand Tool (Spacebar or explicit tool)
-    if (isPanning) {
+    if (isPanning || activeTool === ToolType.HAND) {
       const nativeEvent = (e as any).nativeEvent || (e as any).evt;
       const clientX = nativeEvent?.clientX ?? (e as any).clientX;
       const clientY = nativeEvent?.clientY ?? (e as any).clientY;
@@ -2007,8 +2013,8 @@ export default function Whiteboard() {
   return (
     <div
       ref={containerRef}
-      className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning
-        ? isPanning || isStageDragging ? 'cursor-grab active:cursor-grabbing' : 'cursor-move'
+      className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning || activeTool === ToolType.HAND
+        ? isPanning || isStageDragging || activeTool === ToolType.HAND ? 'cursor-grab active:cursor-grabbing' : 'cursor-move'
         : activeTool === 'select'
           ? 'cursor-default'
           : activeTool === ToolType.FILL_BUCKET
@@ -2282,19 +2288,41 @@ export default function Whiteboard() {
         canRedo={canRedo}
         onUndo={performUndo}
         onRedo={performRedo}
+        gridConfig={gridConfig}
+        onGridConfigChange={setGridConfig}
       />
 
       {/* --- CANVAS LAYERS --- */}
 
       {/* LAYER 1: BACKGROUND (Infinite Pan using backgroundPosition) */}
       <div
-        className="absolute inset-0 pointer-events-none z-0 opacity-20"
+        className="absolute inset-0 z-0 pointer-events-none select-none"
         style={{
-          backgroundImage: `radial-gradient(${GRID_DOT_COLOR} 1px, transparent 1px)`,
-          backgroundSize: `${24 * stageScale}px ${24 * stageScale}px`,
-          backgroundPosition: `${stagePos.x}px ${stagePos.y}px`, // Dynamic panning
+          backgroundColor: canvasBackgroundColor || '#121212',
         }}
       />
+
+      {/* LAYER 1.5: GRID (Separate Stage behind shapes) */}
+      <div className="absolute inset-0 z-5 pointer-events-none">
+        <Stage
+          width={dimensions.width}
+          height={dimensions.height}
+          x={stagePos.x}
+          y={stagePos.y}
+          scaleX={stageScale}
+          scaleY={stageScale}
+        >
+          <Layer>
+            <GridRenderer
+              config={gridConfig}
+              width={dimensions.width}
+              height={dimensions.height}
+              stageScale={stageScale}
+              stagePos={stagePos}
+            />
+          </Layer>
+        </Stage>
+      </div>
 
       {/* LAYER 2: SVG SHAPES (Fixed Container, Transformed Content) */}
       <div className="absolute inset-0 z-10 pointer-events-none">
@@ -2368,18 +2396,24 @@ export default function Whiteboard() {
       )}
 
       {/* LAYER 3: KONVA (Drawings) - Native Konva Transform */}
-      <div className="absolute inset-0 z-20 pointer-events-none">
+      {/* LAYER 3: KONVA (Drawings) - Native Konva Transform */}
+      <div className="absolute inset-0 z-20">
         <Stage
           ref={stageRef}
           width={dimensions.width}
           height={dimensions.height}
-          style={{ pointerEvents: 'none' }}
           x={stagePos.x}
           y={stagePos.y}
           scaleX={stageScale}
           scaleY={stageScale}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onContextMenu={(e) => e.evt.preventDefault()} // proper way to disable context menu in Konva
         >
+          {/* Grid Layer (Behind everything) */}
           <Layer>
+            {/* Render lines first so they are behind shapes if desired, or same layer */}
             {visibleLines.map((line) => (
               <Line
                 key={line.id}

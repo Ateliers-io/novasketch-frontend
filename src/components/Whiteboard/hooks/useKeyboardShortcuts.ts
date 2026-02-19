@@ -115,6 +115,14 @@ export function useKeyboardShortcuts({
             // Tool shortcuts (only when not typing)
             if (!activeTextInput && !e.ctrlKey && !e.metaKey) {
                 if (e.key === 'g') setActiveTool(ToolType.FILL_BUCKET);
+                if (e.key === 'h') setActiveTool(ToolType.HAND);
+                if (e.key === 'v') setActiveTool('select');
+                if (e.key === 'p') setActiveTool(ToolType.PEN);
+                if (e.key === 'e') setActiveTool('eraser');
+                if (e.key === 't') setActiveTool('text');
+                if (e.key === 'r') setActiveTool(ToolType.RECTANGLE);
+                if (e.key === 'c') setActiveTool(ToolType.CIRCLE);
+                if (e.key === 'l') setActiveTool(ToolType.LINE);
             }
         };
 

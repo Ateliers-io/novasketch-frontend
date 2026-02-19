@@ -20,6 +20,7 @@ export enum ToolType {
     TRIANGLE = 'triangle',
     TEXT = 'text',
     FILL_BUCKET = 'fill_bucket',
+    HAND = 'hand',
 }
 
 export enum BrushType {

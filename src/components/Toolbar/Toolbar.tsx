@@ -28,8 +28,11 @@ import {
     PaintBucket,
     Paintbrush,
     Plus,
+    Hand,
+    Grid3x3,
 } from 'lucide-react';
 import { ToolType, BrushType, StrokeStyle } from '../../types/shapes';
+import { GridConfig, GridSnapType, GridAppearance } from '../../types/grid';
 
 /* --- TYPES --- */
 export type ActiveTool = ToolType | 'text' | 'select' | 'eraser';
@@ -88,6 +91,8 @@ interface ToolbarProps {
     onUndo?: () => void;
     onRedo?: () => void;
     onDeleteSelected?: () => void;
+    gridConfig: GridConfig;
+    onGridConfigChange: (config: GridConfig) => void;
 }
 
 /* --- BRUSH DATA --- */
@@ -195,21 +200,25 @@ export default function Toolbar({
     canUndo = false, canRedo = false, onUndo, onRedo,
     textAlign = 'left', onTextAlignChange, isTextSelected = false,
     onDeleteSelected,
+    gridConfig, onGridConfigChange,
 }: ToolbarProps) {
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const [showBrushMenu, setShowBrushMenu] = useState(false);
     const [showStrokeStyleMenu, setShowStrokeStyleMenu] = useState(false);
+    const [showGridMenu, setShowGridMenu] = useState(false);
     // Local state for Color Mode (Stroke vs Fill)
     const [activeColorMode, setActiveColorMode] = useState<'stroke' | 'fill'>('stroke');
     const eraserMenuRef = useRef<HTMLDivElement>(null);
     const brushMenuRef = useRef<HTMLDivElement>(null);
     const strokeStyleRef = useRef<HTMLDivElement>(null);
+    const gridMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (eraserMenuRef.current && !eraserMenuRef.current.contains(event.target as Node)) setShowEraserMenu(false);
             if (brushMenuRef.current && !brushMenuRef.current.contains(event.target as Node)) setShowBrushMenu(false);
             if (strokeStyleRef.current && !strokeStyleRef.current.contains(event.target as Node)) setShowStrokeStyleMenu(false);
+            if (gridMenuRef.current && !gridMenuRef.current.contains(event.target as Node)) setShowGridMenu(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -247,6 +256,7 @@ export default function Toolbar({
                 {/* ═══ SELECTION ═══ */}
                 <ToolSection label="Select">
                     <ToolButton icon={MousePointer2} label="Select (V)" isActive={activeTool === 'select'} onClick={() => onToolChange('select')} />
+                    <ToolButton icon={Hand} label="Hand (H)" isActive={activeTool === ToolType.HAND} onClick={() => onToolChange(ToolType.HAND)} />
                     <button onClick={() => onToolLockChange(!isToolLocked)} title={isToolLocked ? 'Unlock Tool' : 'Lock Tool'}
                         className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${isToolLocked ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#4a5b6a] hover:bg-[#262e35] hover:text-[#8b9dad]'}`}>
                         {isToolLocked ? <Lock size={13} /> : <Unlock size={13} />}
@@ -311,7 +321,7 @@ export default function Toolbar({
                         )}
                     </div>
 
-                    <ToolButton icon={Highlighter} label="Highlighter (H)" isActive={activeTool === ToolType.HIGHLIGHTER} onClick={() => onToolChange(ToolType.HIGHLIGHTER)} />
+                    <ToolButton icon={Highlighter} label="Highlighter" isActive={activeTool === ToolType.HIGHLIGHTER} onClick={() => onToolChange(ToolType.HIGHLIGHTER)} />
                     <ToolButton icon={PaintBucket} label="Fill Bucket (G)" isActive={isFillBucket} onClick={() => onToolChange(ToolType.FILL_BUCKET)} />
 
                     {/* Eraser with dropdown */}
@@ -553,6 +563,104 @@ export default function Toolbar({
                         </ToolSection>
                     </>
                 )}
+
+                <Separator />
+
+                {/* ═══ GRID ═══ */}
+                <ToolSection label="View">
+                    <div className="relative" ref={gridMenuRef}>
+                        <button
+                            onClick={() => setShowGridMenu(!showGridMenu)}
+                            title="Grid Settings"
+                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${showGridMenu || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none') ? 'text-[#2dd4bf] bg-[#2dd4bf]/10' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
+                        >
+                            <Grid3x3 size={18} />
+                            {/* Show dot if grid is active */}
+                            {(gridConfig.snapEnabled || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none')) && (
+                                <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#2dd4bf] rounded-full" />
+                            )}
+                        </button>
+
+                        {showGridMenu && (
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[220px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[200] overflow-hidden"
+                                style={{ animation: 'fadeIn 150ms ease-out' }}>
+
+                                <div className="px-3 py-2 bg-[#1e262d] border-b border-[#2a333b] flex justify-between items-center">
+                                    <span className="text-[11px] font-bold text-[#dde3e8]">Grid Options</span>
+                                </div>
+
+                                <div className="p-3 space-y-3 max-h-[400px] overflow-y-auto">
+
+                                    {/* Snap Toggle */}
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] uppercase font-semibold text-[#8b9dad]">Snap to Grid</span>
+                                        <button
+                                            onClick={() => onGridConfigChange({ ...gridConfig, snapEnabled: !gridConfig.snapEnabled })}
+                                            className={`relative w-8 h-4 rounded-full transition-colors ${gridConfig.snapEnabled ? 'bg-[#2dd4bf]' : 'bg-[#2a333b]'}`}
+                                        >
+                                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${gridConfig.snapEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+
+                                    {/* Snap Type */}
+                                    {gridConfig.snapEnabled && (
+                                        <div className="space-y-1.5">
+                                            <div className="text-[10px] uppercase font-semibold text-[#8b9dad]">Snap Type</div>
+                                            <div className="grid grid-cols-2 gap-1.5">
+                                                {['lines', 'points', 'all'].map(t => (
+                                                    <button key={t}
+                                                        onClick={() => onGridConfigChange({ ...gridConfig, snapType: t as GridSnapType })}
+                                                        className={`px-2 py-1 text-[10px] rounded border transition-colors ${gridConfig.snapType === t ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] border-[#2dd4bf]/40' : 'bg-[#151a1f] text-[#8b9dad] border-[#2a333b] hover:bg-[#1e262d]'}`}
+                                                    >{t}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="w-full h-px bg-[#2a333b]" />
+
+                                    {/* Appearance */}
+                                    <div className="space-y-1.5">
+                                        <div className="text-[10px] uppercase font-semibold text-[#8b9dad]">Appearance</div>
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                            {['dots', 'lines', 'crosses', 'none' as any].map(t => (
+                                                <button key={t}
+                                                    onClick={() => onGridConfigChange({ ...gridConfig, appearance: t as GridAppearance })}
+                                                    className={`px-2 py-1 text-[10px] rounded border transition-colors ${gridConfig.appearance === t ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] border-[#2dd4bf]/40' : 'bg-[#151a1f] text-[#8b9dad] border-[#2a333b] hover:bg-[#1e262d]'}`}
+                                                >{t === 'none' ? 'Hidden' : t}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Size Slider */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between text-[10px] font-semibold text-[#8b9dad]">
+                                            <span>Cell Size</span>
+                                            <span className="text-[#2dd4bf] font-mono">{gridConfig.size}px</span>
+                                        </div>
+                                        <input type="range" min={10} max={100} step={5} value={gridConfig.size}
+                                            onChange={(e) => onGridConfigChange({ ...gridConfig, size: Number(e.target.value) })}
+                                            className="w-full h-1 bg-[#2a333b] rounded-lg appearance-none cursor-pointer accent-[#2dd4bf]" />
+                                    </div>
+
+                                    {/* Color Picker */}
+                                    <div className="space-y-1.5">
+                                        <div className="text-[10px] uppercase font-semibold text-[#8b9dad]">Color</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="relative w-full h-6 rounded border border-[#2a333b] overflow-hidden">
+                                                <div className="absolute inset-0" style={{ background: gridConfig.color }} />
+                                                <input type="color" value={gridConfig.color}
+                                                    onChange={(e) => onGridConfigChange({ ...gridConfig, color: e.target.value })}
+                                                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </ToolSection>
             </div>
 
             {/* Floating Text Formatting Toolbar */}

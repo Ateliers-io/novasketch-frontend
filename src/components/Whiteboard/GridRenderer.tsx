@@ -80,6 +80,16 @@ export default function GridRenderer({
     const worldWidth = width * invScale;
     const worldHeight = height * invScale;
 
+    // Offset pattern for centered types (dots, crosses) so they align with grid lines (0,0)
+    // Canvas patterns tile from top-left. Our dots are drawn at center (size/2, size/2).
+    // To align visual dot with logical grid line 0,0, we shift the pattern phase.
+    const size = config.size || 20;
+    const isCentered = config.appearance === 'dots' || config.appearance === 'crosses';
+    // If we want 10 (center) to appear at 0 (world), we need to shift pattern by -10? 
+    // Wait. Offset = 10. Pattern starts reading at 10. Pixel 10 is the center dot.
+    // So Pixel 10 is drawn a World 0. Correct.
+    const offsetCorrection = isCentered ? size / 2 : 0;
+
     return (
         <Rect
             key={`${config.appearance}-${config.size}-${config.color}`}
@@ -89,8 +99,8 @@ export default function GridRenderer({
             height={worldHeight}
             fillPatternImage={patternCanvas as any}
             fillPatternOffset={{
-                x: worldX,
-                y: worldY
+                x: worldX + offsetCorrection,
+                y: worldY + offsetCorrection
             }}
             fillPatternScale={{
                 x: 1,

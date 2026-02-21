@@ -244,10 +244,6 @@ export default function Whiteboard() {
   });
 
 
-
-
-
-
   const [isStageDragging, setIsStageDragging] = useState(false);
 
   // Task 5.4.2 + 5.4.3: Animate Viewport Offset back to (0,0) and Zoom to 100%
@@ -1350,7 +1346,7 @@ export default function Whiteboard() {
       if (gridConfig.snapEnabled) {
         const size = gridConfig.size;
         const snapType = gridConfig.snapType || 'all';
-        const threshold = 8 / stageScale;
+        const threshold = 10 / stageScale;
 
         const snapX = Math.round(targetX / size) * size;
         const snapY = Math.round(targetY / size) * size;
@@ -1913,15 +1909,16 @@ export default function Whiteboard() {
           if (selectedShapeIds.size > 0) {
             setShapes(prev => prev.map(s => {
               if (selectedShapeIds.has(s.id)) {
-                let updated = { ...s, position: { x: s.position.x + finalSnapDx, y: s.position.y + finalSnapDy } };
-                if (s.type === 'line' || s.type === 'arrow') {
-                  const ls = s as any;
-                  updated = { ...updated, startPoint: { x: ls.startPoint.x + finalSnapDx, y: ls.startPoint.y + finalSnapDy }, endPoint: { x: ls.endPoint.x + finalSnapDx, y: ls.endPoint.y + finalSnapDy } };
-                } else if (s.type === 'triangle') {
-                  const ts = s as any;
-                  updated = { ...updated, points: ts.points.map((p: any) => ({ x: p.x + finalSnapDx, y: p.y + finalSnapDy })) };
+                const base: any = { ...s, position: { x: s.position.x + finalSnapDx, y: s.position.y + finalSnapDy } };
+                if (isLine(s) || isArrow(s)) {
+                  const ls = s as LineShape;
+                  base.startPoint = { x: ls.startPoint.x + finalSnapDx, y: ls.startPoint.y + finalSnapDy };
+                  base.endPoint = { x: ls.endPoint.x + finalSnapDx, y: ls.endPoint.y + finalSnapDy };
+                } else if (isTriangle(s)) {
+                  const ts = s as TriangleShape;
+                  base.points = ts.points.map((p: Position) => ({ x: p.x + finalSnapDx, y: p.y + finalSnapDy }));
                 }
-                return updated as Shape;
+                return base as Shape;
               }
               return s;
             }));
@@ -1944,14 +1941,16 @@ export default function Whiteboard() {
 
         shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
           const prev = initialDragState.shapes.get(s.id);
-          let finalS: any = { ...s };
+          const finalS: any = { ...s };
           if (finalSnapDx !== 0 || finalSnapDy !== 0) {
             finalS.position = { x: s.position.x + finalSnapDx, y: s.position.y + finalSnapDy };
-            if (s.type === 'line' || s.type === 'arrow') {
-              const ls = s as any;
-              finalS = { ...finalS, startPoint: { x: ls.startPoint.x + finalSnapDx, y: ls.startPoint.y + finalSnapDy }, endPoint: { x: ls.endPoint.x + finalSnapDx, y: ls.endPoint.y + finalSnapDy } };
-            } else if (s.type === 'triangle') {
-              finalS = { ...finalS, points: (s as any).points.map((p: any) => ({ x: p.x + finalSnapDx, y: p.y + finalSnapDy })) };
+            if (isLine(s) || isArrow(s)) {
+              const ls = s as LineShape;
+              finalS.startPoint = { x: ls.startPoint.x + finalSnapDx, y: ls.startPoint.y + finalSnapDy };
+              finalS.endPoint = { x: ls.endPoint.x + finalSnapDx, y: ls.endPoint.y + finalSnapDy };
+            } else if (isTriangle(s)) {
+              const ts = s as TriangleShape;
+              finalS.points = ts.points.map((p: Position) => ({ x: p.x + finalSnapDx, y: p.y + finalSnapDy }));
             }
           }
 

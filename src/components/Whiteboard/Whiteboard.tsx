@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { Stage, Layer, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import DOMPurify from 'dompurify';
@@ -68,9 +69,6 @@ import { useSelectionBounds } from './hooks/useSelectionBounds';
 
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
-// Hardcoded room ID for local development. 
-// TODO: Replace with dynamic routing parameter once the backend auth integration is finalized.
-const ROOM_ID = 'default-room';
 
 // magical constants.
 const GRID_DOT_COLOR = '#45A29E';
@@ -78,6 +76,9 @@ const DEFAULT_STROKE_COLOR = '#66FCF1';
 
 // Monolithic whiteboard component. needs splitting up.
 export default function Whiteboard() {
+  const { id: boardId } = useParams<{ id: string }>();
+  const roomId = boardId || 'default-room';
+
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -110,7 +111,7 @@ export default function Whiteboard() {
     clearAll,
     canvasBackgroundColor,
     setCanvasBackgroundColor,
-  } = useSync({ roomId: ROOM_ID, wsUrl: WS_URL });
+  } = useSync({ roomId, wsUrl: WS_URL });
 
   // local ref to avoid staleness in event handlers.
   // local ref to avoid staleness in event handlers.

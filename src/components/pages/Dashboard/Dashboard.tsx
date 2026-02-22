@@ -32,9 +32,11 @@ import {
     UserPlus,
     Share2,
     MessageSquare,
-    AlertCircle
+    AlertCircle,
+    Loader2
 } from 'lucide-react';
 import { useAuth } from '../../../contexts';
+import { createSession } from '../../../services/session.service';
 
 /* --- TYPES --- */
 interface TodoItem {
@@ -432,6 +434,22 @@ export const Dashboard = () => {
 
     const openProject = (id: string) => navigate(`/board/${id}`);
 
+    const [isCreatingBoard, setIsCreatingBoard] = useState(false);
+
+    const handleCreateBoard = async () => {
+        if (isCreatingBoard) return;
+        setIsCreatingBoard(true);
+        try {
+            const { url } = await createSession();
+            navigate(url);
+        } catch (err) {
+            console.error('Failed to create board:', err);
+            alert('Failed to create a new board. Please try again.');
+        } finally {
+            setIsCreatingBoard(false);
+        }
+    };
+
     useLayoutEffect(() => {
         const ctx = gsap.context(() => {
             gsap.from(".sidebar-el", { x: -20, opacity: 0, stagger: 0.05, duration: 0.4, ease: "power2.out" });
@@ -607,8 +625,12 @@ export const Dashboard = () => {
                                             <p className="text-xs text-[#8b9bb4] mt-0.5">Team boards you're working on with others</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => navigate(`/board/${Math.random().toString(36).substr(2, 9)}`)} className="flex items-center gap-2 px-3 py-1.5 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-400 text-xs font-bold rounded-md transition-all">
-                                        <UserPlus size={14} />NEW TEAM BOARD
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
+                                        disabled={isCreatingBoard}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-400 text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isCreatingBoard ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}NEW TEAM BOARD
                                     </button>
                                 </div>
 
@@ -655,18 +677,25 @@ export const Dashboard = () => {
                                             <p className="text-xs text-[#8b9bb4] mt-0.5">Your private sketches and ideas</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => navigate(`/board/${Math.random().toString(36).substr(2, 9)}`)} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-bold rounded-md transition-all">
-                                        <Plus size={14} />NEW PERSONAL BOARD
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
+                                        disabled={isCreatingBoard}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isCreatingBoard ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}NEW PERSONAL BOARD
                                     </button>
                                 </div>
 
                                 {viewMode === 'grid' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                                        <div onClick={() => navigate(`/board/${Math.random().toString(36).substr(2, 9)}`)} className="group border border-dashed border-white/20 hover:border-indigo-400 rounded-lg p-4 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-[#1F2833]/50 transition-all min-h-[200px]">
+                                        <div
+                                            onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
+                                            className={`group border border-dashed border-white/20 hover:border-indigo-400 rounded-lg p-4 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-[#1F2833]/50 transition-all min-h-[200px] ${isCreatingBoard ? 'opacity-50 pointer-events-none' : ''}`}
+                                        >
                                             <div className="w-10 h-10 rounded-full bg-[#1F2833] flex items-center justify-center group-hover:scale-110 transition-transform border border-white/10 group-hover:border-indigo-400">
-                                                <Plus size={20} className="text-indigo-400" />
+                                                {isCreatingBoard ? <Loader2 size={20} className="text-indigo-400 animate-spin" /> : <Plus size={20} className="text-indigo-400" />}
                                             </div>
-                                            <span className="text-xs font-medium text-[#8b9bb4] group-hover:text-white">Create Personal Board</span>
+                                            <span className="text-xs font-medium text-[#8b9bb4] group-hover:text-white">{isCreatingBoard ? 'Creating...' : 'Create Personal Board'}</span>
                                         </div>
                                         {personalProjects.map((project) => (
                                             <ProjectCard

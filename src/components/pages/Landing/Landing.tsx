@@ -1,12 +1,13 @@
-import { useLayoutEffect, useRef, useEffect } from 'react';
+import { useLayoutEffect, useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
   Sparkles, Layers, Users, Lock, Pencil,
   MousePointer2, ArrowRight, Share2, Palette,
-  Zap, Globe, Download
+  Zap, Globe, Download, Loader2
 } from 'lucide-react';
+import { createSession } from '../../../services/session.service';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -230,6 +231,21 @@ export const Landing = () => {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreateBoard = async () => {
+    if (isCreating) return;
+    setIsCreating(true);
+    try {
+      const { url } = await createSession();
+      navigate(url);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+      alert('Failed to create a new board. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   useLayoutEffect(() => {
 
@@ -356,11 +372,21 @@ export const Landing = () => {
 
           <div className="hero-element flex flex-wrap gap-4 justify-center">
             <button
-              onClick={() => navigate('/board/demo')}
-              className="group h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold flex items-center gap-2 transition-all shadow-lg shadow-[#66FCF1]/20"
+              onClick={handleCreateBoard}
+              disabled={isCreating}
+              className="group h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold flex items-center gap-2 transition-all shadow-lg shadow-[#66FCF1]/20 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Try Demo
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              {isCreating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  Start New Whiteboard
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
             <button
               onClick={() => navigate('/auth')}
@@ -406,10 +432,18 @@ export const Landing = () => {
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Ready to start sketching?</h2>
           <p className="text-gray-400 mb-8 max-w-md mx-auto">Join thousands of teams using NovaSketch to collaborate and create.</p>
           <button
-            onClick={() => navigate('/auth')}
-            className="h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold transition-all shadow-lg shadow-[#66FCF1]/20"
+            onClick={handleCreateBoard}
+            disabled={isCreating}
+            className="h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold transition-all shadow-lg shadow-[#66FCF1]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
           >
-            Get Started for Free
+            {isCreating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Start a New Board'
+            )}
           </button>
         </section>
 

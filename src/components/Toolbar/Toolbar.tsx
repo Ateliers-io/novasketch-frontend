@@ -605,13 +605,32 @@ export default function Toolbar({
                                     {/* Snap Type */}
                                     {gridConfig.snapEnabled && (
                                         <div className="space-y-1.5">
-                                            <div className="text-[10px] uppercase font-semibold text-[#8b9dad]">Snap Type</div>
-                                            <div className="grid grid-cols-2 gap-1.5">
-                                                {['lines', 'points', 'all'].map(t => (
-                                                    <button key={t}
-                                                        onClick={() => onGridConfigChange({ ...gridConfig, snapType: t as GridSnapType })}
-                                                        className={`px-2 py-1 text-[10px] rounded border transition-colors ${gridConfig.snapType === t ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] border-[#2dd4bf]/40' : 'bg-[#151a1f] text-[#8b9dad] border-[#2a333b] hover:bg-[#1e262d]'}`}
-                                                    >{t}</button>
+                                            <div className="text-[10px] uppercase font-semibold text-[#8b9dad]">Grid Snapping</div>
+                                            <div className="flex flex-col gap-1">
+                                                {[
+                                                    { value: 'none', label: 'None' },
+                                                    { value: 'horizontal_lines', label: 'Horizontal Lines' },
+                                                    { value: 'vertical_lines', label: 'Vertical Lines' },
+                                                    { value: 'lines', label: 'Lines' },
+                                                    { value: 'points', label: 'Points' },
+                                                ].map(opt => (
+                                                    <label key={opt.value}
+                                                        className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-[11px] transition-colors ${gridConfig.snapType === opt.value
+                                                            ? 'bg-[#2dd4bf]/10 text-[#2dd4bf]'
+                                                            : 'text-[#8b9dad] hover:bg-[#1e262d] hover:text-white'
+                                                            }`}
+                                                        onClick={() => onGridConfigChange({ ...gridConfig, snapType: opt.value as GridSnapType })}
+                                                    >
+                                                        <span className={`w-3 h-3 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${gridConfig.snapType === opt.value
+                                                            ? 'border-[#2dd4bf]'
+                                                            : 'border-[#4a5568]'
+                                                            }`}>
+                                                            {gridConfig.snapType === opt.value && (
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]" />
+                                                            )}
+                                                        </span>
+                                                        {opt.label}
+                                                    </label>
                                                 ))}
                                             </div>
                                         </div>

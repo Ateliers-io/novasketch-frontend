@@ -398,6 +398,46 @@ export default function Whiteboard() {
     return () => window.removeEventListener('keydown', handleZoomKeys);
   }, [stageScale, stagePos, dimensions]);
 
+  // -- 4a. SNAP HELPERS --
+  // Snaps a shape's geometry anchor to the nearest grid point.
+  // For rects/triangles: snaps position (top-left).
+  // For circles/ellipses: snaps center (position).
+  // For lines/arrows: snaps both startPoint and endPoint.
+  const snapShapeToGrid = useCallback((shape: Shape): Shape => {
+    if (!gridConfig.snapEnabled) return shape;
+    const size = gridConfig.size;
+    const snap = (v: number) => Math.round(v / size) * size;
+
+    if (isRectangle(shape)) {
+      return { ...shape, position: { x: snap(shape.position.x), y: snap(shape.position.y) } };
+    } else if (isCircle(shape)) {
+      // Circle's position IS the center
+      return { ...shape, position: { x: snap(shape.position.x), y: snap(shape.position.y) } };
+    } else if (isEllipse(shape)) {
+      return { ...shape, position: { x: snap(shape.position.x), y: snap(shape.position.y) } };
+    } else if (isLine(shape)) {
+      const ls = shape as LineShape;
+      const snappedStart = { x: snap(ls.startPoint.x), y: snap(ls.startPoint.y) };
+      const snappedEnd = { x: snap(ls.endPoint.x), y: snap(ls.endPoint.y) };
+      return { ...shape, position: snappedStart, startPoint: snappedStart, endPoint: snappedEnd } as LineShape;
+    } else if (isArrow(shape)) {
+      const as_ = shape as ArrowShape;
+      const snappedStart = { x: snap(as_.startPoint.x), y: snap(as_.startPoint.y) };
+      const snappedEnd = { x: snap(as_.endPoint.x), y: snap(as_.endPoint.y) };
+      return { ...shape, position: snappedStart, startPoint: snappedStart, endPoint: snappedEnd } as ArrowShape;
+    } else if (isTriangle(shape)) {
+      const ts = shape as TriangleShape;
+      const dx = snap(ts.position.x) - ts.position.x;
+      const dy = snap(ts.position.y) - ts.position.y;
+      return {
+        ...shape,
+        position: { x: ts.position.x + dx, y: ts.position.y + dy },
+        points: ts.points.map(p => ({ x: p.x + dx, y: p.y + dy })) as [Position, Position, Position],
+      } as TriangleShape;
+    }
+    return shape;
+  }, [gridConfig.snapEnabled, gridConfig.size]);
+
   // -- 4. HELPERS --
   const getPointerPos = (e: any) => {
     // robustly get client coordinates from various event types (React, Konva, Native)
@@ -1069,7 +1109,16 @@ export default function Whiteboard() {
 
     // D. DRAWING/SHAPE TOOLS
     setIsDrawing(true);
-    setDragStart({ x, y });
+
+    // Snap the starting point to grid for shape creation tools
+    let startX = x;
+    let startY = y;
+    if (gridConfig.snapEnabled && activeTool !== ToolType.PEN && activeTool !== ToolType.HIGHLIGHTER) {
+      const size = gridConfig.size;
+      startX = Math.round(x / size) * size;
+      startY = Math.round(y / size) * size;
+    }
+    setDragStart({ x: startX, y: startY });
 
     if (activeTool === ToolType.PEN) {
       const brushProps = getBrushProperties(brushType, brushSize, strokeColor);
@@ -1108,25 +1157,25 @@ export default function Whiteboard() {
       });
     } else if (activeTool === ToolType.RECTANGLE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createRectangle(x, y, 0, 0, {
+      setPreviewShape(createRectangle(startX, startY, 0, 0, {
         cornerRadius,
         style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: fillColor !== 'transparent', strokeDashArray: dashArr }
       }));
     } else if (activeTool === ToolType.CIRCLE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createCircle(x, y, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
+      setPreviewShape(createCircle(startX, startY, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
     } else if (activeTool === ToolType.ELLIPSE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createEllipse(x, y, 0, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
+      setPreviewShape(createEllipse(startX, startY, 0, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
     } else if (activeTool === ToolType.LINE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createLine(x, y, x, y, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
+      setPreviewShape(createLine(startX, startY, startX, startY, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
     } else if (activeTool === ToolType.ARROW) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createArrow(x, y, x, y, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
+      setPreviewShape(createArrow(startX, startY, startX, startY, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
     } else if (activeTool === ToolType.TRIANGLE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createTriangle(x, y, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
+      setPreviewShape(createTriangle(startX, startY, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
     }
   };
 
@@ -2122,7 +2171,8 @@ export default function Whiteboard() {
       }
 
       if (isValidShape) {
-        const newShape = previewShape;
+        // Task 5.5: Snap shape to grid on creation
+        const newShape = snapShapeToGrid(previewShape);
         setShapes(prev => [...prev, newShape]);
         addToHistory({ type: 'ADD', objectType: 'shape', id: newShape.id, previousState: null, newState: newShape, userId: 'local' });
 

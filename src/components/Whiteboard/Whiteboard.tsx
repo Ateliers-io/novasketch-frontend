@@ -166,6 +166,7 @@ export default function Whiteboard() {
   // Grid Config (Task 5.5)
   const [gridConfig, setGridConfig] = useState<GridConfig>(DEFAULT_GRID_CONFIG);
   const [snapGuides, setSnapGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
+  const [snapPointIndicators, setSnapPointIndicators] = useState<{ x: number; y: number }[]>([]);
 
   // Initialize tool state
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
@@ -1643,18 +1644,31 @@ export default function Whiteboard() {
         let activeGuideX = null;
         let activeGuideY = null;
 
-        // For 'points' mode: only snap if BOTH axes are near a grid intersection
         if (snapType === 'points') {
+          // Points mode: snap to grid intersections (dots).
+          // When EITHER axis is near a grid line, snap BOTH axes to the nearest dot.
           const nearX = Math.abs(proposedX - snapX) < threshold;
           const nearY = Math.abs(proposedY - snapY) < threshold;
-          if (nearX && nearY) {
+          if (nearX || nearY) {
             dx = snapX - anchorX;
             dy = snapY - anchorY;
             activeGuideX = snapX;
             activeGuideY = snapY;
           }
+
+          // Compute nearby grid points for "+" crosshair indicators
+          const range = 3; // Show 3x3 grid of indicator points around anchor
+          const pts: { x: number; y: number }[] = [];
+          const centerGridX = Math.round(proposedX / size);
+          const centerGridY = Math.round(proposedY / size);
+          for (let gx = centerGridX - range; gx <= centerGridX + range; gx++) {
+            for (let gy = centerGridY - range; gy <= centerGridY + range; gy++) {
+              pts.push({ x: gx * size, y: gy * size });
+            }
+          }
+          setSnapPointIndicators(pts);
         } else {
-          // For all other modes: snap each axis independently
+          // Lines / Horizontal / Vertical modes: snap each axis independently
           if (canSnapX && Math.abs(proposedX - snapX) < threshold) {
             dx = snapX - anchorX;
             activeGuideX = snapX;
@@ -1663,10 +1677,12 @@ export default function Whiteboard() {
             dy = snapY - anchorY;
             activeGuideY = snapY;
           }
+          setSnapPointIndicators([]);
         }
         setSnapGuides({ x: activeGuideX, y: activeGuideY });
       } else {
         setSnapGuides({ x: null, y: null });
+        setSnapPointIndicators([]);
       }
 
       // Task 4.2.2: Update object coordinates locally in real-time
@@ -1824,6 +1840,7 @@ export default function Whiteboard() {
       setLastPointerPos(null);
     }
     setSnapGuides({ x: null, y: null });
+    setSnapPointIndicators([]);
 
 
     // 1. History & Logic for Eraser (MUST BE BEFORE EARLY RETURNS)
@@ -2714,6 +2731,26 @@ export default function Whiteboard() {
                 dash={[4 / stageScale, 2 / stageScale]}
               />
             )}
+            {/* Points mode: "+" crosshair indicators at grid intersections */}
+            {snapPointIndicators.map((pt, i) => {
+              const crossSize = 6 / stageScale;
+              return (
+                <React.Fragment key={`snap-pt-${i}`}>
+                  <Line
+                    points={[pt.x - crossSize, pt.y, pt.x + crossSize, pt.y]}
+                    stroke="#66FCF1"
+                    strokeWidth={1.5 / stageScale}
+                    opacity={0.8}
+                  />
+                  <Line
+                    points={[pt.x, pt.y - crossSize, pt.x, pt.y + crossSize]}
+                    stroke="#66FCF1"
+                    strokeWidth={1.5 / stageScale}
+                    opacity={0.8}
+                  />
+                </React.Fragment>
+              );
+            })}
           </Layer>
         </Stage>
       </div>

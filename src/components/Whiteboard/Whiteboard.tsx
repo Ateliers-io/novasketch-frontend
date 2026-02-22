@@ -404,31 +404,35 @@ export default function Whiteboard() {
   // For circles/ellipses: snaps center (position).
   // For lines/arrows: snaps both startPoint and endPoint.
   const snapShapeToGrid = useCallback((shape: Shape): Shape => {
-    if (!gridConfig.snapEnabled) return shape;
+    if (!gridConfig.snapEnabled || gridConfig.snapType === 'none') return shape;
     const size = gridConfig.size;
-    const snap = (v: number) => Math.round(v / size) * size;
+    const snapType = gridConfig.snapType;
+    const canSnapX = ['all', 'vertical_lines', 'lines', 'points'].includes(snapType);
+    const canSnapY = ['all', 'horizontal_lines', 'lines', 'points'].includes(snapType);
+    const snapVal = (v: number) => Math.round(v / size) * size;
+    const sx = (v: number) => canSnapX ? snapVal(v) : v;
+    const sy = (v: number) => canSnapY ? snapVal(v) : v;
 
     if (isRectangle(shape)) {
-      return { ...shape, position: { x: snap(shape.position.x), y: snap(shape.position.y) } };
+      return { ...shape, position: { x: sx(shape.position.x), y: sy(shape.position.y) } };
     } else if (isCircle(shape)) {
-      // Circle's position IS the center
-      return { ...shape, position: { x: snap(shape.position.x), y: snap(shape.position.y) } };
+      return { ...shape, position: { x: sx(shape.position.x), y: sy(shape.position.y) } };
     } else if (isEllipse(shape)) {
-      return { ...shape, position: { x: snap(shape.position.x), y: snap(shape.position.y) } };
+      return { ...shape, position: { x: sx(shape.position.x), y: sy(shape.position.y) } };
     } else if (isLine(shape)) {
       const ls = shape as LineShape;
-      const snappedStart = { x: snap(ls.startPoint.x), y: snap(ls.startPoint.y) };
-      const snappedEnd = { x: snap(ls.endPoint.x), y: snap(ls.endPoint.y) };
+      const snappedStart = { x: sx(ls.startPoint.x), y: sy(ls.startPoint.y) };
+      const snappedEnd = { x: sx(ls.endPoint.x), y: sy(ls.endPoint.y) };
       return { ...shape, position: snappedStart, startPoint: snappedStart, endPoint: snappedEnd } as LineShape;
     } else if (isArrow(shape)) {
       const as_ = shape as ArrowShape;
-      const snappedStart = { x: snap(as_.startPoint.x), y: snap(as_.startPoint.y) };
-      const snappedEnd = { x: snap(as_.endPoint.x), y: snap(as_.endPoint.y) };
+      const snappedStart = { x: sx(as_.startPoint.x), y: sy(as_.startPoint.y) };
+      const snappedEnd = { x: sx(as_.endPoint.x), y: sy(as_.endPoint.y) };
       return { ...shape, position: snappedStart, startPoint: snappedStart, endPoint: snappedEnd } as ArrowShape;
     } else if (isTriangle(shape)) {
       const ts = shape as TriangleShape;
-      const dx = snap(ts.position.x) - ts.position.x;
-      const dy = snap(ts.position.y) - ts.position.y;
+      const dx = sx(ts.position.x) - ts.position.x;
+      const dy = sy(ts.position.y) - ts.position.y;
       return {
         ...shape,
         position: { x: ts.position.x + dx, y: ts.position.y + dy },
@@ -436,7 +440,7 @@ export default function Whiteboard() {
       } as TriangleShape;
     }
     return shape;
-  }, [gridConfig.snapEnabled, gridConfig.size]);
+  }, [gridConfig.snapEnabled, gridConfig.size, gridConfig.snapType]);
 
   // -- 4. HELPERS --
   const getPointerPos = (e: any) => {
@@ -1113,10 +1117,13 @@ export default function Whiteboard() {
     // Snap the starting point to grid for shape creation tools
     let startX = x;
     let startY = y;
-    if (gridConfig.snapEnabled && activeTool !== ToolType.PEN && activeTool !== ToolType.HIGHLIGHTER) {
+    if (gridConfig.snapEnabled && gridConfig.snapType !== 'none' && activeTool !== ToolType.PEN && activeTool !== ToolType.HIGHLIGHTER) {
       const size = gridConfig.size;
-      startX = Math.round(x / size) * size;
-      startY = Math.round(y / size) * size;
+      const snapType = gridConfig.snapType;
+      const canSnapX = ['all', 'vertical_lines', 'lines', 'points'].includes(snapType);
+      const canSnapY = ['all', 'horizontal_lines', 'lines', 'points'].includes(snapType);
+      if (canSnapX) startX = Math.round(x / size) * size;
+      if (canSnapY) startY = Math.round(y / size) * size;
     }
     setDragStart({ x: startX, y: startY });
 
@@ -1636,14 +1643,26 @@ export default function Whiteboard() {
         let activeGuideX = null;
         let activeGuideY = null;
 
-        // Apply snapping only if within threshold (smooth/magnetic feel)
-        if (canSnapX && Math.abs(proposedX - snapX) < threshold) {
-          dx = snapX - anchorX;
-          activeGuideX = snapX;
-        }
-        if (canSnapY && Math.abs(proposedY - snapY) < threshold) {
-          dy = snapY - anchorY;
-          activeGuideY = snapY;
+        // For 'points' mode: only snap if BOTH axes are near a grid intersection
+        if (snapType === 'points') {
+          const nearX = Math.abs(proposedX - snapX) < threshold;
+          const nearY = Math.abs(proposedY - snapY) < threshold;
+          if (nearX && nearY) {
+            dx = snapX - anchorX;
+            dy = snapY - anchorY;
+            activeGuideX = snapX;
+            activeGuideY = snapY;
+          }
+        } else {
+          // For all other modes: snap each axis independently
+          if (canSnapX && Math.abs(proposedX - snapX) < threshold) {
+            dx = snapX - anchorX;
+            activeGuideX = snapX;
+          }
+          if (canSnapY && Math.abs(proposedY - snapY) < threshold) {
+            dy = snapY - anchorY;
+            activeGuideY = snapY;
+          }
         }
         setSnapGuides({ x: activeGuideX, y: activeGuideY });
       } else {

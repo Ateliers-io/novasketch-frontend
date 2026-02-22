@@ -12,7 +12,7 @@ export interface GridConfig {
 
 export const DEFAULT_GRID_CONFIG: GridConfig = {
     snapEnabled: true,
-    snapType: 'all',
+    snapType: 'lines',
     appearance: 'dots',
     size: 20,
     color: '#374151', // Subtle gray-700

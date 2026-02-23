@@ -4,7 +4,7 @@ import { Landing } from './components/pages/Landing';
 import { Dashboard } from './components/pages/Dashboard';
 import { Login } from './components/pages/Auth/Login';
 import { BoardPage } from './components/pages/Board';
-import { PageNotFound } from './components/pages/NotFound/PageNotFound';
+import { PageNotFound } from './components/pages/NotFound';
 
 // simple spinner for async auth checks.
 const LoadingScreen = () => (
@@ -50,7 +50,7 @@ function AppRoutes() {
         element={<BoardPage />}
       />
 
-      {/* Any unmatched URL shows a 404 error page */}
+      {/* Any unmatched route shows a 404 page */}
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

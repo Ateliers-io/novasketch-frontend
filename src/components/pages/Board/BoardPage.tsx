@@ -19,6 +19,7 @@ import { useParams } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { getSession, SessionInfo } from '../../../services/session.service';
 import Whiteboard from '../../Whiteboard/Whiteboard';
+import { SessionNotFound } from './SessionNotFound';
 
 type BoardStatus = 'loading' | 'found' | 'not-found';
 
@@ -45,12 +46,10 @@ export const BoardPage = () => {
                 setSessionInfo(session);
                 setStatus('found');
             } else {
-                // Session not found or backend unavailable.
-                // For now, we still load the whiteboard to maintain backward
-                // compatibility (offline/demo usage). Task 1.2.3 will replace
-                // this with a proper 404 page.
+                // Session not found or backend returned 404.
+                // Show the "Board Not Found" error page.
                 setSessionInfo(null);
-                setStatus('found');
+                setStatus('not-found');
             }
         };
 
@@ -126,13 +125,9 @@ export const BoardPage = () => {
         );
     }
 
-    // --- NOT FOUND STATE ---
-    // Placeholder for Task 1.2.3. Currently falls through to Whiteboard.
-    // 1.2.3 will replace this with a proper SessionNotFound component.
+    // --- NOT FOUND STATE (Task 1.2.3) ---
     if (status === 'not-found') {
-        // For now, render Whiteboard anyway (backward compat).
-        // Task 1.2.3 will swap this out.
-        return <Whiteboard />;
+        return <SessionNotFound boardId={id} />;
     }
 
     // --- FOUND STATE ---

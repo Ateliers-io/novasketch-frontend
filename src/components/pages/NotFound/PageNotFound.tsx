@@ -7,6 +7,7 @@
 
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
+    Sparkles,
     ArrowLeft,
     Home,
     LayoutGrid,
@@ -64,7 +65,7 @@ export const PageNotFound = () => {
                 {/* Subtext */}
                 <p className="text-gray-400 mb-4 leading-relaxed">
                     The page you're looking for doesn't exist.
-                    Check the URL or head back.
+                    Check the URL or head back to the landing page.
                 </p>
 
                 {/* URL Display */}
@@ -77,6 +78,7 @@ export const PageNotFound = () => {
 
                 {/* Hint */}
                 <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-[#66FCF1]/5 border border-[#66FCF1]/10 mb-10 text-left w-full">
+                    <Sparkles className="w-4 h-4 text-[#66FCF1] flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-[#8b9bb4] leading-relaxed">
                         <span className="text-[#66FCF1] font-medium">Tip:</span>{' '}
                         Valid pages include{' '}

@@ -3,7 +3,7 @@ import { AuthProvider, ThemeProvider, useAuth } from './contexts';
 import { Landing } from './components/pages/Landing';
 import { Dashboard } from './components/pages/Dashboard';
 import { Login } from './components/pages/Auth/Login';
-import Whiteboard from './components/Whiteboard/Whiteboard';
+import { BoardPage } from './components/pages/Board';
 
 // simple spinner for async auth checks.
 const LoadingScreen = () => (
@@ -41,11 +41,12 @@ function AppRoutes() {
         element={<Dashboard />}
       />
 
-      {/* whiteboard route. exposed for testing. 
+      {/* whiteboard route. BoardPage validates the session first,
+          then renders the Whiteboard.
           TODO: wrap in ProtectedRoute before shipping to prod. */}
       <Route
         path="/board/:id"
-        element={<Whiteboard />}
+        element={<BoardPage />}
       />
 
       <Route path="*" element={<Navigate to="/" replace />} />

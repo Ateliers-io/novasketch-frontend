@@ -4,7 +4,7 @@ import { Landing } from './components/pages/Landing';
 import { Dashboard } from './components/pages/Dashboard';
 import { Login } from './components/pages/Auth/Login';
 import { BoardPage } from './components/pages/Board';
-import { PageNotFound } from './components/pages/NotFound';
+import { PageNotFound } from './components/pages/NotFound/PageNotFound';
 
 // simple spinner for async auth checks.
 const LoadingScreen = () => (

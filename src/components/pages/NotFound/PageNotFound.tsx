@@ -10,13 +10,16 @@ import {
     Sparkles,
     ArrowLeft,
     Home,
+    LayoutGrid,
     AlertTriangle,
     Search,
 } from 'lucide-react';
+import { useAuth } from '../../../contexts';
 
 export const PageNotFound = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { isAuthenticated } = useAuth();
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[#0B0C10] relative overflow-hidden">
@@ -62,7 +65,7 @@ export const PageNotFound = () => {
                 {/* Subtext */}
                 <p className="text-gray-400 mb-4 leading-relaxed">
                     The page you're looking for doesn't exist.
-                    Check the URL or head back to the landing page.
+                    Check the URL or head back.
                 </p>
 
                 {/* URL Display */}
@@ -86,13 +89,21 @@ export const PageNotFound = () => {
                     </p>
                 </div>
 
-                {/* Action Button */}
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate(isAuthenticated ? '/home' : '/')}
                     className="group h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#66FCF1]/20"
                 >
-                    <Home className="w-4 h-4" />
-                    Go to Landing Page
+                    {isAuthenticated ? (
+                        <>
+                            <LayoutGrid className="w-4 h-4" />
+                            Go to Dashboard
+                        </>
+                    ) : (
+                        <>
+                            <Home className="w-4 h-4" />
+                            Go to Landing Page
+                        </>
+                    )}
                 </button>
 
                 {/* Back Link */}

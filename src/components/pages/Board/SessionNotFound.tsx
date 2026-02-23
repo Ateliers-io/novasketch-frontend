@@ -14,8 +14,10 @@ import {
     ArrowLeft,
     AlertTriangle,
     Home,
+    LayoutGrid,
     Search,
 } from 'lucide-react';
+import { useAuth } from '../../../contexts';
 
 interface SessionNotFoundProps {
     /** The invalid board ID from the URL */
@@ -24,6 +26,7 @@ interface SessionNotFoundProps {
 
 export const SessionNotFound = ({ boardId }: SessionNotFoundProps) => {
     const navigate = useNavigate();
+    const { isAuthenticated } = useAuth();
 
     // Truncate long IDs for display
     const displayId = boardId
@@ -74,7 +77,7 @@ export const SessionNotFound = ({ boardId }: SessionNotFoundProps) => {
                 {/* Subtext */}
                 <p className="text-gray-400 mb-4 leading-relaxed">
                     The board you're looking for doesn't exist or may have been deleted.
-                    Double-check the URL or head back to the landing page.
+                    Double-check the URL or head back.
                 </p>
 
                 {/* ID Display */}
@@ -100,11 +103,20 @@ export const SessionNotFound = ({ boardId }: SessionNotFoundProps) => {
 
                 {/* Action Button */}
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate(isAuthenticated ? '/home' : '/')}
                     className="group h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#66FCF1]/20"
                 >
-                    <Home className="w-4 h-4" />
-                    Go to Landing Page
+                    {isAuthenticated ? (
+                        <>
+                            <LayoutGrid className="w-4 h-4" />
+                            Go to Dashboard
+                        </>
+                    ) : (
+                        <>
+                            <Home className="w-4 h-4" />
+                            Go to Landing Page
+                        </>
+                    )}
                 </button>
 
                 {/* Back Link */}

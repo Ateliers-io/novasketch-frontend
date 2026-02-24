@@ -936,6 +936,9 @@ export default function Whiteboard() {
     // Task 1.3: Block interactions if no username is set
     if (!userName) return;
 
+    // Task 1.3: Block interactions if no username is set
+    if (!userName) return;
+
     // Check if clicking on UI (Toolbar)
     if ((e.target as HTMLElement).closest?.('[data-component="toolbar"]')) {
       if (activeTextInput) commitText();

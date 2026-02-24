@@ -73,6 +73,7 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ onSubmit }) => {
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 onKeyDown={handleKeyDown}
+                                placeholder="E.g. Alex"
                                 maxLength={30}
                                 className="w-full h-12 px-4 py-2 text-white bg-[#0B0C10] border border-gray-700/80 rounded-xl outline-none transition-all duration-200 focus:border-[#66FCF1] focus:ring-1 focus:ring-[#66FCF1]/50 placeholder:text-gray-600"
                             />

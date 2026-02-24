@@ -1,0 +1,36 @@
+name: frontend_CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Renamed for clarity 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'pnpm'
+      
+      - name: Install Dependencies
+        run: pnpm install
+
+      # Added explicit TypeScript typechecking 
+      - name: Run Typecheck
+        run: pnpm exec tsc -b
+      
+      # Changed to use the CI-friendly 'test:run' script
+      - name: Run Unit Tests
+        run: pnpm run test:run

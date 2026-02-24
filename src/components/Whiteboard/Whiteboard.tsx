@@ -87,7 +87,21 @@ export default function Whiteboard() {
   // Task 1.3: User Identification State
   const [userName, setUserName] = useState<string | null>(() => localStorage.getItem('novasketch_userName'));
 
+  // Task 1.3.3-A: Assign unique color & define metadata
+  const [userColor] = useState<string>(() => {
+    let savedColor = localStorage.getItem('novasketch_userColor');
+    if (!savedColor) {
+      const colors = ['#FF3366', '#FF9933', '#FFCC00', '#33CCFF', '#33FF99', '#CC33FF', '#FF00CC', '#00FFFF'];
+      savedColor = colors[Math.floor(Math.random() * colors.length)];
+      localStorage.setItem('novasketch_userColor', savedColor);
+    }
+    return savedColor;
+  });
 
+  const userMetadata = useMemo(() => ({
+    name: userName,
+    color: userColor
+  }), [userName, userColor]);
   // syncing everything with yjs.
   // this hook does all the heavy lifting for real-time collab.
   const {

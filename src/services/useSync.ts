@@ -23,6 +23,10 @@ interface UseSyncResult {
     isSynced: boolean;
     isLoading: boolean;
 
+    // Connected users
+    users: any[];
+    updateUserMetadata: (metadata: { name: string; color: string }) => void;
+
     // Line operations
     addLine: (line: StrokeLine) => void;
     updateLine: (id: string, updates: Partial<StrokeLine>) => void;
@@ -67,6 +71,8 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
     const [isSynced, setIsSynced] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
+    const [users, setUsers] = useState<any[]>([]);
+
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
 
@@ -98,6 +104,9 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
                     setIsLoading(false);
                 }
             },
+            onAwarenessUpdate: (newUsers) => {
+                setUsers(newUsers);
+            }
         });
 
         serviceRef.current = service;
@@ -143,6 +152,10 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
         serviceRef.current?.setLines(newLines);
         updateUndoRedoState();
     }, [updateUndoRedoState]);
+
+    const updateUserMetadata = useCallback((metadata: { name: string; color: string }) => {
+        serviceRef.current?.updateUserMetadata(metadata);
+    }, []);
 
     // Shape operations
     const addShape = useCallback((shape: Shape) => {
@@ -242,5 +255,7 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
         canUndo,
         canRedo,
         clearAll,
+        users,
+        updateUserMetadata,
     };
 }

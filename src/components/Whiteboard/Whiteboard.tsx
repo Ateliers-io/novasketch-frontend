@@ -99,7 +99,7 @@ export default function Whiteboard() {
   });
 
   const userMetadata = useMemo(() => ({
-    name: userName,
+    name: userName || 'Anonymous',
     color: userColor
   }), [userName, userColor]);
   // syncing everything with yjs.
@@ -129,7 +129,16 @@ export default function Whiteboard() {
     clearAll,
     canvasBackgroundColor,
     setCanvasBackgroundColor,
+    users,
+    updateUserMetadata,
   } = useSync({ roomId, wsUrl: WS_URL });
+
+  // Task 1.3.3-B: Broadcast metadata via Yjs Awareness
+  useEffect(() => {
+    if (isConnected && userName) {
+      updateUserMetadata(userMetadata);
+    }
+  }, [isConnected, userName, userMetadata, updateUserMetadata]);
 
   // local ref to avoid staleness in event handlers.
   // local ref to avoid staleness in event handlers.

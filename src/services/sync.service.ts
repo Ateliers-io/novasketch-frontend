@@ -85,6 +85,7 @@ export interface SyncServiceConfig {
     onStateChange: SyncStateChangeHandler;
     onConnectionChange?: (connected: boolean) => void;
     onSyncStatusChange?: (synced: boolean) => void;
+    onAwarenessUpdate?: (users: any[]) => void;
 }
 
 class SyncService {
@@ -165,6 +166,13 @@ class SyncService {
             connect: true,
         });
 
+        // Task 1.3.3: Listen to awareness updates to track connected users
+        this.wsProvider.awareness.on('change', () => {
+            const states = Array.from(this.wsProvider!.awareness.getStates().values());
+            const users = states.map(state => state.user).filter(Boolean);
+            this.config.onAwarenessUpdate?.(users);
+        });
+
         this.wsProvider.on('status', (event: { status: string }) => {
             const connected = event.status === 'connected';
             console.log(`[SyncService] WebSocket ${connected ? 'connected' : 'disconnected'}`);
@@ -205,6 +213,11 @@ class SyncService {
         this.doc.destroy();
         this.isInitialized = false;
         console.log('[SyncService] Destroyed');
+    }
+
+    // --- USER AWARENESS OPERATIONS ---
+    updateUserMetadata(metadata: { name: string; color: string }): void {
+        this.wsProvider?.awareness.setLocalStateField('user', metadata);
     }
 
     // --- LINE OPERATIONS ---

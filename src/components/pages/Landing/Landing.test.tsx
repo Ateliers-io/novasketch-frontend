@@ -13,6 +13,11 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import Landing from './Landing';
 
+// Mock session service
+vi.mock('../../../services/session.service', () => ({
+    createSession: vi.fn(() => Promise.resolve({ url: '/board/test-id' })),
+}));
+
 // Mock GSAP to avoid animation issues in tests
 vi.mock('gsap', () => ({
     default: {
@@ -99,11 +104,11 @@ describe('Landing Page', () => {
             expect(screen.getByText(/A real-time collaborative whiteboard/i)).toBeInTheDocument();
         });
 
-        it('should render Try Demo button', () => {
+        it('should render Start New Whiteboard button', () => {
             renderLanding();
 
-            const demoButton = screen.getByRole('button', { name: /try demo/i });
-            expect(demoButton).toBeInTheDocument();
+            const boardButton = screen.getByRole('button', { name: /start new whiteboard/i });
+            expect(boardButton).toBeInTheDocument();
         });
 
         it('should render Sign Up Free button', () => {
@@ -156,14 +161,7 @@ describe('Landing Page', () => {
             expect(mockNavigate).toHaveBeenCalledWith('/auth');
         });
 
-        it('should navigate to /board/demo when Try Demo is clicked', () => {
-            renderLanding();
 
-            const demoButton = screen.getByRole('button', { name: /try demo/i });
-            fireEvent.click(demoButton);
-
-            expect(mockNavigate).toHaveBeenCalledWith('/board/demo');
-        });
 
         it('should navigate to /auth when Sign Up Free is clicked', () => {
             renderLanding();
@@ -227,11 +225,12 @@ describe('Landing Page', () => {
             expect(screen.getByText(/Ready to start sketching/i)).toBeInTheDocument();
         });
 
-        it('should have a final Get Started button', () => {
+        it('should have a final CTA button', () => {
             renderLanding();
 
-            const startButtons = screen.getAllByText(/Get Started/i);
-            expect(startButtons.length).toBeGreaterThanOrEqual(1);
+            // CTA section has "Start a New Board" button
+            const ctaButton = screen.getByRole('button', { name: /start a new board/i });
+            expect(ctaButton).toBeInTheDocument();
         });
     });
 
@@ -257,7 +256,7 @@ describe('Landing Page', () => {
             renderLanding();
 
             // The h1 should have responsive classes
-            const heading = screen.getByText('Sketch Ideas,').closest('h1');
+            const heading = screen.getByText(/Sketch Ideas/i).closest('h1');
             expect(heading).toHaveClass('text-5xl');
             expect(heading).toHaveClass('md:text-7xl');
         });

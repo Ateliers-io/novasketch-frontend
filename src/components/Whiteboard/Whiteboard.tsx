@@ -199,6 +199,7 @@ export default function Whiteboard() {
   const [selectionCenter, setSelectionCenter] = useState<Position | null>(null);
   const [initialSelectionBoundingBox, setInitialSelectionBoundingBox] = useState<BoundingBox | null>(null);
   const [currentGroupRotation, setCurrentGroupRotation] = useState<number>(0);
+  const [selectionRotation, setSelectionRotation] = useState<number>(0);
 
   // Shape Creation
   const [dragStart, setDragStart] = useState<Position | null>(null);
@@ -217,6 +218,11 @@ export default function Whiteboard() {
   const [selectedTextIds, setSelectedTextIds] = useState<Set<string>>(new Set());
   // selectionBoundingBox computed by useSelectionBounds hook
   const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Reset selection rotation when selection changes
+  useEffect(() => {
+    setSelectionRotation(0);
+  }, [selectedShapeIds, selectedLineIds, selectedTextIds]);
 
   // UI State
   const [activeTextInput, setActiveTextInput] = useState<{ x: number, y: number } | null>(null);
@@ -1922,10 +1928,12 @@ export default function Whiteboard() {
           }
         });
       }
+      setSelectionRotation(prev => prev + currentGroupRotation);
       setIsRotating(false);
       setRotationStartAngle(0);
       setInitialShapeRotations(new Map());
       setInitialSelectionBoundingBox(null);
+      setCurrentGroupRotation(0);
       return;
     }
 
@@ -2670,7 +2678,7 @@ export default function Whiteboard() {
                 ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
                 : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
                   ? (textAnnotations.find(t => t.id === Array.from(selectedTextIds)[0])?.rotation || 0)
-                  : undefined
+                  : selectionRotation
           }
           showRotationHandle={true} // Always allow rotation because we support group rotation now!
           transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
@@ -2682,6 +2690,7 @@ export default function Whiteboard() {
       <div className="absolute inset-0 z-20">
         <Stage
           ref={stageRef}
+          data-testid="main-stage"
           width={dimensions.width}
           height={dimensions.height}
           x={stagePos.x}
@@ -2891,7 +2900,7 @@ export default function Whiteboard() {
       {/* Standalone Clear Canvas Button */}
       <button
         onClick={() => {
-          if (confirm('Are you sure you want to clear the entire canvas? This cannot be undone.')) {
+          if (confirm('Are you sure you want to clear the entire canvas? This action can be undone.')) {
             clearAll();
           }
         }}

@@ -22,9 +22,13 @@ vi.mock('gsap', () => ({
         })),
         timeline: vi.fn(() => ({
             fromTo: vi.fn().mockReturnThis(),
+            to: vi.fn().mockReturnThis(),
+            set: vi.fn().mockReturnThis(),
         })),
         from: vi.fn(),
         to: vi.fn(),
+        set: vi.fn(),
+        fromTo: vi.fn(),
     },
 }));
 
@@ -74,6 +78,8 @@ let mockAuthState = {
 vi.mock('../../../contexts', () => ({
     useAuth: () => ({
         loginWithGoogle: mockLoginWithGoogle,
+        loginWithEmail: vi.fn(),
+        register: vi.fn(),
         error: mockAuthState.error,
         clearError: mockClearError,
         isAuthenticated: mockAuthState.isAuthenticated,
@@ -105,19 +111,17 @@ describe('Login Page', () => {
         it('should render the NovaSketch title', () => {
             renderLogin();
 
-            expect(screen.getByText('NovaSketch')).toBeInTheDocument();
-        });
-
-        it('should render the subtitle', () => {
-            renderLogin();
-
-            expect(screen.getByText('Collaborative Whiteboard')).toBeInTheDocument();
+            // NovaSketch appears as label text in the form header
+            const novaSketchTexts = screen.getAllByText('NovaSketch');
+            expect(novaSketchTexts.length).toBeGreaterThanOrEqual(1);
         });
 
         it('should render Google login button', () => {
             renderLogin();
 
-            expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
+            // Both sign-up and sign-in forms have a Google button
+            const googleButtons = screen.getAllByRole('button', { name: /continue with google/i });
+            expect(googleButtons.length).toBeGreaterThanOrEqual(1);
         });
 
         it('should render Back button', () => {
@@ -126,17 +130,24 @@ describe('Login Page', () => {
             expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
         });
 
-        it('should render version indicator', () => {
+        it('should render the Create Account heading', () => {
             renderLogin();
 
-            expect(screen.getByText('v2.0')).toBeInTheDocument();
+            expect(screen.getByText('Create Account')).toBeInTheDocument();
         });
 
-        it('should render status indicators', () => {
+        it('should render the subtitle text', () => {
             renderLogin();
 
-            expect(screen.getByText('Secure')).toBeInTheDocument();
-            expect(screen.getByText('Online')).toBeInTheDocument();
+            expect(screen.getByText('Start sketching ideas with your team')).toBeInTheDocument();
+        });
+
+        it('should render security indicators', () => {
+            renderLogin();
+
+            // The sign-up form shows "256-BIT ENCRYPTED" and "LIVE"
+            expect(screen.getByText('256-BIT ENCRYPTED')).toBeInTheDocument();
+            expect(screen.getByText('LIVE')).toBeInTheDocument();
         });
     });
 
@@ -155,8 +166,8 @@ describe('Login Page', () => {
         it('should show normal state for Google button when not loading', () => {
             renderLogin();
 
-            const googleButton = screen.getByRole('button', { name: /continue with google/i });
-            expect(googleButton).not.toBeDisabled();
+            const googleButtons = screen.getAllByRole('button', { name: /continue with google/i });
+            expect(googleButtons[0]).not.toBeDisabled();
         });
     });
 
@@ -171,8 +182,10 @@ describe('Login Page', () => {
         it('should have main heading', () => {
             renderLogin();
 
-            const heading = screen.getByRole('heading', { level: 1 });
-            expect(heading).toHaveTextContent('NovaSketch');
+            // Both sign-up ("Create Account") and sign-in ("Sign In") forms have h1 elements
+            const headings = screen.getAllByRole('heading', { level: 1 });
+            expect(headings.length).toBeGreaterThanOrEqual(1);
+            expect(headings[0]).toHaveTextContent('Create Account');
         });
     });
 
@@ -180,18 +193,23 @@ describe('Login Page', () => {
         it('should have login panel structure', () => {
             renderLogin();
 
-            // Check that the main title is present indicating the panel rendered
-            expect(screen.getByText('NovaSketch')).toBeInTheDocument();
+            // Check that the main NovaSketch label is present indicating the panel rendered
+            const novaSketchTexts = screen.getAllByText('NovaSketch');
+            expect(novaSketchTexts.length).toBeGreaterThanOrEqual(1);
         });
     });
 
-    describe('Responsiveness', () => {
-        it('should have responsive text classes on heading', () => {
+    describe('Form Elements', () => {
+        it('should render input fields for sign up', () => {
             renderLogin();
 
-            const heading = screen.getByRole('heading', { level: 1 });
-            expect(heading).toHaveClass('text-3xl');
-            expect(heading).toHaveClass('md:text-4xl');
+            // Both sign-up and sign-in forms are rendered in the DOM (sign-in is hidden)
+            // so Email address and Password placeholders appear twice
+            expect(screen.getByPlaceholderText('Full name')).toBeInTheDocument();
+            const emailInputs = screen.getAllByPlaceholderText('Email address');
+            expect(emailInputs.length).toBeGreaterThanOrEqual(1);
+            const passwordInputs = screen.getAllByPlaceholderText('Password');
+            expect(passwordInputs.length).toBeGreaterThanOrEqual(1);
         });
     });
 });
@@ -231,8 +249,8 @@ describe('StatusIndicator Component', () => {
             </MemoryRouter>
         );
 
-        // Check both status indicators are present
-        expect(screen.getByText('Secure')).toBeInTheDocument();
-        expect(screen.getByText('Online')).toBeInTheDocument();
+        // Check security indicators are present (sign-up form has these)
+        expect(screen.getByText('256-BIT ENCRYPTED')).toBeInTheDocument();
+        expect(screen.getByText('LIVE')).toBeInTheDocument();
     });
 });

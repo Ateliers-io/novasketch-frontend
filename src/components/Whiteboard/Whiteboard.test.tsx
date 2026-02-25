@@ -68,9 +68,9 @@ vi.mock('./SVGShapeRenderer', () => ({
 
 // Mock Konva Stage/Layer/Line (since they use Canvas API)
 vi.mock('react-konva', () => ({
-    Stage: ({ children, onMouseDown, onMouseMove, onMouseUp }: any) => (
+    Stage: ({ children, onMouseDown, onMouseMove, onMouseUp, 'data-testid': testId }: any) => (
         <div
-            data-testid="stage"
+            data-testid={testId || 'stage'}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
@@ -116,7 +116,7 @@ describe('Whiteboard Component', () => {
 
     it('should render the whiteboard and stage', () => {
         renderWhiteboard();
-        expect(screen.getByTestId('stage')).toBeInTheDocument();
+        expect(screen.getByTestId('main-stage')).toBeInTheDocument();
         expect(screen.getByTestId('toolbar')).toBeInTheDocument();
     });
 
@@ -143,7 +143,7 @@ describe('Whiteboard Component', () => {
     describe('Freehand Drawing Interaction', () => {
         it('should handle mouse events on stage', () => {
             renderWhiteboard();
-            const stage = screen.getByTestId('stage');
+            const stage = screen.getByTestId('main-stage');
 
             // Just verifying interaction doesn't crash
             fireEvent.mouseDown(stage, { clientX: 100, clientY: 100 });

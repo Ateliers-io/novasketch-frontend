@@ -5,9 +5,11 @@
  * a running backend or browser environment.
  */
 
+import { describe, it, test, expect, vi } from 'vitest';
+
 // Mock dependencies
-const mockCreateObjectURL = jest.fn(() => 'blob:mock-url');
-const mockRevokeObjectURL = jest.fn();
+const mockCreateObjectURL = vi.fn(() => 'blob:mock-url');
+const mockRevokeObjectURL = vi.fn();
 
 // Setup global mocks
 global.URL.createObjectURL = mockCreateObjectURL;
@@ -69,10 +71,10 @@ describe('ExportTools Unit Tests', () => {
         test('should generate unique filenames for different times', () => {
             const filename1 = getTimestampFilename('png');
             // Simulate time passing
-            jest.useFakeTimers();
-            jest.advanceTimersByTime(1000);
+            vi.useFakeTimers();
+            vi.advanceTimersByTime(1000);
             const filename2 = getTimestampFilename('png');
-            jest.useRealTimers();
+            vi.useRealTimers();
 
             // Both should be valid format
             expect(filename1).toMatch(/^novasketch-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.png$/);
@@ -255,8 +257,8 @@ describe('ExportTools Unit Tests', () => {
     describe('Clear Canvas Logic', () => {
 
         test('should call onClear callback when confirmed', () => {
-            const mockOnClear = jest.fn();
-            const mockConfirm = jest.fn(() => true);
+            const mockOnClear = vi.fn();
+            const mockConfirm = vi.fn(() => true);
             global.confirm = mockConfirm;
 
             // Simulate handleClear
@@ -273,8 +275,8 @@ describe('ExportTools Unit Tests', () => {
         });
 
         test('should NOT call onClear when cancelled', () => {
-            const mockOnClear = jest.fn();
-            const mockConfirm = jest.fn(() => false);
+            const mockOnClear = vi.fn();
+            const mockConfirm = vi.fn(() => false);
             global.confirm = mockConfirm;
 
             const handleClear = (onClear) => {

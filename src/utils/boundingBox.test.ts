@@ -3,6 +3,10 @@
  * 
  * These tests verify the bounding box calculation functions
  * for individual shapes and combined selections.
+ * 
+ * Note: All shapes created with create* helpers use DEFAULT_SHAPE_STYLE
+ * which has strokeWidth: 2. The bounding box calculations add
+ * strokeWidth/2 = 1px padding on each side.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -25,6 +29,9 @@ import {
     TriangleShape,
     Position,
 } from '../types/shapes';
+
+// strokeWidth/2 padding from DEFAULT_SHAPE_STYLE (strokeWidth = 2)
+const SW_PAD = 1;
 
 // Helper to create a mock line shape
 function createMockLine(startX: number, startY: number, endX: number, endY: number): LineShape {
@@ -88,30 +95,32 @@ describe('getShapeBoundingBox', () => {
             const rect = createRectangle(0, 0, 100, 50);
             const bbox = getShapeBoundingBox(rect);
 
-            expect(bbox.minX).toBe(0);
-            expect(bbox.minY).toBe(0);
-            expect(bbox.maxX).toBe(100);
-            expect(bbox.maxY).toBe(50);
-            expect(bbox.width).toBe(100);
-            expect(bbox.height).toBe(50);
+            // strokeWidth/2 = 1 padding on each side
+            expect(bbox.minX).toBe(0 - SW_PAD);
+            expect(bbox.minY).toBe(0 - SW_PAD);
+            expect(bbox.maxX).toBe(100 + SW_PAD);
+            expect(bbox.maxY).toBe(50 + SW_PAD);
+            expect(bbox.width).toBe(100 + 2 * SW_PAD);
+            expect(bbox.height).toBe(50 + 2 * SW_PAD);
         });
 
         it('should calculate correct bounding box for rectangle at offset position', () => {
             const rect = createRectangle(50, 100, 200, 150);
             const bbox = getShapeBoundingBox(rect);
 
-            expect(bbox.minX).toBe(50);
-            expect(bbox.minY).toBe(100);
-            expect(bbox.maxX).toBe(250); // 50 + 200
-            expect(bbox.maxY).toBe(250); // 100 + 150
-            expect(bbox.width).toBe(200);
-            expect(bbox.height).toBe(150);
+            expect(bbox.minX).toBe(50 - SW_PAD);
+            expect(bbox.minY).toBe(100 - SW_PAD);
+            expect(bbox.maxX).toBe(250 + SW_PAD); // 50 + 200 + pad
+            expect(bbox.maxY).toBe(250 + SW_PAD); // 100 + 150 + pad
+            expect(bbox.width).toBe(200 + 2 * SW_PAD);
+            expect(bbox.height).toBe(150 + 2 * SW_PAD);
         });
 
         it('should calculate correct center coordinates', () => {
             const rect = createRectangle(0, 0, 100, 100);
             const bbox = getShapeBoundingBox(rect);
 
+            // Center with padding: (-1 + 101) / 2 = 50
             expect(bbox.centerX).toBe(50);
             expect(bbox.centerY).toBe(50);
         });
@@ -123,12 +132,12 @@ describe('getShapeBoundingBox', () => {
             const circle = createCircle(50, 50, 25);
             const bbox = getShapeBoundingBox(circle);
 
-            expect(bbox.minX).toBe(25);  // center - radius
-            expect(bbox.minY).toBe(25);
-            expect(bbox.maxX).toBe(75);  // center + radius
-            expect(bbox.maxY).toBe(75);
-            expect(bbox.width).toBe(50); // diameter
-            expect(bbox.height).toBe(50);
+            expect(bbox.minX).toBe(25 - SW_PAD);  // center - radius - pad
+            expect(bbox.minY).toBe(25 - SW_PAD);
+            expect(bbox.maxX).toBe(75 + SW_PAD);  // center + radius + pad
+            expect(bbox.maxY).toBe(75 + SW_PAD);
+            expect(bbox.width).toBe(50 + 2 * SW_PAD); // diameter + 2*pad
+            expect(bbox.height).toBe(50 + 2 * SW_PAD);
         });
 
         it('should calculate correct center for circle', () => {
@@ -145,12 +154,12 @@ describe('getShapeBoundingBox', () => {
             const ellipse = createEllipse(100, 100, 50, 30);
             const bbox = getShapeBoundingBox(ellipse);
 
-            expect(bbox.minX).toBe(50);   // center - radiusX
-            expect(bbox.minY).toBe(70);   // center - radiusY
-            expect(bbox.maxX).toBe(150);  // center + radiusX
-            expect(bbox.maxY).toBe(130);  // center + radiusY
-            expect(bbox.width).toBe(100); // 2 * radiusX
-            expect(bbox.height).toBe(60); // 2 * radiusY
+            expect(bbox.minX).toBe(50 - SW_PAD);   // center - radiusX - pad
+            expect(bbox.minY).toBe(70 - SW_PAD);   // center - radiusY - pad
+            expect(bbox.maxX).toBe(150 + SW_PAD);  // center + radiusX + pad
+            expect(bbox.maxY).toBe(130 + SW_PAD);  // center + radiusY + pad
+            expect(bbox.width).toBe(100 + 2 * SW_PAD); // 2 * radiusX + 2*pad
+            expect(bbox.height).toBe(60 + 2 * SW_PAD); // 2 * radiusY + 2*pad
         });
     });
 
@@ -159,20 +168,20 @@ describe('getShapeBoundingBox', () => {
             const line = createMockLine(10, 50, 200, 50);
             const bbox = getShapeBoundingBox(line);
 
-            expect(bbox.minX).toBe(10);
-            expect(bbox.maxX).toBe(200);
-            expect(bbox.minY).toBe(50);
-            expect(bbox.maxY).toBe(50);
+            expect(bbox.minX).toBe(10 - SW_PAD);
+            expect(bbox.maxX).toBe(200 + SW_PAD);
+            expect(bbox.minY).toBe(50 - SW_PAD);
+            expect(bbox.maxY).toBe(50 + SW_PAD);
         });
 
         it('should calculate correct bounding box for diagonal line', () => {
             const line = createMockLine(100, 50, 200, 150);
             const bbox = getShapeBoundingBox(line);
 
-            expect(bbox.minX).toBe(100);
-            expect(bbox.maxX).toBe(200);
-            expect(bbox.minY).toBe(50);
-            expect(bbox.maxY).toBe(150);
+            expect(bbox.minX).toBe(100 - SW_PAD);
+            expect(bbox.maxX).toBe(200 + SW_PAD);
+            expect(bbox.minY).toBe(50 - SW_PAD);
+            expect(bbox.maxY).toBe(150 + SW_PAD);
         });
 
         it('should handle lines with reversed direction', () => {
@@ -180,10 +189,10 @@ describe('getShapeBoundingBox', () => {
             const bbox = getShapeBoundingBox(line);
 
             // Should still get the same bounding box
-            expect(bbox.minX).toBe(100);
-            expect(bbox.maxX).toBe(200);
-            expect(bbox.minY).toBe(50);
-            expect(bbox.maxY).toBe(150);
+            expect(bbox.minX).toBe(100 - SW_PAD);
+            expect(bbox.maxX).toBe(200 + SW_PAD);
+            expect(bbox.minY).toBe(50 - SW_PAD);
+            expect(bbox.maxY).toBe(150 + SW_PAD);
         });
     });
 
@@ -192,11 +201,12 @@ describe('getShapeBoundingBox', () => {
             const arrow = createMockArrow(100, 100, 200, 200);
             const bbox = getShapeBoundingBox(arrow);
 
-            // Arrow should have padding for the arrowhead
-            expect(bbox.minX).toBe(90);  // 100 - 10 (arrowSize)
-            expect(bbox.minY).toBe(90);
-            expect(bbox.maxX).toBe(210); // 200 + 10
-            expect(bbox.maxY).toBe(210);
+            // Arrow padding = arrowSize (10) + strokeWidth/2 (1) = 11
+            const arrowPad = 10 + SW_PAD;
+            expect(bbox.minX).toBe(100 - arrowPad);
+            expect(bbox.minY).toBe(100 - arrowPad);
+            expect(bbox.maxX).toBe(200 + arrowPad);
+            expect(bbox.maxY).toBe(200 + arrowPad);
         });
     });
 
@@ -209,10 +219,10 @@ describe('getShapeBoundingBox', () => {
             );
             const bbox = getShapeBoundingBox(triangle);
 
-            expect(bbox.minX).toBe(0);
-            expect(bbox.maxX).toBe(100);
-            expect(bbox.minY).toBe(100);
-            expect(bbox.maxY).toBe(200);
+            expect(bbox.minX).toBe(0 - SW_PAD);
+            expect(bbox.maxX).toBe(100 + SW_PAD);
+            expect(bbox.minY).toBe(100 - SW_PAD);
+            expect(bbox.maxY).toBe(200 + SW_PAD);
         });
     });
 });
@@ -228,8 +238,8 @@ describe('getCombinedBoundingBox', () => {
         const bbox = getCombinedBoundingBox([rect]);
 
         expect(bbox).not.toBeNull();
-        expect(bbox!.minX).toBe(10);
-        expect(bbox!.maxX).toBe(60);
+        expect(bbox!.minX).toBe(10 - SW_PAD);
+        expect(bbox!.maxX).toBe(60 + SW_PAD);
     });
 
     it('should combine multiple shapes into one bounding box', () => {
@@ -239,10 +249,10 @@ describe('getCombinedBoundingBox', () => {
         const bbox = getCombinedBoundingBox([rect1, rect2]);
 
         expect(bbox).not.toBeNull();
-        expect(bbox!.minX).toBe(0);    // From rect1
-        expect(bbox!.minY).toBe(0);    // From rect1
-        expect(bbox!.maxX).toBe(150);  // From rect2 (100 + 50)
-        expect(bbox!.maxY).toBe(150);  // From rect2 (100 + 50)
+        expect(bbox!.minX).toBe(0 - SW_PAD);    // From rect1
+        expect(bbox!.minY).toBe(0 - SW_PAD);    // From rect1
+        expect(bbox!.maxX).toBe(150 + SW_PAD);  // From rect2 (100 + 50 + pad)
+        expect(bbox!.maxY).toBe(150 + SW_PAD);  // From rect2 (100 + 50 + pad)
     });
 
     it('should combine different shape types', () => {
@@ -252,10 +262,10 @@ describe('getCombinedBoundingBox', () => {
         const bbox = getCombinedBoundingBox([rect, circle]);
 
         expect(bbox).not.toBeNull();
-        expect(bbox!.minX).toBe(0);    // From rect
-        expect(bbox!.minY).toBe(0);    // From rect
-        expect(bbox!.maxX).toBe(225);  // From circle (200 + 25)
-        expect(bbox!.maxY).toBe(225);  // From circle (200 + 25)
+        expect(bbox!.minX).toBe(0 - SW_PAD);    // From rect
+        expect(bbox!.minY).toBe(0 - SW_PAD);    // From rect
+        expect(bbox!.maxX).toBe(225 + SW_PAD);  // From circle (200 + 25 + pad)
+        expect(bbox!.maxY).toBe(225 + SW_PAD);  // From circle (200 + 25 + pad)
     });
 });
 

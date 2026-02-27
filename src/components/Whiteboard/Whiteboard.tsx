@@ -65,6 +65,7 @@ import GridRenderer from './GridRenderer';
 import MiniMap from './components/MiniMap';
 import RecenterButton from './components/RecenterButton';
 import { UsernameModal } from './components/UsernameModal';
+import PresenceBadge from './components/PresenceBadge';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 
@@ -2953,6 +2954,9 @@ export default function Whiteboard() {
         <Trash2 size={16} />
         <span>Clear</span>
       </button>
+
+      {/* Task 1.4.3-B: Presence Badge — top-right corner, shows live collaborators */}
+      <PresenceBadge users={users} />
 
       {/* Task 1.3.1-B: Username Modal — blocks canvas until name is provided */}
       {!userName && (

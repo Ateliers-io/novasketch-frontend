@@ -11,6 +11,7 @@
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { IndexeddbPersistence } from 'y-indexeddb';
+import * as decoding from 'lib0/decoding';
 
 // Types matching the Whiteboard component
 export interface StrokeLine {
@@ -87,6 +88,8 @@ export interface SyncServiceConfig {
     onSyncStatusChange?: (synced: boolean) => void;
     // Task 1.3.3-B: notifies React when the list of collaborators changes
     onAwarenessUpdate?: (users: { name: string; color: string }[]) => void;
+    // Task 1.5.1: Notifies React for system events like session_locked
+    onSystemEvent?: (event: any) => void;
 }
 
 class SyncService {
@@ -171,6 +174,32 @@ class SyncService {
             const connected = event.status === 'connected';
             console.log(`[SyncService] WebSocket ${connected ? 'connected' : 'disconnected'}`);
             this.config.onConnectionChange?.(connected);
+
+            // Setup listener for custom backend messages (type 4 - presence/events)
+            if (connected && this.wsProvider && (this.wsProvider as any).ws) {
+                const ws = (this.wsProvider as any).ws as WebSocket;
+                // Avoid Duplicate Listeners (ws is created anew on reconnect)
+                ws.addEventListener('message', async (messageEvent) => {
+                    try {
+                        const data = messageEvent.data;
+                        let buffer: ArrayBuffer;
+                        if (data instanceof Blob) {
+                            buffer = await data.arrayBuffer();
+                        } else {
+                            buffer = data;
+                        }
+
+                        const decoder = decoding.createDecoder(new Uint8Array(buffer));
+                        const messageType = decoding.readVarUint(decoder);
+                        if (messageType === 4 && this.config.onSystemEvent) {
+                            const jsonStr = decoding.readVarString(decoder);
+                            this.config.onSystemEvent(JSON.parse(jsonStr));
+                        }
+                    } catch (e) {
+                        // ignore parsing errors for sync messages
+                    }
+                });
+            }
         });
 
         // Task 1.3.3-B / Fix: Subscribe to awareness changes to track connected users.

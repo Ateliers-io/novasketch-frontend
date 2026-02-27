@@ -85,6 +85,8 @@ export interface SyncServiceConfig {
     onStateChange: SyncStateChangeHandler;
     onConnectionChange?: (connected: boolean) => void;
     onSyncStatusChange?: (synced: boolean) => void;
+    // Task 1.3.3-B: notifies React when the list of collaborators changes
+    onAwarenessUpdate?: (users: { name: string; color: string }[]) => void;
 }
 
 class SyncService {
@@ -171,6 +173,16 @@ class SyncService {
             this.config.onConnectionChange?.(connected);
         });
 
+        // Task 1.3.3-B: Subscribe to awareness changes to track connected users
+        this.wsProvider.awareness.on('change', () => {
+            if (!this.config.onAwarenessUpdate) return;
+            const states = Array.from(this.wsProvider!.awareness.getStates().values());
+            const users = states
+                .map((state: any) => state.user)
+                .filter((u: any) => u?.name && u?.color) as { name: string; color: string }[];
+            this.config.onAwarenessUpdate(users);
+        });
+
         this.wsProvider.on('sync', (isSynced: boolean) => {
             console.log(`[SyncService] WebSocket sync status: ${isSynced}`);
             if (isSynced) {
@@ -205,6 +217,16 @@ class SyncService {
         this.doc.destroy();
         this.isInitialized = false;
         console.log('[SyncService] Destroyed');
+    }
+
+    // --- USER AWARENESS ---
+
+    /**
+     * Task 1.3.3-B: Publish this user's name + color to all collaborators
+     * via the Yjs Awareness protocol.
+     */
+    updateUserMetadata(metadata: { name: string; color: string }): void {
+        this.wsProvider?.awareness.setLocalStateField('user', metadata);
     }
 
     // --- LINE OPERATIONS ---

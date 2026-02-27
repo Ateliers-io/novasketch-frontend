@@ -89,6 +89,26 @@ export default function Whiteboard() {
     () => localStorage.getItem('novasketch_userName')
   );
 
+  // Task 1.3.3-A: Assign a persistent unique color to this user/browser instance
+  const [userColor] = useState<string>(() => {
+    const saved = localStorage.getItem('novasketch_userColor');
+    if (saved) return saved;
+    // Pick a distinct color from a curated neon palette
+    const PALETTE = [
+      '#FF3366', '#FF9933', '#FFCC00', '#33FF99',
+      '#33CCFF', '#CC33FF', '#FF00CC', '#00FFFF',
+    ];
+    const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+    localStorage.setItem('novasketch_userColor', color);
+    return color;
+  });
+
+  // Task 1.3.3-A: Compose the user metadata object (name + color)
+  const userMetadata = useMemo(() => ({
+    name: userName ?? 'Anonymous',
+    color: userColor,
+  }), [userName, userColor]);
+
 
   // syncing everything with yjs.
   // this hook does all the heavy lifting for real-time collab.
@@ -117,10 +137,24 @@ export default function Whiteboard() {
     clearAll,
     canvasBackgroundColor,
     setCanvasBackgroundColor,
+    users,
+    updateUserMetadata,
   } = useSync({ roomId, wsUrl: WS_URL });
+
+  // Task 1.3.3-B: Broadcast our identity to collaborators as soon as we connect
+  useEffect(() => {
+    if (isConnected && userName) {
+      updateUserMetadata(userMetadata);
+    }
+  }, [isConnected, userName, userMetadata, updateUserMetadata]);
 
   // local ref to avoid staleness in event handlers.
   // local ref to avoid staleness in event handlers.
+
+  // 🔍 TEMP: Remove after verifying Task 1.3.3-B
+  useEffect(() => {
+    console.log('[AWARENESS] Connected users in room:', users);
+  }, [users]);
   const linesRef = useRef(lines);
   useEffect(() => { linesRef.current = lines; }, [lines]);
 

@@ -13,6 +13,7 @@ interface UseKeyboardShortcutsOptions {
     selectedTextIds: Set<string>;
     activeTextInput: { x: number; y: number } | null;
     activeTool: ActiveTool;
+    isLocked: boolean;
 
     setSelectedShapeIds: (ids: Set<string>) => void;
     setSelectedLineIds: (ids: Set<string>) => void;
@@ -53,9 +54,25 @@ export function useKeyboardShortcuts({
     addToHistory,
     performUndo,
     performRedo,
+    isLocked,
 }: UseKeyboardShortcutsOptions) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Task 1.5.3: Panning shortcut is allowed even when locked.
+            if (!activeTextInput && !e.ctrlKey && !e.metaKey && e.key === 'h') {
+                setActiveTool(ToolType.HAND);
+            }
+
+            // Task 1.5.3: Escape is allowed to clear selection
+            if (e.key === 'Escape') {
+                setSelectedShapeIds(new Set());
+                setSelectedLineIds(new Set());
+                setSelectedTextIds(new Set());
+                setActiveTextInput(null);
+            }
+
+            // Task 1.5.3: If session is locked, block ALL other shortcuts (undo, delete, tool switching).
+            if (isLocked) return;
             // Ctrl+A: Select All Items (shapes, lines, text)
             if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
                 e.preventDefault(); // Prevent browser's "Select All" text behavior
@@ -67,14 +84,6 @@ export function useKeyboardShortcuts({
                     // Switch to selection tool automatically
                     setActiveTool('select');
                 }
-            }
-
-            // Escape: Deselect All
-            if (e.key === 'Escape') {
-                setSelectedShapeIds(new Set());
-                setSelectedLineIds(new Set());
-                setSelectedTextIds(new Set());
-                setActiveTextInput(null);
             }
 
             // Delete/Backspace: Delete All Selected Items
@@ -115,7 +124,7 @@ export function useKeyboardShortcuts({
             // Tool shortcuts (only when not typing)
             if (!activeTextInput && !e.ctrlKey && !e.metaKey) {
                 if (e.key === 'g') setActiveTool(ToolType.FILL_BUCKET);
-                if (e.key === 'h') setActiveTool(ToolType.HAND);
+                // (h is handled at the top)
                 if (e.key === 'v') setActiveTool('select');
                 if (e.key === 'p') setActiveTool(ToolType.PEN);
                 if (e.key === 'e') setActiveTool('eraser');
@@ -128,5 +137,5 @@ export function useKeyboardShortcuts({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [shapes, lines, textAnnotations, selectedShapeIds, selectedLineIds, selectedTextIds, activeTextInput, performUndo, performRedo]);
+    }, [shapes, lines, textAnnotations, selectedShapeIds, selectedLineIds, selectedTextIds, activeTextInput, performUndo, performRedo, isLocked]);
 }

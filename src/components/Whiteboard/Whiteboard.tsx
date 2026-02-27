@@ -427,6 +427,7 @@ export default function Whiteboard({
     addToHistory,
     performUndo,
     performRedo,
+    isLocked,
   });
 
   // Task 5.2: Keyboard Zoom Shortcuts (Ctrl+= / Ctrl+- / Ctrl+0)
@@ -897,6 +898,9 @@ export default function Whiteboard({
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
+    // Task 1.5.3: Block text editing when locked
+    if (isLocked) return;
+
     const { x, y } = getPointerPos(e);
     const clickedItem = findElementAtPoint(x, y);
     if (clickedItem && clickedItem.type === 'text') {
@@ -990,6 +994,9 @@ export default function Whiteboard({
       }
       return;
     }
+
+    // Task 1.5.3: Block ALL other interactions if locked
+    if (isLocked) return;
 
     // Check if clicking resize handles
     const nativeTarget = ('nativeEvent' in e ? e.nativeEvent.target : e.target) as Element;
@@ -2442,8 +2449,8 @@ export default function Whiteboard({
               }
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shadow-lg backdrop-blur-md border ${isLocked
-                ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 hover:bg-amber-500/30'
-                : 'bg-[#1F2833]/80 text-[#66FCF1] border-[#66FCF1]/30 hover:bg-[#1F2833]'
+              ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 hover:bg-amber-500/30'
+              : 'bg-[#1F2833]/80 text-[#66FCF1] border-[#66FCF1]/30 hover:bg-[#1F2833]'
               }`}
           >
             {isLocked ? <Unlock size={14} /> : <Lock size={14} />}

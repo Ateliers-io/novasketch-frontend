@@ -173,13 +173,22 @@ class SyncService {
             this.config.onConnectionChange?.(connected);
         });
 
-        // Task 1.3.3-B: Subscribe to awareness changes to track connected users
+        // Task 1.3.3-B / Fix: Subscribe to awareness changes to track connected users.
+        // Deduplication by name prevents ghost duplicates when a user refreshes —
+        // the old WebSocket connection lingers briefly, leaving a stale awareness entry
+        // with the same name/color. A Set<string> ensures only one entry per unique name.
         this.wsProvider.awareness.on('change', () => {
             if (!this.config.onAwarenessUpdate) return;
             const states = Array.from(this.wsProvider!.awareness.getStates().values());
+            const seen = new Set<string>();
             const users = states
                 .map((state: any) => state.user)
-                .filter((u: any) => u?.name && u?.color) as { name: string; color: string }[];
+                .filter((u: any) => {
+                    if (!u?.name || !u?.color) return false;
+                    if (seen.has(u.name)) return false;  // skip ghost duplicates
+                    seen.add(u.name);
+                    return true;
+                }) as { name: string; color: string }[];
             this.config.onAwarenessUpdate(users);
         });
 

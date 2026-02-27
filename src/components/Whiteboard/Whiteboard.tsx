@@ -77,7 +77,7 @@ const GRID_DOT_COLOR = '#45A29E';
 const DEFAULT_STROKE_COLOR = '#66FCF1';
 
 // Monolithic whiteboard component. needs splitting up.
-export default function Whiteboard() {
+export default function Whiteboard({ initialLocked = false }: { initialLocked?: boolean }) {
   const { id: boardId } = useParams<{ id: string }>();
   const roomId = boardId || 'default-room';
 
@@ -140,7 +140,9 @@ export default function Whiteboard() {
     setCanvasBackgroundColor,
     users,
     updateUserMetadata,
-  } = useSync({ roomId, wsUrl: WS_URL });
+    isLocked,
+    setIsLocked,
+  } = useSync({ roomId, wsUrl: WS_URL, initialLocked });
 
   // Task 1.3.3-B: Broadcast our identity to collaborators as soon as we connect
   useEffect(() => {

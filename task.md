@@ -16,7 +16,7 @@ This document outlines the frontend-only tasks for implementing "Read-Only" mode
 *   **Read-Only Indicator:** Add a prominent "Read-Only" badge in the header or toolbar area for guests.
 *   **Lock/Unlock Control:** Add a "Lock Session" toggle/button in the UI (e.g., in the header) that is only visible and functional for the session owner.
 
-## 1.5.3: Canvas & Interaction Restrictions
+## 1.5.3: Canvas & Interaction Restrictions (✅ IMPLEMENTED)
 **Objective:** Prevent write actions on the Konva canvas and keyboard shortcuts.
 
 *   **Canvas Interaction Blocking:** In `Whiteboard.tsx`, add top-level guard clauses to `handlePointerDown`, `handlePointerMove`, and `handlePointerUp` to prevent any drawing, selecting, or moving if `isLocked` is true (allow only the `Hand` tool panning/zooming).

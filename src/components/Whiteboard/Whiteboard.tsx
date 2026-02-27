@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Stage, Layer, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import DOMPurify from 'dompurify';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Lock, Unlock } from 'lucide-react';
 import Toolbar, { ActiveTool, EraserMode } from '../Toolbar/Toolbar';
 import {
   ToolType,
@@ -72,14 +72,26 @@ import { useSelectionBounds } from './hooks/useSelectionBounds';
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
 
+import { useAuth } from '../../contexts';
+import { SessionInfo, toggleSessionLock } from '../../services/session.service';
+
 // magical constants.
 const GRID_DOT_COLOR = '#45A29E';
 const DEFAULT_STROKE_COLOR = '#66FCF1';
 
 // Monolithic whiteboard component. needs splitting up.
-export default function Whiteboard({ initialLocked = false }: { initialLocked?: boolean }) {
+export default function Whiteboard({
+  initialLocked = false,
+  sessionInfo
+}: {
+  initialLocked?: boolean;
+  sessionInfo?: SessionInfo | null;
+}) {
   const { id: boardId } = useParams<{ id: string }>();
   const roomId = boardId || 'default-room';
+
+  const { user } = useAuth();
+  const isOwner = user?.id === sessionInfo?.createdBy;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -214,6 +226,14 @@ export default function Whiteboard({ initialLocked = false }: { initialLocked?: 
 
   // Initialize tool state
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
+
+  // Task 1.5.2: If the session locks, immediately fall back to the Hand tool to stop interaction.
+  useEffect(() => {
+    if (isLocked) {
+      setActiveTool(ToolType.HAND);
+    }
+  }, [isLocked]);
+
   const [activeColorMode, setActiveColorMode] = useState<'stroke' | 'fill'>('stroke'); // 'stroke' or 'fill'
   const [isDrawing, setIsDrawing] = useState(false);
   const [isToolLocked, setIsToolLocked] = useState(false); // Lock tool for multiple drawings
@@ -2403,7 +2423,37 @@ export default function Whiteboard({ initialLocked = false }: { initialLocked?: 
         </div>
       </div>
 
+      {/* Task 1.5.2: Read-Only Indicator & Lock Toggle */}
+      <div className="fixed top-14 right-4 z-50 pointer-events-auto flex items-center gap-2">
+        {isLocked && (
+          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-500 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-1.5 backdrop-blur-md">
+            <Lock size={12} className="animate-pulse" />
+            Read-Only
+          </div>
+        )}
+        {isOwner && (
+          <button
+            onClick={async () => {
+              try {
+                const newStatus = await toggleSessionLock(roomId, !isLocked);
+                setIsLocked(newStatus);
+              } catch (e) {
+                console.error("Failed to toggle lock", e);
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shadow-lg backdrop-blur-md border ${isLocked
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 hover:bg-amber-500/30'
+                : 'bg-[#1F2833]/80 text-[#66FCF1] border-[#66FCF1]/30 hover:bg-[#1F2833]'
+              }`}
+          >
+            {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
+            {isLocked ? 'Unlock Session' : 'Lock Session'}
+          </button>
+        )}
+      </div>
+
       <Toolbar
+        isSessionLocked={isLocked}
         activeTool={activeTool}
         onToolChange={setActiveTool}
         isToolLocked={isToolLocked}

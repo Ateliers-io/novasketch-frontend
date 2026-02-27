@@ -91,7 +91,13 @@ export default function Whiteboard({
   const roomId = boardId || 'default-room';
 
   const { user } = useAuth();
-  const isOwner = user?.id === sessionInfo?.createdBy;
+
+  // Checking local storage fallback due to missing backend session ownership logic
+  const ownedBoards = (() => {
+    try { return JSON.parse(localStorage.getItem('novasketch_owned_boards') || '[]'); }
+    catch { return []; }
+  })();
+  const isOwner = (user?.id === sessionInfo?.createdBy) || ownedBoards.includes(roomId);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -154,7 +160,11 @@ export default function Whiteboard({
     updateUserMetadata,
     isLocked,
     setIsLocked,
+    setSessionLocked,
   } = useSync({ roomId, wsUrl: WS_URL, initialLocked });
+
+  // Task 1.5 fix: Owner should NEVER be locked. Only guests see the lock.
+  const isEffectivelyLocked = isLocked && !isOwner;
 
   // Task 1.3.3-B: Broadcast our identity to collaborators as soon as we connect
   useEffect(() => {
@@ -227,12 +237,12 @@ export default function Whiteboard({
   // Initialize tool state
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
 
-  // Task 1.5.2: If the session locks, immediately fall back to the Hand tool to stop interaction.
+  // Task 1.5.2: If the session locks AND this user is a guest, fall back to Hand tool.
   useEffect(() => {
-    if (isLocked) {
+    if (isEffectivelyLocked) {
       setActiveTool(ToolType.HAND);
     }
-  }, [isLocked]);
+  }, [isEffectivelyLocked]);
 
   const [activeColorMode, setActiveColorMode] = useState<'stroke' | 'fill'>('stroke'); // 'stroke' or 'fill'
   const [isDrawing, setIsDrawing] = useState(false);
@@ -427,7 +437,7 @@ export default function Whiteboard({
     addToHistory,
     performUndo,
     performRedo,
-    isLocked,
+    isLocked: isEffectivelyLocked,
   });
 
   // Task 5.2: Keyboard Zoom Shortcuts (Ctrl+= / Ctrl+- / Ctrl+0)
@@ -898,8 +908,8 @@ export default function Whiteboard({
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
-    // Task 1.5.3: Block text editing when locked
-    if (isLocked) return;
+    // Task 1.5.3: Block text editing when locked (guests only)
+    if (isEffectivelyLocked) return;
 
     const { x, y } = getPointerPos(e);
     const clickedItem = findElementAtPoint(x, y);
@@ -995,8 +1005,8 @@ export default function Whiteboard({
       return;
     }
 
-    // Task 1.5.3: Block ALL other interactions if locked
-    if (isLocked) return;
+    // Task 1.5.3: Block ALL other interactions if locked (guests only)
+    if (isEffectivelyLocked) return;
 
     // Check if clicking resize handles
     const nativeTarget = ('nativeEvent' in e ? e.nativeEvent.target : e.target) as Element;
@@ -2432,7 +2442,7 @@ export default function Whiteboard({
 
       {/* Task 1.5.2: Read-Only Indicator & Lock Toggle */}
       <div className="fixed top-14 right-4 z-50 pointer-events-auto flex items-center gap-2">
-        {isLocked && (
+        {isEffectivelyLocked && (
           <div className="bg-amber-500/10 border border-amber-500/30 text-amber-500 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-1.5 backdrop-blur-md">
             <Lock size={12} className="animate-pulse" />
             Read-Only
@@ -2444,6 +2454,8 @@ export default function Whiteboard({
               try {
                 const newStatus = await toggleSessionLock(roomId, !isLocked);
                 setIsLocked(newStatus);
+                // Broadcast lock state change via Yjs for real-time sync to guests
+                setSessionLocked(newStatus);
               } catch (e) {
                 console.error("Failed to toggle lock", e);
               }
@@ -2460,7 +2472,7 @@ export default function Whiteboard({
       </div>
 
       <Toolbar
-        isSessionLocked={isLocked}
+        isSessionLocked={isEffectivelyLocked}
         activeTool={activeTool}
         onToolChange={setActiveTool}
         isToolLocked={isToolLocked}

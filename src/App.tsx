@@ -1,10 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, ThemeProvider, useAuth } from './contexts';
 import { Landing } from './components/pages/Landing';
 import { Dashboard } from './components/pages/Dashboard';
 import { Login } from './components/pages/Auth/Login';
 import { BoardPage } from './components/pages/Board';
 import { PageNotFound } from './components/pages/NotFound/PageNotFound';
+import SplashCursor from './components/SplashCursor';
 
 // simple spinner for async auth checks.
 const LoadingScreen = () => (
@@ -31,28 +32,34 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 
 function AppRoutes() {
+  const location = useLocation();
+  const isWhiteboardPage = location.pathname.startsWith('/board/');
+
   return (
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/auth" element={<Login />} />
+    <>
+      {!isWhiteboardPage && <SplashCursor />}
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/auth" element={<Login />} />
 
-      {/* dashboard temporarily exposed without auth for dev convenience */}
-      <Route
-        path="/home"
-        element={<Dashboard />}
-      />
+        {/* dashboard temporarily exposed without auth for dev convenience */}
+        <Route
+          path="/home"
+          element={<Dashboard />}
+        />
 
-      {/* whiteboard route. BoardPage validates the session first,
-          then renders the Whiteboard.
-          TODO: wrap in ProtectedRoute before shipping to prod. */}
-      <Route
-        path="/board/:id"
-        element={<BoardPage />}
-      />
+        {/* whiteboard route. BoardPage validates the session first,
+            then renders the Whiteboard.
+            TODO: wrap in ProtectedRoute before shipping to prod. */}
+        <Route
+          path="/board/:id"
+          element={<BoardPage />}
+        />
 
-      {/* Any unmatched URL shows a 404 error page */}
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+        {/* Any unmatched URL shows a 404 error page */}
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </>
   );
 }
 

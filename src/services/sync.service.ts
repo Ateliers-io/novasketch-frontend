@@ -76,6 +76,7 @@ export interface SyncState {
     shapes: Shape[];
     textAnnotations: TextAnnotation[];
     canvasBackgroundColor: string;
+    isLocked: boolean;
 }
 
 export type SyncStateChangeHandler = (state: SyncState) => void;
@@ -90,6 +91,8 @@ export interface SyncServiceConfig {
     onAwarenessUpdate?: (users: { name: string; color: string }[]) => void;
     // Task 1.5.1: Notifies React for system events like session_locked
     onSystemEvent?: (event: any) => void;
+    // Task 1.5 fix: Dedicated callback for lock state changes via Yjs yMeta
+    onLockChange?: (locked: boolean) => void;
 }
 
 class SyncService {
@@ -128,13 +131,22 @@ class SyncService {
                 shapes: this.yShapes.toArray(),
                 textAnnotations: this.yTexts.toArray(),
                 canvasBackgroundColor: this.yMeta.get('bgColor') || '#0B0C10',
+                isLocked: this.yMeta.get('isLocked') === true,
             });
         };
 
         this.yLines.observe(notifyChange);
         this.yShapes.observe(notifyChange);
         this.yTexts.observe(notifyChange);
-        this.yMeta.observe(notifyChange);
+
+        // Observe yMeta for general changes AND dedicated lock change detection
+        this.yMeta.observe((event) => {
+            notifyChange();
+            // Fire dedicated lock callback when isLocked key changes
+            if (event.keysChanged.has('isLocked') && this.config.onLockChange) {
+                this.config.onLockChange(this.yMeta.get('isLocked') === true);
+            }
+        });
     }
 
     /**
@@ -163,6 +175,7 @@ class SyncService {
             shapes: this.yShapes.toArray(),
             textAnnotations: this.yTexts.toArray(),
             canvasBackgroundColor: this.yMeta.get('bgColor') || '#0B0C10',
+            isLocked: this.yMeta.get('isLocked') === true,
         });
 
         // 2. Set up WebSocket provider for real-time sync
@@ -230,6 +243,7 @@ class SyncService {
                     shapes: this.yShapes.toArray(),
                     textAnnotations: this.yTexts.toArray(),
                     canvasBackgroundColor: this.yMeta.get('bgColor') || '#0B0C10',
+                    isLocked: this.yMeta.get('isLocked') === true,
                 });
             }
         });
@@ -438,6 +452,24 @@ class SyncService {
 
     isConnected(): boolean {
         return this.wsProvider?.wsconnected ?? false;
+    }
+
+    // --- SESSION LOCK (via Yjs yMeta for real-time broadcast) ---
+
+    /**
+     * Write the session lock state to the Yjs shared meta map.
+     * This propagates instantly to all connected clients via the existing
+     * WebSocket, so guests see the lock/unlock change in real-time.
+     * Uses 'local' origin so this action is undoable (owner's action).
+     */
+    setSessionLocked(locked: boolean): void {
+        this.doc.transact(() => {
+            this.yMeta.set('isLocked', locked);
+        }, 'local');
+    }
+
+    getSessionLocked(): boolean {
+        return this.yMeta.get('isLocked') === true;
     }
 }
 

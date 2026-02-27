@@ -27,6 +27,7 @@ interface UseSyncResult {
     // Session 
     isLocked: boolean;
     setIsLocked: (locked: boolean) => void;
+    setSessionLocked: (locked: boolean) => void;
 
     // Line operations
     addLine: (line: StrokeLine) => void;
@@ -124,8 +125,12 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
                 if (event.event === 'session_locked') {
                     console.log('[useSync] Server declared session locked!');
                     setIsLocked(true);
-                    // You could also emit a toast here. I will just rely on the UI updating.
                 }
+            },
+            // Task 1.5 fix: Real-time lock sync via Yjs yMeta map
+            onLockChange: (locked) => {
+                console.log(`[useSync] Lock state changed via Yjs: ${locked}`);
+                setIsLocked(locked);
             }
         });
 
@@ -249,6 +254,11 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         serviceRef.current?.updateUserMetadata(metadata);
     }, []);
 
+    // Task 1.5 fix: Write lock state to Yjs yMeta for real-time broadcast
+    const setSessionLocked = useCallback((locked: boolean) => {
+        serviceRef.current?.setSessionLocked(locked);
+    }, []);
+
     return {
         lines,
         shapes,
@@ -280,5 +290,6 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         updateUserMetadata,
         isLocked,
         setIsLocked,
+        setSessionLocked,
     };
 }

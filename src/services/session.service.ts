@@ -18,6 +18,7 @@ export interface SessionInfo {
     createdBy: string;
     createdAt: string;
     url: string;
+    is_locked?: boolean;
 }
 
 /**
@@ -77,5 +78,25 @@ export async function getSession(id: string): Promise<SessionInfo | null> {
         // Session not found or backend unavailable
         console.warn(`[SessionService] Could not fetch session ${id}.`);
         return null;
+    }
+}
+
+/**
+ * Toggle the read-only lock state of a session.
+ * 
+ * Takes the session ID and the desired boolean locked state.
+ * Returns the updated boolean locked state from the server.
+ * 
+ * @param id The session/room UUID
+ * @param is_locked The desired locked state
+ * @returns boolean true if successfully updated and is now locked, false otherwise
+ */
+export async function toggleSessionLock(id: string, is_locked: boolean): Promise<boolean> {
+    try {
+        const response = await api.patch(`/session/${id}/lock`, { is_locked });
+        return response.data.is_locked;
+    } catch (error) {
+        console.error(`[SessionService] Could not toggle lock for session ${id}.`, error);
+        throw error;
     }
 }

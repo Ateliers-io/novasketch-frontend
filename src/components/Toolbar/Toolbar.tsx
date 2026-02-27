@@ -93,6 +93,7 @@ interface ToolbarProps {
     onDeleteSelected?: () => void;
     gridConfig: GridConfig;
     onGridConfigChange: (config: GridConfig) => void;
+    isSessionLocked?: boolean;
 }
 
 /* --- BRUSH DATA --- */
@@ -201,6 +202,7 @@ export default function Toolbar({
     textAlign = 'left', onTextAlignChange, isTextSelected = false,
     onDeleteSelected,
     gridConfig, onGridConfigChange,
+    isSessionLocked = false,
 }: ToolbarProps) {
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const [showBrushMenu, setShowBrushMenu] = useState(false);
@@ -237,7 +239,7 @@ export default function Toolbar({
 
     return (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50" data-component="toolbar">
-            <div className="flex items-stretch gap-0 px-3 py-1.5 bg-[#151a1f]/97 backdrop-blur-2xl border border-[#2a333b]/80 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-[#dde3e8]">
+            <div className={`flex items-stretch gap-0 px-3 py-1.5 bg-[#151a1f]/97 backdrop-blur-2xl border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-[#dde3e8] transition-all duration-300 ${isSessionLocked ? 'opacity-50 pointer-events-none border-amber-500/30' : 'opacity-100 border-[#2a333b]/80'}`}>
 
                 {/* ═══ HISTORY ═══ */}
                 <ToolSection label="History">

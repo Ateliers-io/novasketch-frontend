@@ -131,7 +131,7 @@ export const BoardPage = () => {
     }
 
     // --- FOUND STATE ---
-    return <Whiteboard initialLocked={sessionInfo?.is_locked || false} />;
+    return <Whiteboard initialLocked={sessionInfo?.is_locked || false} sessionInfo={sessionInfo} />;
 };
 
 export default BoardPage;

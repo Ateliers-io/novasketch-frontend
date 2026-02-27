@@ -9,6 +9,7 @@ import type { Shape } from '../types/shapes';
 interface UseSyncOptions {
     roomId: string;
     wsUrl?: string;
+    initialLocked?: boolean;
 }
 
 interface UseSyncResult {
@@ -22,6 +23,10 @@ interface UseSyncResult {
     isConnected: boolean;
     isSynced: boolean;
     isLoading: boolean;
+
+    // Session 
+    isLocked: boolean;
+    setIsLocked: (locked: boolean) => void;
 
     // Line operations
     addLine: (line: StrokeLine) => void;
@@ -61,7 +66,7 @@ interface UseSyncResult {
     updateUserMetadata: (metadata: { name: string; color: string }) => void;
 }
 
-export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
+export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions): UseSyncResult {
     const [lines, setLinesState] = useState<StrokeLine[]>([]);
     const [shapes, setShapesState] = useState<Shape[]>([]);
     const [textAnnotations, setTextAnnotationsState] = useState<TextAnnotation[]>([]);
@@ -70,6 +75,14 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
     const [isConnected, setIsConnected] = useState(false);
     const [isSynced, setIsSynced] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Task 1.5.1: Listen to session locked state
+    const [isLocked, setIsLocked] = useState(initialLocked);
+
+    // If the prop changes from a parent fetch, update local state
+    useEffect(() => {
+        setIsLocked(initialLocked);
+    }, [initialLocked]);
 
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
@@ -107,6 +120,13 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
             onAwarenessUpdate: (updatedUsers) => {
                 setUsers(updatedUsers);
             },
+            onSystemEvent: (event) => {
+                if (event.event === 'session_locked') {
+                    console.log('[useSync] Server declared session locked!');
+                    setIsLocked(true);
+                    // You could also emit a toast here. I will just rely on the UI updating.
+                }
+            }
         });
 
         serviceRef.current = service;
@@ -258,5 +278,7 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
         clearAll,
         users,
         updateUserMetadata,
+        isLocked,
+        setIsLocked,
     };
 }

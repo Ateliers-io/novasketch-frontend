@@ -52,12 +52,28 @@ export async function createSession(name?: string): Promise<{ sessionId: string;
     try {
         const response = await api.post('/session', { name: name || 'Untitled Board' });
         const { sessionId, url } = response.data;
+
+        // Track ownership locally since backend assigns 'anonymous' globally across all unprotected routes
+        const owned = JSON.parse(localStorage.getItem('novasketch_owned_boards') || '[]');
+        if (!owned.includes(sessionId)) {
+            owned.push(sessionId);
+            localStorage.setItem('novasketch_owned_boards', JSON.stringify(owned));
+        }
+
         return { sessionId, url: url || `/board/${sessionId}` };
     } catch (error) {
         // Backend not available — fall back to client-generated UUID.
         // This ensures the frontend works even before 1.1.1 is deployed.
         console.warn('[SessionService] Backend unavailable, using client-generated session ID.');
         const sessionId = generateClientUUID();
+
+        // Track ownership locally for fallback client generated rooms
+        const owned = JSON.parse(localStorage.getItem('novasketch_owned_boards') || '[]');
+        if (!owned.includes(sessionId)) {
+            owned.push(sessionId);
+            localStorage.setItem('novasketch_owned_boards', JSON.stringify(owned));
+        }
+
         return { sessionId, url: `/board/${sessionId}` };
     }
 }

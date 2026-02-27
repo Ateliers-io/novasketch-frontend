@@ -55,6 +55,10 @@ interface UseSyncResult {
 
     // Clear
     clearAll: () => void;
+
+    // Awareness / presence
+    users: { name: string; color: string }[];
+    updateUserMetadata: (metadata: { name: string; color: string }) => void;
 }
 
 export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
@@ -69,6 +73,9 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
 
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
+
+    // Task 1.3.3-B: Live list of connected collaborators
+    const [users, setUsers] = useState<{ name: string; color: string }[]>([]);
 
     const serviceRef = useRef<SyncService | null>(null);
 
@@ -94,9 +101,11 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
             },
             onSyncStatusChange: (synced) => {
                 setIsSynced(synced);
-                if (synced) {
-                    setIsLoading(false);
-                }
+                if (synced) setIsLoading(false);
+            },
+            // Task 1.3.3-B: update React state whenever awareness changes
+            onAwarenessUpdate: (updatedUsers) => {
+                setUsers(updatedUsers);
             },
         });
 
@@ -215,6 +224,11 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
         updateUndoRedoState();
     }, [updateUndoRedoState]);
 
+    // Task 1.3.3-B: Broadcast user identity via Yjs awareness
+    const updateUserMetadata = useCallback((metadata: { name: string; color: string }) => {
+        serviceRef.current?.updateUserMetadata(metadata);
+    }, []);
+
     return {
         lines,
         shapes,
@@ -242,5 +256,7 @@ export function useSync({ roomId, wsUrl }: UseSyncOptions): UseSyncResult {
         canUndo,
         canRedo,
         clearAll,
+        users,
+        updateUserMetadata,
     };
 }

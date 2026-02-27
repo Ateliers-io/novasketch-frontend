@@ -64,6 +64,7 @@ import { GridConfig, DEFAULT_GRID_CONFIG } from '../../types/grid';
 import GridRenderer from './GridRenderer';
 import MiniMap from './components/MiniMap';
 import RecenterButton from './components/RecenterButton';
+import { UsernameModal } from './components/UsernameModal';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 
@@ -82,6 +83,11 @@ export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  // Task 1.3.1-B: Track username — null means modal is shown
+  const [userName, setUserName] = useState<string | null>(
+    () => localStorage.getItem('novasketch_userName')
+  );
 
 
   // syncing everything with yjs.
@@ -906,6 +912,9 @@ export default function Whiteboard() {
   // Core handler for pointer down events. 
   // currently manages multiple interaction modes; candidate for refactoring into smaller handlers.
   const handlePointerDown = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
+    // Task 1.3.1-B: Block canvas interactions until username is set
+    if (!userName) return;
+
     // Check if clicking on UI (Toolbar)
     if ((e.target as HTMLElement).closest?.('[data-component="toolbar"]')) {
       if (activeTextInput) commitText();
@@ -2910,6 +2919,16 @@ export default function Whiteboard() {
         <Trash2 size={16} />
         <span>Clear</span>
       </button>
+
+      {/* Task 1.3.1-B: Username Modal — blocks canvas until name is provided */}
+      {!userName && (
+        <UsernameModal
+          onSubmit={(name) => {
+            localStorage.setItem('novasketch_userName', name);
+            setUserName(name);
+          }}
+        />
+      )}
     </div>
   );
 }

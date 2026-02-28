@@ -11,7 +11,28 @@
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { IndexeddbPersistence } from 'y-indexeddb';
-import * as decoding from 'lib0/decoding';
+// Inline varint decoding helpers (replaces lib0/decoding import).
+// lib0 is only a transitive dep of yjs and breaks production builds.
+const decoding = {
+    createDecoder(buf: Uint8Array) {
+        return { buf, pos: 0 };
+    },
+    readVarUint(decoder: { buf: Uint8Array; pos: number }): number {
+        let num = 0, shift = 0, byte: number;
+        do {
+            byte = decoder.buf[decoder.pos++];
+            num |= (byte & 0x7f) << shift;
+            shift += 7;
+        } while (byte & 0x80);
+        return num >>> 0;
+    },
+    readVarString(decoder: { buf: Uint8Array; pos: number }): string {
+        const len = decoding.readVarUint(decoder);
+        const bytes = decoder.buf.subarray(decoder.pos, decoder.pos + len);
+        decoder.pos += len;
+        return new TextDecoder().decode(bytes);
+    },
+};
 
 // Types matching the Whiteboard component
 export interface StrokeLine {

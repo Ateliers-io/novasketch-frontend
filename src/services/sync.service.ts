@@ -114,6 +114,8 @@ export interface SyncServiceConfig {
     onSystemEvent?: (event: any) => void;
     // Task 1.5 fix: Dedicated callback for lock state changes via Yjs yMeta
     onLockChange?: (locked: boolean) => void;
+    // Notifies React whenever the undo/redo stack changes so buttons update
+    onUndoRedoChange?: (canUndo: boolean, canRedo: boolean) => void;
 }
 
 class SyncService {
@@ -199,7 +201,26 @@ class SyncService {
             isLocked: this.yMeta.get('isLocked') === true,
         });
 
-        // 2. Set up WebSocket provider for real-time sync
+        // 2. Set up UndoManager BEFORE WebSocket so it's ready to track local transactions
+        // from the moment the first remote sync arrives and the user starts drawing.
+        // Task 1.5 fix: Excludes yMeta so Lock/Unlock state and bgColor are NOT undoable.
+        this.undoManager = new Y.UndoManager([this.yLines, this.yShapes, this.yTexts], {
+            trackedOrigins: new Set(['local']),
+        });
+
+        // Notify React whenever the undo/redo stack changes so the buttons stay in sync.
+        // This is necessary because UndoManager events fire outside React's render cycle.
+        const notifyUndoRedo = () => {
+            this.config.onUndoRedoChange?.(
+                this.canUndo(),
+                this.canRedo()
+            );
+        };
+        this.undoManager.on('stack-item-added', notifyUndoRedo);
+        this.undoManager.on('stack-item-popped', notifyUndoRedo);
+        this.undoManager.on('stack-cleared', notifyUndoRedo);
+
+        // 3. Set up WebSocket provider for real-time sync
         this.wsProvider = new WebsocketProvider(wsUrl, roomId, this.doc, {
             connect: true,
         });
@@ -267,13 +288,6 @@ class SyncService {
                     isLocked: this.yMeta.get('isLocked') === true,
                 });
             }
-        });
-
-        // 3. Set up UndoManager for undo/redo
-        // Utilizing Yjs built-in history management to handle CRDT conflicts automatically.
-        // trackedOrigins: 'local' ensures I only undo MY actions, not my teammate's.
-        this.undoManager = new Y.UndoManager([this.yLines, this.yShapes, this.yTexts, this.yMeta], {
-            trackedOrigins: new Set(['local']),
         });
 
         this.isInitialized = true;
@@ -486,7 +500,7 @@ class SyncService {
     setSessionLocked(locked: boolean): void {
         this.doc.transact(() => {
             this.yMeta.set('isLocked', locked);
-        }, 'local');
+        }, 'system');
     }
 
     getSessionLocked(): boolean {

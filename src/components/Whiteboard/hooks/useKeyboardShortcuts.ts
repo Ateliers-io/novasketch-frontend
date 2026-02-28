@@ -71,8 +71,25 @@ export function useKeyboardShortcuts({
                 setActiveTextInput(null);
             }
 
-            // Task 1.5.3: If session is locked, block ALL other shortcuts (undo, delete, tool switching).
+            // Task 1.5.3: If session is locked, block ALL shortcuts including undo/redo.
+            // Undo/redo are only available when the session is NOT locked.
             if (isLocked) return;
+
+            // Undo (Ctrl+Z / Cmd+Z) — only in unlocked sessions
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                performUndo();
+                return;
+            }
+
+            // Redo (Ctrl+Y / Cmd+Y) OR (Ctrl+Shift+Z / Cmd+Shift+Z) — only in unlocked sessions
+            if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+                ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')) {
+                e.preventDefault();
+                performRedo();
+                return;
+            }
+
             // Ctrl+A: Select All Items (shapes, lines, text)
             if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
                 e.preventDefault(); // Prevent browser's "Select All" text behavior
@@ -106,19 +123,6 @@ export function useKeyboardShortcuts({
                 setSelectedShapeIds(new Set());
                 setSelectedLineIds(new Set());
                 setSelectedTextIds(new Set());
-            }
-
-            // Undo (Ctrl+Z / Cmd+Z)
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-                e.preventDefault();
-                performUndo();
-            }
-
-            // Redo (Ctrl+Y / Cmd+Y) OR (Ctrl+Shift+Z / Cmd+Shift+Z)
-            if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
-                ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')) {
-                e.preventDefault();
-                performRedo();
             }
 
             // Tool shortcuts (only when not typing)

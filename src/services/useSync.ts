@@ -131,7 +131,13 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
             onLockChange: (locked) => {
                 console.log(`[useSync] Lock state changed via Yjs: ${locked}`);
                 setIsLocked(locked);
-            }
+            },
+            // Direct callback from UndoManager stack events — most reliable way to keep
+            // the undo/redo buttons accurate for ALL users including guests.
+            onUndoRedoChange: (canUndoVal, canRedoVal) => {
+                setCanUndo(canUndoVal);
+                setCanRedo(canRedoVal);
+            },
         });
 
         serviceRef.current = service;

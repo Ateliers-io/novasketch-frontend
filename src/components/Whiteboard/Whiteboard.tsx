@@ -181,7 +181,12 @@ export default function Whiteboard({
     console.log('[AWARENESS] Connected users in room:', users);
   }, [users]);
   const linesRef = useRef(lines);
+  const shapesRef = useRef(shapes);
+  const textAnnotationsRef = useRef(textAnnotations);
+
   useEffect(() => { linesRef.current = lines; }, [lines]);
+  useEffect(() => { shapesRef.current = shapes; }, [shapes]);
+  useEffect(() => { textAnnotationsRef.current = textAnnotations; }, [textAnnotations]);
 
   // Utilizing a ref for current stroke data to bypass React's render cycle for performance.
   // This helps maintain 60fps responsiveness during rapid drawing actions.
@@ -193,30 +198,36 @@ export default function Whiteboard({
   // legacy adaptors. hijacking state setters to route through yjs sync engine.
   const setLines = useCallback((updater: StrokeLine[] | ((prev: StrokeLine[]) => StrokeLine[])) => {
     if (typeof updater === 'function') {
-      const newLines = updater(lines);
+      const newLines = updater(linesRef.current);
       syncSetLines(newLines);
+      linesRef.current = newLines; // ensure immediate reads see changes within the same event
     } else {
       syncSetLines(updater);
+      linesRef.current = updater;
     }
-  }, [lines, syncSetLines]);
+  }, [syncSetLines]);
 
   const setShapes = useCallback((updater: Shape[] | ((prev: Shape[]) => Shape[])) => {
     if (typeof updater === 'function') {
-      const newShapes = updater(shapes);
+      const newShapes = updater(shapesRef.current);
       syncSetShapes(newShapes);
+      shapesRef.current = newShapes;
     } else {
       syncSetShapes(updater);
+      shapesRef.current = updater;
     }
-  }, [shapes, syncSetShapes]);
+  }, [syncSetShapes]);
 
   const setTextAnnotations = useCallback((updater: TextAnnotation[] | ((prev: TextAnnotation[]) => TextAnnotation[])) => {
     if (typeof updater === 'function') {
-      const newTexts = updater(textAnnotations);
+      const newTexts = updater(textAnnotationsRef.current);
       syncSetTexts(newTexts);
+      textAnnotationsRef.current = newTexts;
     } else {
       syncSetTexts(updater);
+      textAnnotationsRef.current = updater;
     }
-  }, [textAnnotations, syncSetTexts]);
+  }, [syncSetTexts]);
 
   // yjs handles history internally via UndoManager.
   // keeping this no-op signature to avoid breaking legacy calls scattered in event handlers.

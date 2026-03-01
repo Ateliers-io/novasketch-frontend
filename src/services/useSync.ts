@@ -65,6 +65,9 @@ interface UseSyncResult {
     // Awareness / presence
     users: { name: string; color: string }[];
     updateUserMetadata: (metadata: { name: string; color: string }) => void;
+
+    // Task 3.1.1: Live cursor broadcasting
+    updateCursorPosition: (x: number, y: number) => void;
 }
 
 export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions): UseSyncResult {
@@ -260,6 +263,11 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         serviceRef.current?.updateUserMetadata(metadata);
     }, []);
 
+    // Task 3.1.1: Broadcast cursor position to all collaborators
+    const updateCursorPosition = useCallback((x: number, y: number) => {
+        serviceRef.current?.updateCursorPosition(x, y);
+    }, []);
+
     // Task 1.5 fix: Write lock state to Yjs yMeta for real-time broadcast
     const setSessionLocked = useCallback((locked: boolean) => {
         serviceRef.current?.setSessionLocked(locked);
@@ -294,6 +302,7 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         clearAll,
         users,
         updateUserMetadata,
+        updateCursorPosition,
         isLocked,
         setIsLocked,
         setSessionLocked,

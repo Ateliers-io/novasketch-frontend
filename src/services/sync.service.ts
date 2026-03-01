@@ -108,8 +108,8 @@ export interface SyncServiceConfig {
     onStateChange: SyncStateChangeHandler;
     onConnectionChange?: (connected: boolean) => void;
     onSyncStatusChange?: (synced: boolean) => void;
-    // Task 1.3.3-B: notifies React when the list of collaborators changes
-    onAwarenessUpdate?: (users: { name: string; color: string }[]) => void;
+    // Task 1.3.3-B / 3.1.3: notifies React when collaborators or their cursor positions change
+    onAwarenessUpdate?: (users: { name: string; color: string; cursor?: { x: number; y: number } }[]) => void;
     // Task 1.5.1: Notifies React for system events like session_locked
     onSystemEvent?: (event: any) => void;
     // Task 1.5 fix: Dedicated callback for lock state changes via Yjs yMeta
@@ -258,21 +258,29 @@ class SyncService {
         });
 
         // Task 1.3.3-B / Fix: Subscribe to awareness changes to track connected users.
-        // Deduplication by name prevents ghost duplicates when a user refreshes —
-        // the old WebSocket connection lingers briefly, leaving a stale awareness entry
-        // with the same name/color. A Set<string> ensures only one entry per unique name.
+        // Task 3.1.3: Extended to also extract cursor positions for remote cursors.
+        // Deduplication by name prevents ghost duplicates when a user refreshes.
         this.wsProvider.awareness.on('change', () => {
             if (!this.config.onAwarenessUpdate) return;
-            const states = Array.from(this.wsProvider!.awareness.getStates().values());
+            const awareness = this.wsProvider!.awareness;
+            const localClientID = awareness.clientID;
             const seen = new Set<string>();
-            const users = states
-                .map((state: any) => state.user)
-                .filter((u: any) => {
-                    if (!u?.name || !u?.color) return false;
-                    if (seen.has(u.name)) return false;  // skip ghost duplicates
-                    seen.add(u.name);
-                    return true;
-                }) as { name: string; color: string }[];
+            const users: { name: string; color: string; cursor?: { x: number; y: number } }[] = [];
+
+            awareness.getStates().forEach((state: any, clientID: number) => {
+                const u = state.user;
+                if (!u?.name || !u?.color) return;
+                if (seen.has(u.name)) return;  // skip ghost duplicates
+                seen.add(u.name);
+
+                // Only include cursor data from OTHER users (not our own)
+                const cursor = (clientID !== localClientID && state.cursor)
+                    ? { x: state.cursor.x, y: state.cursor.y }
+                    : undefined;
+
+                users.push({ name: u.name, color: u.color, cursor });
+            });
+
             this.config.onAwarenessUpdate(users);
         });
 

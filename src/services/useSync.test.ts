@@ -10,6 +10,7 @@ vi.mock('./sync.service', () => ({
         destroy() { }
         canUndo() { return false; }
         canRedo() { return false; }
+        updateCursorPosition(_x: number, _y: number) { }
     }
 }));
 
@@ -38,5 +39,58 @@ describe('useSync Hook - Lock Feature', () => {
         });
 
         expect(result.current.isLocked).toBe(true);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Task 3.1.1: Cursor Broadcasting Tests
+// ─────────────────────────────────────────────────────────────
+describe('useSync Hook - Cursor Broadcasting (Task 3.1.1)', () => {
+    it('should expose updateCursorPosition function', () => {
+        const { result } = renderHook(() => useSync({ roomId: 'cursor-test' }));
+        expect(typeof result.current.updateCursorPosition).toBe('function');
+    });
+
+    it('should not throw when calling updateCursorPosition', () => {
+        const { result } = renderHook(() => useSync({ roomId: 'cursor-test' }));
+        expect(() => {
+            act(() => {
+                result.current.updateCursorPosition(100, 200);
+            });
+        }).not.toThrow();
+    });
+
+    it('should not throw when calling updateCursorPosition with negative coordinates', () => {
+        const { result } = renderHook(() => useSync({ roomId: 'cursor-test' }));
+        expect(() => {
+            act(() => {
+                result.current.updateCursorPosition(-50, -100);
+            });
+        }).not.toThrow();
+    });
+
+    it('should not throw when calling updateCursorPosition with zero', () => {
+        const { result } = renderHook(() => useSync({ roomId: 'cursor-test' }));
+        expect(() => {
+            act(() => {
+                result.current.updateCursorPosition(0, 0);
+            });
+        }).not.toThrow();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Task 3.1.3: Users State with Cursor Data
+// ─────────────────────────────────────────────────────────────
+describe('useSync Hook - Users State with Cursor (Task 3.1.3)', () => {
+    it('should initialize users as an empty array', () => {
+        const { result } = renderHook(() => useSync({ roomId: 'users-test' }));
+        expect(result.current.users).toEqual([]);
+    });
+
+    it('should expose users property that can hold cursor data', () => {
+        const { result } = renderHook(() => useSync({ roomId: 'users-test' }));
+        // The type allows cursor as optional, so the initial empty array is valid
+        expect(Array.isArray(result.current.users)).toBe(true);
     });
 });

@@ -316,6 +316,15 @@ class SyncService {
         this.wsProvider?.awareness.setLocalStateField('user', metadata);
     }
 
+    /**
+     * Task 3.1.1: Broadcast cursor position to all collaborators
+     * via the Yjs Awareness protocol. The backend already relays
+     * awareness messages (server.js case 1), so no server changes needed.
+     */
+    updateCursorPosition(x: number, y: number): void {
+        this.wsProvider?.awareness.setLocalStateField('cursor', { x, y });
+    }
+
     // --- LINE OPERATIONS ---
 
     addLine(line: StrokeLine): void {

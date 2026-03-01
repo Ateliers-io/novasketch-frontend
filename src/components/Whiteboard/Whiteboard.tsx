@@ -158,6 +158,7 @@ export default function Whiteboard({
     setCanvasBackgroundColor,
     users,
     updateUserMetadata,
+    updateCursorPosition,
     isLocked,
     setIsLocked,
     setSessionLocked,
@@ -1315,6 +1316,9 @@ export default function Whiteboard({
 
     const { x, y } = getPointerPos(e);
     setCursorPos({ x, y });
+
+    // Task 3.1.1: Broadcast cursor position to collaborators via Awareness
+    updateCursorPosition(x, y);
 
     // Task 4.2.4: Hover detection
     if (activeTool === 'select' && !isDraggingSelection && !isDrawing) {

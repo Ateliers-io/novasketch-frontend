@@ -185,6 +185,9 @@ export default function Whiteboard({
   const shapesRef = useRef(shapes);
   const textAnnotationsRef = useRef(textAnnotations);
 
+  // Task 3.1.2: Throttle cursor broadcasts to ~20 updates/sec (every 50ms)
+  const lastCursorBroadcastRef = useRef(0);
+
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { shapesRef.current = shapes; }, [shapes]);
   useEffect(() => { textAnnotationsRef.current = textAnnotations; }, [textAnnotations]);
@@ -1317,8 +1320,12 @@ export default function Whiteboard({
     const { x, y } = getPointerPos(e);
     setCursorPos({ x, y });
 
-    // Task 3.1.1: Broadcast cursor position to collaborators via Awareness
-    updateCursorPosition(x, y);
+    // Task 3.1.2: Throttle cursor broadcast to every 50ms (~20 updates/sec)
+    const now = Date.now();
+    if (now - lastCursorBroadcastRef.current > 50) {
+      updateCursorPosition(x, y);
+      lastCursorBroadcastRef.current = now;
+    }
 
     // Task 4.2.4: Hover detection
     if (activeTool === 'select' && !isDraggingSelection && !isDrawing) {

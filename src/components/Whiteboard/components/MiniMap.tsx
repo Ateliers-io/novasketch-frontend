@@ -24,6 +24,8 @@ interface MiniMapProps {
     stageScale: number;
     dimensions: { width: number; height: number };
     onNavigate: (worldX: number, worldY: number) => void;
+    // Task 3.1.3: Remote user cursors to render on the minimap
+    users?: { name: string; color: string; cursor?: { x: number; y: number } }[];
 }
 
 /**
@@ -87,6 +89,7 @@ const MiniMap: React.FC<MiniMapProps> = ({
     stageScale,
     dimensions,
     onNavigate,
+    users = [],
 }) => {
     // 1. Compute world bounds of all objects (with padding)
     const worldBounds = useMemo(() => {
@@ -340,6 +343,39 @@ const MiniMap: React.FC<MiniMapProps> = ({
                     style={{ pointerEvents: 'auto', cursor: 'grab' }}
                     onMouseDown={handleViewBoxMouseDown}
                 />
+
+                {/* Task 3.1.3: Remote user cursors */}
+                {users
+                    .filter(u => u.cursor)
+                    .map(u => {
+                        const cx = toMiniX(u.cursor!.x);
+                        const cy = toMiniY(u.cursor!.y);
+                        return (
+                            <g key={`cursor-${u.name}`}>
+                                {/* Cursor dot */}
+                                <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={3.5}
+                                    fill={u.color}
+                                    stroke="rgba(0,0,0,0.5)"
+                                    strokeWidth={0.8}
+                                    style={{ filter: `drop-shadow(0 0 2px ${u.color})` }}
+                                />
+                                {/* Name label */}
+                                <text
+                                    x={cx + 5}
+                                    y={cy + 1}
+                                    fontSize={7}
+                                    fontWeight="bold"
+                                    fill={u.color}
+                                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                >
+                                    {u.name}
+                                </text>
+                            </g>
+                        );
+                    })}
             </svg>
         </div>
     );

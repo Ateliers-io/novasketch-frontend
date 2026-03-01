@@ -62,8 +62,8 @@ interface UseSyncResult {
     // Clear
     clearAll: () => void;
 
-    // Awareness / presence
-    users: { name: string; color: string }[];
+    // Awareness / presence (Task 3.1.3: includes cursor position for remote users)
+    users: { name: string; color: string; cursor?: { x: number; y: number } }[];
     updateUserMetadata: (metadata: { name: string; color: string }) => void;
 
     // Task 3.1.1: Live cursor broadcasting
@@ -91,8 +91,8 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
 
-    // Task 1.3.3-B: Live list of connected collaborators
-    const [users, setUsers] = useState<{ name: string; color: string }[]>([]);
+    // Task 1.3.3-B / 3.1.3: Live list of connected collaborators (with cursor positions)
+    const [users, setUsers] = useState<{ name: string; color: string; cursor?: { x: number; y: number } }[]>([]);
 
     const serviceRef = useRef<SyncService | null>(null);
 

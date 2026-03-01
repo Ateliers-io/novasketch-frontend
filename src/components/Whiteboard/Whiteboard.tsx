@@ -66,6 +66,7 @@ import MiniMap from './components/MiniMap';
 import RecenterButton from './components/RecenterButton';
 import { UsernameModal } from './components/UsernameModal';
 import PresenceBadge from './components/PresenceBadge';
+import RemoteCursors from './components/RemoteCursors';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 
@@ -108,16 +109,23 @@ export default function Whiteboard({
     () => localStorage.getItem('novasketch_userName')
   );
 
-  // Task 1.3.3-A: Assign a persistent unique color to this user/browser instance
+  // Task 1.3.3-A / 3.1.3: Assign a unique color based on the username so each
+  // collaborator always gets a distinct cursor/avatar color.
   const [userColor] = useState<string>(() => {
-    const saved = localStorage.getItem('novasketch_userColor');
-    if (saved) return saved;
-    // Pick a distinct color from a curated neon palette
+    // Expanded palette with 16 visually distinct colors
     const PALETTE = [
-      '#FF3366', '#FF9933', '#FFCC00', '#33FF99',
-      '#33CCFF', '#CC33FF', '#FF00CC', '#00FFFF',
+      '#3B82F6', '#EC4899', '#10B981', '#F59E0B',
+      '#8B5CF6', '#EF4444', '#06B6D4', '#F97316',
+      '#14B8A6', '#E879F9', '#84CC16', '#FB923C',
+      '#6366F1', '#F43F5E', '#22D3EE', '#A3E635',
     ];
-    const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+    // Use a simple hash of the username to deterministically pick a color
+    const name = localStorage.getItem('novasketch_userName') || 'Anonymous';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    }
+    const color = PALETTE[Math.abs(hash) % PALETTE.length];
     localStorage.setItem('novasketch_userColor', color);
     return color;
   });
@@ -2977,6 +2985,7 @@ export default function Whiteboard({
         stagePos={stagePos}
         stageScale={stageScale}
         dimensions={dimensions}
+        users={users}
         onNavigate={(worldX, worldY) => {
           // Center the viewport on the clicked world position
           setStagePos({
@@ -3047,6 +3056,9 @@ export default function Whiteboard({
         <Trash2 size={16} />
         <span>Clear</span>
       </button>
+
+      {/* Task 3.1.3: Remote collaborator cursors — always visible on top */}
+      <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
 
       {/* Task 1.4.3-B: Presence Badge — top-right corner, shows live collaborators */}
       <PresenceBadge users={users} />

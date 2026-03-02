@@ -1,69 +1,317 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Konva from 'konva';
+import { jsPDF } from 'jspdf';
+import { Download, FileDown, FileImage } from 'lucide-react';
+import {
+    Shape,
+    isRectangle,
+    isCircle,
+    isEllipse,
+    isLine,
+    isArrow,
+    isTriangle,
+    RectangleShape,
+    CircleShape,
+    EllipseShape,
+    LineShape,
+    ArrowShape,
+    TriangleShape,
+} from '../../../types/shapes';
 
 /**
  * HamburgerMenu — Main menu for the whiteboard.
  * 
- * Displays a hamburger icon in the top-left corner. On click, toggles a
- * scrollable dropdown panel with placeholder menu items. Closes on
- * outside-click, Esc key, or menu-item selection.
+ * Top-left hamburger icon that toggles a scrollable dropdown panel.
+ * Contains grouped sections including Export.
+ * Closes on outside-click, Esc, or menu-item selection.
  * 
- * Theme tokens match the existing NovaSketch dark-cyber palette:
- *  - Background: rgba(11,12,16, 0.92)  (same as PresenceBadge dropdown)
- *  - Border / accent: #66FCF1
- *  - Text: #c5c6c7 → white on hover
- *  - Hover row: #1F2833
+ * Theme: NovaSketch dark-cyber palette.
  */
 
 interface MenuItem {
     id: string;
     label: string;
-    icon: string;         // emoji icon (consistent with existing project style)
+    icon: React.ReactNode | string;
     onClick?: () => void;
     dividerAfter?: boolean;
+    subItems?: MenuItem[];
+}
+
+interface MenuSection {
+    id: string;
+    title: string;
+    items: MenuItem[];
 }
 
 interface HamburgerMenuProps {
-    /** Menu items to render in the dropdown */
-    items?: MenuItem[];
+    /** Extra menu sections to render below export */
+    extraSections?: MenuSection[];
+    /** Export dependencies */
+    stageRef?: React.RefObject<Konva.Stage | null>;
+    lines?: any[];
+    shapes?: Shape[];
+    textAnnotations?: any[];
+    backgroundColor?: string;
 }
 
-const DEFAULT_ITEMS: MenuItem[] = [
-    { id: 'placeholder', label: 'Menu items coming soon…', icon: '🚧' },
-];
+// ─── SVG Generation (same as ExportTools) ───────────────────
+function generateSVGString(
+    width: number,
+    height: number,
+    lines: any[],
+    shapes: Shape[],
+    textAnnotations: any[],
+    backgroundColor: string
+): string {
+    let svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
 
-const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ items = DEFAULT_ITEMS }) => {
+    svgContent += `
+    <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#66FCF1" />
+        </marker>
+    </defs>
+    <rect width="100%" height="100%" fill="${backgroundColor}"/>`;
+
+    const sortedShapes = [...shapes].sort((a, b) => a.zIndex - b.zIndex);
+
+    sortedShapes.forEach(shape => {
+        if (!shape.visible) return;
+        const { position, transform, opacity, style } = shape;
+        const fill = style.hasFill ? style.fill : 'none';
+        const stroke = style.stroke;
+        const strokeWidth = style.strokeWidth;
+
+        if (isRectangle(shape)) {
+            const s = shape as RectangleShape;
+            const cx = position.x + s.width / 2;
+            const cy = position.y + s.height / 2;
+            svgContent += `
+            <g transform="translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY}) translate(${-s.width / 2}, ${-s.height / 2})" opacity="${opacity}">
+                <rect width="${s.width}" height="${s.height}" rx="${s.cornerRadius || 0}"
+                    fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />
+            </g>`;
+        } else if (isCircle(shape)) {
+            const s = shape as CircleShape;
+            svgContent += `
+            <g transform="translate(${position.x}, ${position.y}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})" opacity="${opacity}">
+                <circle r="${s.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />
+            </g>`;
+        } else if (isEllipse(shape)) {
+            const s = shape as EllipseShape;
+            svgContent += `
+            <g transform="translate(${position.x}, ${position.y}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})" opacity="${opacity}">
+                <ellipse rx="${s.radiusX}" ry="${s.radiusY}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />
+            </g>`;
+        } else if (isLine(shape)) {
+            const s = shape as LineShape;
+            const dx = s.endPoint.x - s.startPoint.x;
+            const dy = s.endPoint.y - s.startPoint.y;
+            const midX = s.startPoint.x + dx / 2;
+            const midY = s.startPoint.y + dy / 2;
+            svgContent += `
+            <g transform="translate(${midX}, ${midY}) rotate(${transform.rotation})" opacity="${opacity}">
+                <line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}"
+                    stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" />
+            </g>`;
+        } else if (isArrow(shape)) {
+            const s = shape as ArrowShape;
+            const dx = s.endPoint.x - s.startPoint.x;
+            const dy = s.endPoint.y - s.startPoint.y;
+            const midX = s.startPoint.x + dx / 2;
+            const midY = s.startPoint.y + dy / 2;
+            svgContent += `
+            <g transform="translate(${midX}, ${midY}) rotate(${transform.rotation})" opacity="${opacity}">
+                <line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}"
+                    stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" marker-end="url(#arrowhead)" />
+            </g>`;
+        } else if (isTriangle(shape)) {
+            const s = shape as TriangleShape;
+            const cx = (s.points[0].x + s.points[1].x + s.points[2].x) / 3;
+            const cy = (s.points[0].y + s.points[1].y + s.points[2].y) / 3;
+            const pts = s.points.map(p => `${p.x - cx},${p.y - cy}`).join(' ');
+            svgContent += `
+            <g transform="translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})" opacity="${opacity}">
+                <polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />
+            </g>`;
+        }
+    });
+
+    lines.forEach(line => {
+        const points = line.points;
+        if (points.length < 2) return;
+        let path = `M ${points[0]} ${points[1]}`;
+        for (let i = 2; i < points.length; i += 2) {
+            path += ` L ${points[i]} ${points[i + 1]}`;
+        }
+        svgContent += `<path d="${path}" stroke="${line.color}" stroke-width="${line.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
+    });
+
+    textAnnotations.forEach((text: any) => {
+        const escapedText = text.text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        svgContent += `
+        <text x="${text.x}" y="${text.y}"
+            transform="rotate(${text.rotation || 0}, ${text.x}, ${text.y})"
+            font-family="${text.fontFamily}"
+            font-size="${text.fontSize}"
+            fill="${text.color}"
+            font-weight="${text.fontWeight}"
+            font-style="${text.fontStyle}"
+            text-decoration="${text.textDecoration}"
+            dominant-baseline="hanging"
+            text-anchor="${text.textAlign === 'center' ? 'middle' : text.textAlign === 'right' ? 'end' : 'start'}">${escapedText}</text>`;
+    });
+
+    svgContent += `</svg>`;
+    return svgContent;
+}
+
+const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
+    extraSections = [],
+    stageRef,
+    lines = [],
+    shapes = [],
+    textAnnotations = [],
+    backgroundColor = '#0b0c10',
+}) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [expandedSubmenus, setExpandedSubmenus] = useState<Record<string, boolean>>({});
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Close on outside click
     useEffect(() => {
         if (!isOpen) return;
-
-        const handleClickOutside = (e: MouseEvent) => {
+        const handler = (e: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
                 setIsOpen(false);
             }
         };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
     }, [isOpen]);
 
-    // Close on Escape key
+    // Close on Escape
     useEffect(() => {
         if (!isOpen) return;
-
-        const handleEsc = (e: KeyboardEvent) => {
+        const handler = (e: KeyboardEvent) => {
             if (e.key === 'Escape') setIsOpen(false);
         };
-
-        document.addEventListener('keydown', handleEsc);
-        return () => document.removeEventListener('keydown', handleEsc);
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
     }, [isOpen]);
+
+    // ─── Export handlers ────────────────────────────────────
+    const getCanvasSize = useCallback(() => {
+        if (!stageRef?.current) return null;
+        return { width: stageRef.current.width(), height: stageRef.current.height() };
+    }, [stageRef]);
+
+    const handleExportImage = useCallback((format: 'png' | 'jpeg') => {
+        const size = getCanvasSize();
+        if (!size) return;
+        const svgString = generateSVGString(size.width, size.height, lines, shapes, textAnnotations, backgroundColor);
+        const img = new Image();
+        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size.width * 2;
+            canvas.height = size.height * 2;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                if (format === 'jpeg') {
+                    ctx.fillStyle = backgroundColor;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                ctx.scale(2, 2);
+                ctx.drawImage(img, 0, 0);
+                const dataURL = canvas.toDataURL(`image/${format}`, 1.0);
+                const link = document.createElement('a');
+                link.download = `whiteboard-export.${format}`;
+                link.href = dataURL;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            URL.revokeObjectURL(url);
+        };
+        img.src = url;
+        setIsOpen(false);
+    }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
+
+    const handleExportSVG = useCallback(() => {
+        const size = getCanvasSize();
+        if (!size) return;
+        const svgContent = generateSVGString(size.width, size.height, lines, shapes, textAnnotations, backgroundColor);
+        const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = 'whiteboard-export.svg';
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setIsOpen(false);
+    }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
+
+    const handleExportPDF = useCallback(() => {
+        const size = getCanvasSize();
+        if (!size) return;
+        const svgString = generateSVGString(size.width, size.height, lines, shapes, textAnnotations, backgroundColor);
+        const img = new Image();
+        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size.width * 2;
+            canvas.height = size.height * 2;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.scale(2, 2);
+                ctx.drawImage(img, 0, 0);
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'px',
+                    format: [size.width, size.height],
+                });
+                pdf.addImage(imgData, 'PNG', 0, 0, size.width, size.height);
+                pdf.save('whiteboard-export.pdf');
+            }
+            URL.revokeObjectURL(url);
+        };
+        img.src = url;
+        setIsOpen(false);
+    }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
+
+    // ─── Built-in Export section ─────────────────────────────
+    const exportSection: MenuSection = {
+        id: 'export',
+        title: 'Actions',
+        items: [
+            {
+                id: 'export',
+                label: 'Export Canvas',
+                icon: <Download size={16} />,
+                subItems: [
+                    { id: 'export-png', label: 'Export as PNG', icon: <FileImage size={16} />, onClick: () => handleExportImage('png') },
+                    { id: 'export-jpg', label: 'Export as JPG', icon: <FileImage size={16} />, onClick: () => handleExportImage('jpeg') },
+                    { id: 'export-svg', label: 'Export as SVG', icon: <FileDown size={16} />, onClick: handleExportSVG },
+                    { id: 'export-pdf', label: 'Export as PDF', icon: <FileDown size={16} />, onClick: handleExportPDF },
+                ]
+            }
+        ],
+    };
+
+    const allSections = [exportSection, ...extraSections];
 
     const handleItemClick = useCallback((item: MenuItem) => {
         item.onClick?.();
-        setIsOpen(false);
     }, []);
 
     return (
@@ -83,7 +331,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ items = DEFAULT_ITEMS }) 
                 aria-expanded={isOpen}
                 aria-haspopup="true"
             >
-                {/* Animated hamburger → X morphing icon */}
+                {/* Animated hamburger → X */}
                 <div className="flex flex-col items-center justify-center gap-[5px] w-5 h-5 relative">
                     <span
                         className="block h-[2px] w-5 rounded-full transition-all duration-300"
@@ -137,39 +385,93 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ items = DEFAULT_ITEMS }) 
                         <span>Menu</span>
                     </div>
 
-                    {/* Scrollable item list */}
+                    {/* Scrollable sections */}
                     <div
                         className="py-1 overflow-y-auto"
                         style={{ maxHeight: 'calc(70vh - 44px)' }}
                     >
-                        {items.map((item) => (
-                            <React.Fragment key={item.id}>
-                                <button
-                                    onClick={() => handleItemClick(item)}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-200 group"
-                                    style={{ color: '#c5c6c7' }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#1F2833';
-                                        e.currentTarget.style.color = '#ffffff';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                        e.currentTarget.style.color = '#c5c6c7';
-                                    }}
+                        {allSections.map((section, sIdx) => (
+                            <div key={section.id}>
+                                {/* Section header */}
+                                <div
+                                    className="px-4 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.15em]"
+                                    style={{ color: 'rgba(102,252,241,0.5)' }}
                                 >
-                                    <span className="text-base flex-shrink-0 w-5 text-center">{item.icon}</span>
-                                    <span className="font-medium">{item.label}</span>
-                                </button>
-                                {item.dividerAfter && (
-                                    <div className="mx-3 my-1" style={{ borderTop: '1px solid rgba(102,252,241,0.08)' }} />
+                                    {section.title}
+                                </div>
+
+                                {/* Section items */}
+                                {section.items.map((item) => (
+                                    <React.Fragment key={item.id}>
+                                        <button
+                                            onClick={() => {
+                                                if (item.subItems) {
+                                                    setExpandedSubmenus(prev => ({
+                                                        ...prev,
+                                                        [item.id]: !prev[item.id]
+                                                    }));
+                                                } else {
+                                                    handleItemClick(item);
+                                                }
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-200 group"
+                                            style={{ color: '#c5c6c7' }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#1F2833';
+                                                e.currentTarget.style.color = '#ffffff';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                e.currentTarget.style.color = '#c5c6c7';
+                                            }}
+                                        >
+                                            <span className="flex-shrink-0 w-5 flex justify-center text-[#66FCF1] group-hover:text-white transition-colors">{item.icon}</span>
+                                            <span className="font-medium flex-grow">{item.label}</span>
+                                            {item.subItems && (
+                                                <span className="text-[10px] opacity-70 transition-transform duration-200 text-[#66FCF1]" style={{ transform: expandedSubmenus[item.id] ? 'rotate(180deg)' : 'none' }}>
+                                                    ▼
+                                                </span>
+                                            )}
+                                        </button>
+
+                                        {/* Sub-items block */}
+                                        {item.subItems && expandedSubmenus[item.id] && (
+                                            <div className="bg-[#0B0C10]/50 border-y border-[rgba(102,252,241,0.05)]">
+                                                {item.subItems.map((sub) => (
+                                                    <button
+                                                        key={sub.id}
+                                                        onClick={() => handleItemClick(sub)}
+                                                        className="w-full flex items-center gap-3 pl-11 pr-4 py-2 text-left text-sm transition-all duration-200 group"
+                                                        style={{ color: '#a0a0a0' }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.backgroundColor = '#1F2833';
+                                                            e.currentTarget.style.color = '#ffffff';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                                            e.currentTarget.style.color = '#a0a0a0';
+                                                        }}
+                                                    >
+                                                        <span className="flex-shrink-0 w-4 flex justify-center text-[#66FCF1] group-hover:text-white transition-colors">{sub.icon}</span>
+                                                        <span>{sub.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+
+                                {/* Section divider (except last) */}
+                                {sIdx < allSections.length - 1 && (
+                                    <div className="mx-3 my-1.5" style={{ borderTop: '1px solid rgba(102,252,241,0.08)' }} />
                                 )}
-                            </React.Fragment>
+                            </div>
                         ))}
                     </div>
                 </div>
             )}
 
-            {/* Keyframe for slide-in animation */}
+            {/* Slide-in animation */}
             <style>{`
                 @keyframes menuSlideIn {
                     from { opacity: 0; transform: translateY(-8px); }

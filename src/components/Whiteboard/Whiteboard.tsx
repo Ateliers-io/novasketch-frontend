@@ -3149,7 +3149,13 @@ export default function Whiteboard({
       <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
 
       {/* Hamburger Menu — top-left */}
-      <HamburgerMenu />
+      <HamburgerMenu
+        stageRef={stageRef}
+        lines={lines}
+        shapes={shapes}
+        textAnnotations={textAnnotations}
+        backgroundColor={canvasBackgroundColor}
+      />
 
       {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}
       <PresenceBadge users={users} />

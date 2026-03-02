@@ -38,6 +38,7 @@ vi.mock('yjs', () => {
             getArray = vi.fn(() => makeArray());
             getMap = vi.fn(() => makeMap());
             transact = vi.fn((fn: Function) => fn());
+            on = vi.fn();
             destroy = vi.fn();
         },
         UndoManager: class MockUndoManager {

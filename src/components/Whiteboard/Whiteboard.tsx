@@ -170,6 +170,7 @@ export default function Whiteboard({
     isLocked,
     setIsLocked,
     setSessionLocked,
+    batch,
   } = useSync({ roomId, wsUrl: WS_URL, initialLocked });
 
   // Task 1.5 fix: Owner should NEVER be locked. Only guests see the lock.
@@ -780,10 +781,12 @@ export default function Whiteboard({
     if (selectedLineIds.size > 0) newLines = moveForward(lines, selectedLineIds);
     if (selectedTextIds.size > 0) newTexts = moveForward(textAnnotations, selectedTextIds);
 
-    // only update state if changes occurred to avoid needless re-renders.
-    if (newShapes !== shapes) setShapes(newShapes);
-    if (newLines !== lines) setLines(newLines);
-    if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
+    // Task 3.4.2-B: Batch layer reordering
+    batch(() => {
+      if (newShapes !== shapes) setShapes(newShapes);
+      if (newLines !== lines) setLines(newLines);
+      if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
+    });
 
     // Task 3: Collaboration Broadcast
     // sending full ID list might be heavy if >1000 items. consider sending only moved indices later.
@@ -807,9 +810,11 @@ export default function Whiteboard({
     if (selectedLineIds.size > 0) newLines = moveBackward(lines, selectedLineIds);
     if (selectedTextIds.size > 0) newTexts = moveBackward(textAnnotations, selectedTextIds);
 
-    if (newShapes !== shapes) setShapes(newShapes);
-    if (newLines !== lines) setLines(newLines);
-    if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
+    batch(() => {
+      if (newShapes !== shapes) setShapes(newShapes);
+      if (newLines !== lines) setLines(newLines);
+      if (newTexts !== textAnnotations) setTextAnnotations(newTexts);
+    });
 
     // Task 3: Collaboration Broadcast
     if (newShapes !== shapes || newLines !== lines || newTexts !== textAnnotations) {
@@ -827,26 +832,29 @@ export default function Whiteboard({
   const handleDeleteSelected = () => {
     const actions: Action[] = [];
 
-    if (selectedShapeIds.size > 0) {
-      shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
-        actions.push({ type: 'DELETE', objectType: 'shape', id: s.id, previousState: s, newState: null, userId: 'local' });
-      });
-      setShapes(prev => prev.filter(s => !selectedShapeIds.has(s.id)));
-    }
+    // Task 3.4.2-B: Use batch to compress deletion of multiple items across multiple layers
+    batch(() => {
+      if (selectedShapeIds.size > 0) {
+        shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
+          actions.push({ type: 'DELETE', objectType: 'shape', id: s.id, previousState: s, newState: null, userId: 'local' });
+        });
+        setShapes(prev => prev.filter(s => !selectedShapeIds.has(s.id)));
+      }
 
-    if (selectedLineIds.size > 0) {
-      lines.filter(l => selectedLineIds.has(l.id)).forEach(l => {
-        actions.push({ type: 'DELETE', objectType: 'line', id: l.id, previousState: l, newState: null, userId: 'local' });
-      });
-      setLines(prev => prev.filter(l => !selectedLineIds.has(l.id)));
-    }
+      if (selectedLineIds.size > 0) {
+        lines.filter(l => selectedLineIds.has(l.id)).forEach(l => {
+          actions.push({ type: 'DELETE', objectType: 'line', id: l.id, previousState: l, newState: null, userId: 'local' });
+        });
+        setLines(prev => prev.filter(l => !selectedLineIds.has(l.id)));
+      }
 
-    if (selectedTextIds.size > 0) {
-      textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
-        actions.push({ type: 'DELETE', objectType: 'text', id: t.id, previousState: t, newState: null, userId: 'local' });
-      });
-      setTextAnnotations(prev => prev.filter(t => !selectedTextIds.has(t.id)));
-    }
+      if (selectedTextIds.size > 0) {
+        textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
+          actions.push({ type: 'DELETE', objectType: 'text', id: t.id, previousState: t, newState: null, userId: 'local' });
+        });
+        setTextAnnotations(prev => prev.filter(t => !selectedTextIds.has(t.id)));
+      }
+    });
 
     if (actions.length > 0) {
       addToHistory({ type: 'BATCH', userId: 'local', actions });
@@ -1605,110 +1613,110 @@ export default function Whiteboard({
       const scaleX = newWidth / box.width;
       const scaleY = newHeight / box.height;
 
-      // A. Update Shapes
-      if (initialResizeState.shapes.size > 0) {
-        setShapes(prev => prev.map(s => {
-          const initS = initialResizeState.shapes.get(s.id);
-          if (initS) {
-            // Calculate relative position
-            const relX = initS.position.x - box.x;
-            const relY = initS.position.y - box.y;
+      // Task 3.4.2-B: Batch resize updates to reduce network payload when dragging multiple objects
+      batch(() => {
+        // A. Update Shapes
+        if (initialResizeState.shapes.size > 0) {
+          setShapes(prev => prev.map(s => {
+            const initS = initialResizeState.shapes.get(s.id);
+            if (initS) {
+              // Calculate relative position
+              const relX = initS.position.x - box.x;
+              const relY = initS.position.y - box.y;
 
-            // New pos
-            const finalX = newX + relX * scaleX;
-            const finalY = newY + relY * scaleY;
+              // New pos
+              const finalX = newX + relX * scaleX;
+              const finalY = newY + relY * scaleY;
 
-            if (isRectangle(initS)) {
-              return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY } as Shape;
-            } else if (isCircle(initS)) {
-              let scale = 1;
-              if (['n', 's'].includes(resizeHandle)) scale = scaleY;
-              else if (['e', 'w'].includes(resizeHandle)) scale = scaleX;
-              else scale = Math.max(scaleX, scaleY);
+              if (isRectangle(initS)) {
+                return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY } as Shape;
+              } else if (isCircle(initS)) {
+                let scale = 1;
+                if (['n', 's'].includes(resizeHandle)) scale = scaleY;
+                else if (['e', 'w'].includes(resizeHandle)) scale = scaleX;
+                else scale = Math.max(scaleX, scaleY);
 
-              return { ...s, position: { x: finalX, y: finalY }, radius: (initS as CircleShape).radius * scale } as Shape;
-            } else if (isLine(initS) || isArrow(initS)) {
-              const ls = initS as LineShape;
-              return {
-                ...s,
-                position: { x: finalX, y: finalY },
-                startPoint: {
-                  x: newX + (ls.startPoint.x - box.x) * scaleX,
-                  y: newY + (ls.startPoint.y - box.y) * scaleY,
-                },
-                endPoint: {
-                  x: newX + (ls.endPoint.x - box.x) * scaleX,
-                  y: newY + (ls.endPoint.y - box.y) * scaleY,
-                },
-              } as Shape;
-            } else if (isEllipse(initS)) {
-              const es = initS as EllipseShape;
-              // Proper Ellipse Resize
-              const scaleX = newWidth / box.width;
-              const scaleY = newHeight / box.height;
+                return { ...s, position: { x: finalX, y: finalY }, radius: (initS as CircleShape).radius * scale } as Shape;
+              } else if (isLine(initS) || isArrow(initS)) {
+                const ls = initS as LineShape;
+                return {
+                  ...s,
+                  position: { x: finalX, y: finalY },
+                  startPoint: {
+                    x: newX + (ls.startPoint.x - box.x) * scaleX,
+                    y: newY + (ls.startPoint.y - box.y) * scaleY,
+                  },
+                  endPoint: {
+                    x: newX + (ls.endPoint.x - box.x) * scaleX,
+                    y: newY + (ls.endPoint.y - box.y) * scaleY,
+                  },
+                } as Shape;
+              } else if (isEllipse(initS)) {
+                const es = initS as EllipseShape;
+                // Proper Ellipse Resize
+                const scaleX = newWidth / box.width;
+                const scaleY = newHeight / box.height;
 
-              return {
-                ...s,
-                position: { x: finalX, y: finalY },
-                radiusX: es.radiusX * scaleX,
-                radiusY: es.radiusY * scaleY
-              } as Shape;
-            } else if (isTriangle(initS)) {
-              const ts = initS as TriangleShape;
-              return {
-                ...s,
-                position: { x: finalX, y: finalY },
-                points: ts.points.map((p: Position) => ({
-                  x: newX + (p.x - box.x) * scaleX,
-                  y: newY + (p.y - box.y) * scaleY,
-                })),
-              } as Shape;
+                return {
+                  ...s,
+                  position: { x: finalX, y: finalY },
+                  radiusX: es.radiusX * scaleX,
+                  radiusY: es.radiusY * scaleY
+                } as Shape;
+              } else if (isTriangle(initS)) {
+                const ts = initS as TriangleShape;
+                return {
+                  ...s,
+                  position: { x: finalX, y: finalY },
+                  points: ts.points.map((p: Position) => ({
+                    x: newX + (p.x - box.x) * scaleX,
+                    y: newY + (p.y - box.y) * scaleY,
+                  })),
+                } as Shape;
+              }
+              return { ...s, position: { x: finalX, y: finalY } };
             }
-            return { ...s, position: { x: finalX, y: finalY } };
-          }
-          return s;
-        }));
-      }
+            return s;
+          }));
+        }
 
-      // B. Update Lines
-      if (initialResizeState.lines.size > 0) {
-        setLines(prev => prev.map(l => {
-          const initL = initialResizeState.lines.get(l.id);
-          if (initL) {
-            const newPoints = [];
-            for (let i = 0; i < initL.points.length; i += 2) {
-              const px = initL.points[i];
-              const py = initL.points[i + 1];
-              const nx = newX + (px - box.x) * scaleX;
-              const ny = newY + (py - box.y) * scaleY;
-              newPoints.push(nx, ny);
+        // B. Update Lines
+        if (initialResizeState.lines.size > 0) {
+          setLines(prev => prev.map(l => {
+            const initL = initialResizeState.lines.get(l.id);
+            if (initL) {
+              const newPoints = [];
+              for (let i = 0; i < initL.points.length; i += 2) {
+                const px = initL.points[i];
+                const py = initL.points[i + 1];
+                const nx = newX + (px - box.x) * scaleX;
+                const ny = newY + (py - box.y) * scaleY;
+                newPoints.push(nx, ny);
+              }
+              return { ...l, points: newPoints };
             }
-            return { ...l, points: newPoints };
-          }
-          return l;
-        }));
-      }
+            return l;
+          }));
+        }
 
-      // C. Update Text
-      if (initialResizeState.texts.size > 0) {
-        setTextAnnotations(prev => prev.map(t => {
-          const initT = initialResizeState.texts.get(t.id);
-          if (initT) {
-            const nx = newX + (initT.x - box.x) * scaleX;
-            const ny = newY + (initT.y - box.y) * scaleY;
+        // C. Update Text
+        if (initialResizeState.texts.size > 0) {
+          setTextAnnotations(prev => prev.map(t => {
+            const initT = initialResizeState.texts.get(t.id);
+            if (initT) {
+              const nx = newX + (initT.x - box.x) * scaleX;
+              const ny = newY + (initT.y - box.y) * scaleY;
 
-            // Text Scaling:
-            // If dragging width-only handles (e/w), use scaleX. 
-            // If height-only (n/s) or corner, use scaleY (standard).
-            let fontScale = scaleY;
-            if (['e', 'w'].includes(resizeHandle)) fontScale = scaleX;
+              let fontScale = scaleY;
+              if (['e', 'w'].includes(resizeHandle)) fontScale = scaleX;
 
-            const nFontSize = initT.fontSize * fontScale;
-            return { ...t, x: nx, y: ny, fontSize: nFontSize };
-          }
-          return t;
-        }));
-      }
+              const nFontSize = initT.fontSize * fontScale;
+              return { ...t, x: nx, y: ny, fontSize: nFontSize };
+            }
+            return t;
+          }));
+        }
+      });
       return;
     }
 
@@ -1810,62 +1818,65 @@ export default function Whiteboard({
 
       // Task 4.2.2: Update object coordinates locally in real-time
 
-      // 1. Move Shapes
-      if (selectedShapeIds.size > 0) {
-        setShapes(prev => prev.map(s => {
-          if (selectedShapeIds.has(s.id)) {
-            let updated = {
-              ...s,
-              position: { x: s.position.x + dx, y: s.position.y + dy }
-            };
-            // Lines and Arrows store geometry in startPoint/endPoint, not position
-            // ugly polymorphic check, but better than normalizing the data structure right now.
-            if (isLine(s) || isArrow(s)) {
-              const ls = s as LineShape;
-              updated = {
-                ...updated,
-                startPoint: { x: ls.startPoint.x + dx, y: ls.startPoint.y + dy },
-                endPoint: { x: ls.endPoint.x + dx, y: ls.endPoint.y + dy },
-              } as typeof updated;
+      // Task 3.4.2-B: Batch local movement updates to compress Yjs packet 
+      batch(() => {
+        // 1. Move Shapes
+        if (selectedShapeIds.size > 0) {
+          setShapes(prev => prev.map(s => {
+            if (selectedShapeIds.has(s.id)) {
+              let updated = {
+                ...s,
+                position: { x: s.position.x + dx, y: s.position.y + dy }
+              };
+              // Lines and Arrows store geometry in startPoint/endPoint, not position
+              // ugly polymorphic check, but better than normalizing the data structure right now.
+              if (isLine(s) || isArrow(s)) {
+                const ls = s as LineShape;
+                updated = {
+                  ...updated,
+                  startPoint: { x: ls.startPoint.x + dx, y: ls.startPoint.y + dy },
+                  endPoint: { x: ls.endPoint.x + dx, y: ls.endPoint.y + dy },
+                } as typeof updated;
+              }
+              // Triangles store geometry in points array
+              if (isTriangle(s)) {
+                const ts = s as TriangleShape;
+                updated = {
+                  ...updated,
+                  points: ts.points.map((p: Position) => ({ x: p.x + dx, y: p.y + dy })),
+                } as typeof updated;
+              }
+              return updated as Shape;
             }
-            // Triangles store geometry in points array
-            if (isTriangle(s)) {
-              const ts = s as TriangleShape;
-              updated = {
-                ...updated,
-                points: ts.points.map((p: Position) => ({ x: p.x + dx, y: p.y + dy })),
-              } as typeof updated;
+            return s;
+          }));
+        }
+
+        // 2. Move Lines (all points must shift)
+        if (selectedLineIds.size > 0) {
+          setLines(prev => prev.map(l => {
+            if (selectedLineIds.has(l.id)) {
+              const newPoints = l.points.map((val, i) => {
+                // konva lines are flat arrays [x1, y1, x2, y2...].
+                // moving every single point. expensive for complex paths, but necessary.
+                return i % 2 === 0 ? val + dx : val + dy;
+              });
+              return { ...l, points: newPoints };
             }
-            return updated as Shape;
-          }
-          return s;
-        }));
-      }
+            return l;
+          }));
+        }
 
-      // 2. Move Lines (all points must shift)
-      if (selectedLineIds.size > 0) {
-        setLines(prev => prev.map(l => {
-          if (selectedLineIds.has(l.id)) {
-            const newPoints = l.points.map((val, i) => {
-              // konva lines are flat arrays [x1, y1, x2, y2...].
-              // moving every single point. expensive for complex paths, but necessary.
-              return i % 2 === 0 ? val + dx : val + dy;
-            });
-            return { ...l, points: newPoints };
-          }
-          return l;
-        }));
-      }
-
-      // 3. Move Text
-      if (selectedTextIds.size > 0) {
-        setTextAnnotations(prev => prev.map(t => {
-          if (selectedTextIds.has(t.id)) {
-            return { ...t, x: t.x + dx, y: t.y + dy };
-          }
-          return t;
-        }));
-      }
+        // 3. Move Text
+        if (selectedTextIds.size > 0) {
+          setTextAnnotations(prev => prev.map(t => {
+            if (selectedTextIds.has(t.id)) {
+              return { ...t, x: t.x + dx, y: t.y + dy };
+            }
+            return t;
+          }));
+        }
+      });
 
       setLastPointerPos({ x, y });
       return;
@@ -2120,38 +2131,41 @@ export default function Whiteboard({
 
         // Apply Final Snap to State
         if (finalSnapDx !== 0 || finalSnapDy !== 0) {
-          // Update Shapes
-          if (selectedShapeIds.size > 0) {
-            setShapes(prev => prev.map(s => {
-              if (selectedShapeIds.has(s.id)) {
-                const base: any = { ...s, position: { x: s.position.x + finalSnapDx, y: s.position.y + finalSnapDy } };
-                if (isLine(s) || isArrow(s)) {
-                  const ls = s as LineShape;
-                  base.startPoint = { x: ls.startPoint.x + finalSnapDx, y: ls.startPoint.y + finalSnapDy };
-                  base.endPoint = { x: ls.endPoint.x + finalSnapDx, y: ls.endPoint.y + finalSnapDy };
-                } else if (isTriangle(s)) {
-                  const ts = s as TriangleShape;
-                  base.points = ts.points.map((p: Position) => ({ x: p.x + finalSnapDx, y: p.y + finalSnapDy }));
+          // Task 3.4.2-B: Batch snap operations
+          batch(() => {
+            // Update Shapes
+            if (selectedShapeIds.size > 0) {
+              setShapes(prev => prev.map(s => {
+                if (selectedShapeIds.has(s.id)) {
+                  const base: any = { ...s, position: { x: s.position.x + finalSnapDx, y: s.position.y + finalSnapDy } };
+                  if (isLine(s) || isArrow(s)) {
+                    const ls = s as LineShape;
+                    base.startPoint = { x: ls.startPoint.x + finalSnapDx, y: ls.startPoint.y + finalSnapDy };
+                    base.endPoint = { x: ls.endPoint.x + finalSnapDx, y: ls.endPoint.y + finalSnapDy };
+                  } else if (isTriangle(s)) {
+                    const ts = s as TriangleShape;
+                    base.points = ts.points.map((p: Position) => ({ x: p.x + finalSnapDx, y: p.y + finalSnapDy }));
+                  }
+                  return base as Shape;
                 }
-                return base as Shape;
-              }
-              return s;
-            }));
-          }
-          if (selectedLineIds.size > 0) {
-            setLines(prev => prev.map(l => {
-              if (selectedLineIds.has(l.id)) {
-                return { ...l, points: l.points.map((v, i) => v + (i % 2 === 0 ? finalSnapDx : finalSnapDy)) };
-              }
-              return l;
-            }));
-          }
-          if (selectedTextIds.size > 0) {
-            setTextAnnotations(prev => prev.map(t => {
-              if (selectedTextIds.has(t.id)) return { ...t, x: t.x + finalSnapDx, y: t.y + finalSnapDy };
-              return t;
-            }));
-          }
+                return s;
+              }));
+            }
+            if (selectedLineIds.size > 0) {
+              setLines(prev => prev.map(l => {
+                if (selectedLineIds.has(l.id)) {
+                  return { ...l, points: l.points.map((v, i) => v + (i % 2 === 0 ? finalSnapDx : finalSnapDy)) };
+                }
+                return l;
+              }));
+            }
+            if (selectedTextIds.size > 0) {
+              setTextAnnotations(prev => prev.map(t => {
+                if (selectedTextIds.has(t.id)) return { ...t, x: t.x + finalSnapDx, y: t.y + finalSnapDy };
+                return t;
+              }));
+            }
+          });
         }
 
         shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {

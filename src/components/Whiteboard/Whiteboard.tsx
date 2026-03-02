@@ -200,9 +200,10 @@ export default function Whiteboard({
   useEffect(() => { shapesRef.current = shapes; }, [shapes]);
   useEffect(() => { textAnnotationsRef.current = textAnnotations; }, [textAnnotations]);
 
-  // Utilizing a ref for current stroke data to bypass React's render cycle for performance.
-  // This helps maintain 60fps responsiveness during rapid drawing actions.
-  const currentStrokeRef = useRef<{ id: string, points: number[] } | null>(null);
+  // Task 3.4.1-A: Optimistic UI Local Rendering
+  // Temporarily hold newly drawn lines to render locally before sending via WS
+  const [optimisticLine, setOptimisticLine] = useState<StrokeLine | null>(null);
+  const optimisticLineRef = useRef<StrokeLine | null>(null);
 
   // Snapshot for Eraser Diffing
   const [initialEraserLines, setInitialEraserLines] = useState<StrokeLine[] | null>(null);
@@ -1246,26 +1247,25 @@ export default function Whiteboard({
       const newLineId = `stroke-${Date.now()}`;
       const newPoints = [x, y];
 
-      // Store in ref for immediate access in pointerMove
-      currentStrokeRef.current = { id: newLineId, points: newPoints };
-
-      // Use addLine which is more efficient than setLines full rewrite
-      addLine({
+      // Store in ref for immediate access in pointerMove (Optimistic UI)
+      const lineConfig: StrokeLine = {
         id: newLineId,
         points: newPoints,
         color: strokeColor,
         strokeWidth: brushSize,
         brushType: brushType,
         ...brushProps, // Apply all enhanced properties (shadows, opacity, etc.)
-      });
+      };
+
+      optimisticLineRef.current = lineConfig;
+      setOptimisticLine(lineConfig);
+      // Wait to call addLine until pointer up to prevent WS spam
     } else if (activeTool === ToolType.HIGHLIGHTER) {
       const highlighterColor = strokeColor + '66';
       const newLineId = `highlight-${Date.now()}`;
       const newPoints = [x, y];
 
-      currentStrokeRef.current = { id: newLineId, points: newPoints };
-
-      addLine({
+      const lineConfig: StrokeLine = {
         id: newLineId,
         points: newPoints,
         color: highlighterColor,
@@ -1275,7 +1275,10 @@ export default function Whiteboard({
         lineCap: 'square',
         lineJoin: 'miter',
         tension: 0.4,
-      });
+      };
+
+      optimisticLineRef.current = lineConfig;
+      setOptimisticLine(lineConfig);
     } else if (activeTool === ToolType.RECTANGLE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
       setPreviewShape(createRectangle(startX, startY, 0, 0, {
@@ -1888,14 +1891,14 @@ export default function Whiteboard({
 
     // B. DRAWING PEN / HIGHLIGHTER
     if (activeTool === ToolType.PEN || activeTool === ToolType.HIGHLIGHTER) {
-      if (currentStrokeRef.current) {
-        const { id, points } = currentStrokeRef.current;
-        // Efficiently append new point
-        const newPoints = [...points, x, y];
-        currentStrokeRef.current.points = newPoints;
+      if (optimisticLineRef.current) {
+        // Efficiently append new point and render optimistically
+        const newPoints = [...optimisticLineRef.current.points, x, y];
+        optimisticLineRef.current.points = newPoints;
 
-        // Use syncUpdateLine to update only this line, not rewrite the whole array
-        syncUpdateLine(id, { points: newPoints });
+        // Update local React state to draw immediately (optimistic render)
+        setOptimisticLine({ ...optimisticLineRef.current, points: newPoints });
+        // NOTE: We do NOT sync to Yjs here to avoid network round-trip delays and spam
       }
     }
     // C. RESIZING PREVIEW SHAPE
@@ -1952,8 +1955,13 @@ export default function Whiteboard({
   };
 
   const handlePointerUp = () => {
-    // Reset drawing ref
-    currentStrokeRef.current = null;
+    // Task 3.4.1-A: Commit optimistic UI line to the network
+    if (optimisticLineRef.current) {
+      addLine(optimisticLineRef.current);
+      optimisticLineRef.current = null;
+      setOptimisticLine(null);
+    }
+
     // Task 5.1: Stop Panning when mouse released
     setIsStageDragging(false);
     if (!isDraggingSelection) {
@@ -2866,6 +2874,23 @@ export default function Whiteboard({
                 shadowColor={line.shadowColor || line.color}
               />
             ))}
+
+            {/* Task 3.4.1-A: Render the Optimistic line immediately above synced lines */}
+            {optimisticLine && (
+              <Line
+                points={optimisticLine.points}
+                stroke={optimisticLine.color}
+                strokeWidth={optimisticLine.strokeWidth}
+                tension={optimisticLine.tension ?? 0.5}
+                lineCap={optimisticLine.lineCap ?? 'round'}
+                lineJoin={optimisticLine.lineJoin ?? 'round'}
+                opacity={optimisticLine.opacity ?? 1}
+                dash={optimisticLine.dash}
+                globalCompositeOperation={optimisticLine.globalCompositeOperation as any}
+                shadowBlur={optimisticLine.shadowBlur}
+                shadowColor={optimisticLine.shadowColor || optimisticLine.color}
+              />
+            )}
           </Layer>
 
           {/* LAYER 3.5: Alignment Guides (High Z-Index inside Stage) */}

@@ -3131,19 +3131,7 @@ export default function Whiteboard({
         </button>
       </div>
 
-      {/* Standalone Clear Canvas Button */}
-      <button
-        onClick={() => {
-          if (confirm('Are you sure you want to clear the entire canvas? This action can be undone.')) {
-            clearAll();
-          }
-        }}
-        className="fixed bottom-4 left-4 bg-transparent border-2 border-red-500/60 text-red-400 p-2.5 rounded-lg shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:bg-red-900/20 hover:text-red-300 transition-all duration-300 z-50 flex items-center gap-2 text-xs font-medium"
-        title="Clear Canvas"
-      >
-        <Trash2 size={16} />
-        <span>Clear</span>
-      </button>
+      {/* Standalone Clear Canvas Button - Moved to HamburgerMenu */}
 
       {/* Task 3.1.3: Remote collaborator cursors — always visible on top */}
       <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
@@ -3155,6 +3143,22 @@ export default function Whiteboard({
         shapes={shapes}
         textAnnotations={textAnnotations}
         backgroundColor={canvasBackgroundColor}
+        isOwner={isOwner}
+        isLocked={isLocked}
+        onToggleLock={async () => {
+          try {
+            const newStatus = await toggleSessionLock(roomId, !isLocked);
+            setIsLocked(newStatus);
+            setSessionLocked(newStatus);
+          } catch (err) {
+            console.error("Failed to toggle lock from menu", err);
+          }
+        }}
+        onClearCanvas={() => {
+          if (confirm('Are you sure you want to clear the entire canvas? This action can be undone.')) {
+            clearAll();
+          }
+        }}
       />
 
       {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}

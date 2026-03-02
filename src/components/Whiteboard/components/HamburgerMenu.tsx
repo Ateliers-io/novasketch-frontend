@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Konva from 'konva';
 import { jsPDF } from 'jspdf';
-import { Download, FileDown, FileImage, Users } from 'lucide-react';
+import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2 } from 'lucide-react';
 import LiveCollaborationMenu from './LiveCollaborationMenu';
 import {
     Shape,
@@ -54,6 +54,14 @@ interface HamburgerMenuProps {
     shapes?: Shape[];
     textAnnotations?: any[];
     backgroundColor?: string;
+
+    /** Session lock dependencies */
+    isOwner?: boolean;
+    isLocked?: boolean;
+    onToggleLock?: () => Promise<void>;
+
+    /** Clear canvas action */
+    onClearCanvas?: () => void;
 }
 
 // ─── SVG Generation (same as ExportTools) ───────────────────
@@ -179,6 +187,10 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     shapes = [],
     textAnnotations = [],
     backgroundColor = '#0b0c10',
+    isOwner = false,
+    isLocked = false,
+    onToggleLock,
+    onClearCanvas,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedSubmenus, setExpandedSubmenus] = useState<Record<string, boolean>>({});
@@ -291,7 +303,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
         setIsOpen(false);
     }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
 
-    // ─── Built-in Export section ─────────────────────────────
+    // ─── Main Menu Sections ─────────────────────────────
     const mainSection: MenuSection = {
         id: 'main-actions',
         title: 'Actions',
@@ -301,6 +313,31 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 label: 'Live collaboration...',
                 icon: <Users size={16} />,
                 customContent: <LiveCollaborationMenu roomId="c8589ed6-mock" />
+            },
+            // Include Lock Session only if user is owner
+            ...(isOwner ? [{
+                id: 'lock-session',
+                label: isLocked ? 'Unlock Session' : 'Lock Session',
+                icon: isLocked ? <Unlock size={16} /> : <Lock size={16} />,
+                onClick: async () => {
+                    if (onToggleLock) {
+                        try {
+                            await onToggleLock();
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }
+                }
+            }] : []),
+            {
+                id: 'clear-canvas',
+                label: 'Clear Canvas',
+                icon: <Trash2 size={16} />,
+                onClick: () => {
+                    if (onClearCanvas) {
+                        onClearCanvas();
+                    }
+                }
             },
             {
                 id: 'export',
@@ -412,7 +449,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                 {section.items.map((item) => (
                                     <React.Fragment key={item.id}>
                                         <button
-                                            onClick={() => {
+                                            onClick={async () => {
                                                 // Prevent closing menu explicitly if clicking a parent with customContent or subItems
                                                 if (item.subItems || item.customContent) {
                                                     setExpandedSubmenus(prev => ({
@@ -420,21 +457,39 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                                         [item.id]: !prev[item.id]
                                                     }));
                                                 } else {
-                                                    handleItemClick(item);
+                                                    await handleItemClick(item);
                                                 }
                                             }}
                                             className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-200 group"
-                                            style={{ color: '#c5c6c7' }}
+                                            style={{
+                                                // If it's the lock button and it's locked, use amber text. If clear canvas use red if needed, else default text color.
+                                                color: (item.id === 'lock-session' && isLocked) ? '#fbbf24' : (item.id === 'clear-canvas' ? '#ef4444' : '#c5c6c7')
+                                            }}
                                             onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#1F2833';
-                                                e.currentTarget.style.color = '#ffffff';
+                                                if (item.id === 'lock-session' && isLocked) {
+                                                    e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.1)';
+                                                    e.currentTarget.style.color = '#fbbf24';
+                                                } else if (item.id === 'clear-canvas') {
+                                                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                                                    e.currentTarget.style.color = '#ef4444';
+                                                } else {
+                                                    e.currentTarget.style.backgroundColor = '#1F2833';
+                                                    e.currentTarget.style.color = '#ffffff';
+                                                }
                                             }}
                                             onMouseLeave={(e) => {
                                                 e.currentTarget.style.backgroundColor = 'transparent';
-                                                e.currentTarget.style.color = '#c5c6c7';
+                                                e.currentTarget.style.color = (item.id === 'lock-session' && isLocked) ? '#fbbf24' : (item.id === 'clear-canvas' ? '#ef4444' : '#c5c6c7');
                                             }}
                                         >
-                                            <span className="flex-shrink-0 w-5 flex justify-center text-[#66FCF1] group-hover:text-white transition-colors">{item.icon}</span>
+                                            <span
+                                                className={`flex-shrink-0 w-5 flex justify-center transition-colors ${(item.id === 'lock-session' && isLocked)
+                                                        ? 'text-amber-400 group-hover:text-amber-300'
+                                                        : (item.id === 'clear-canvas')
+                                                            ? 'text-red-400 group-hover:text-red-300'
+                                                            : 'text-[#66FCF1] group-hover:text-white'
+                                                    }`}
+                                            >{item.icon}</span>
                                             <span className="font-medium flex-grow">{item.label}</span>
                                             {/* Expand indicator chevron if subItems OR customContent exists */}
                                             {(item.subItems || item.customContent) && (

@@ -41,7 +41,7 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId })
         <div className="flex flex-col gap-4 px-4 py-3 min-w-[320px]">
             {/* Link input + copy button */}
             <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-[#c5c6c7]">Session Link</label>
+                <div className="text-xs font-medium text-[#c5c6c7]">Session Link</div>
                 <div className="flex items-stretch gap-2">
                     <div className="flex-grow flex items-center px-3 py-2 rounded bg-black/40 border border-[#1F2833] text-sm text-[#c5c6c7] truncate" title={inviteLink}>
                         {inviteLink}
@@ -62,7 +62,7 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId })
 
             {/* QR Code */}
             <div className="flex flex-col items-center gap-1.5">
-                <label className="text-xs font-medium text-[#c5c6c7]">Scan to join</label>
+                <div className="text-xs font-medium text-[#c5c6c7]">Scan to join</div>
                 <div className="p-3 bg-white rounded-xl">
                     {/* Mock QR Code using inline SVG patterns */}
                     <svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">

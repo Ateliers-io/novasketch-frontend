@@ -103,35 +103,30 @@ function generateSVGString(
         let cy = position.y;
 
         if (isRectangle(shape)) {
-            const s = shape as RectangleShape;
-            cx = position.x + s.width / 2;
-            cy = position.y + s.height / 2;
-            transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY}) translate(${-s.width / 2}, ${-s.height / 2})`;
-            innerSVG = `<rect width="${s.width}" height="${s.height}" rx="${s.cornerRadius || 0}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
+            cx = position.x + shape.width / 2;
+            cy = position.y + shape.height / 2;
+            transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY}) translate(${-shape.width / 2}, ${-shape.height / 2})`;
+            innerSVG = `<rect width="${shape.width}" height="${shape.height}" rx="${shape.cornerRadius || 0}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
         } else if (isCircle(shape)) {
-            const s = shape as CircleShape;
             transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})`;
-            innerSVG = `<circle r="${s.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
+            innerSVG = `<circle r="${shape.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
         } else if (isEllipse(shape)) {
-            const s = shape as EllipseShape;
             transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})`;
-            innerSVG = `<ellipse rx="${s.radiusX}" ry="${s.radiusY}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
+            innerSVG = `<ellipse rx="${shape.radiusX}" ry="${shape.radiusY}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
         } else if (isLine(shape) || isArrow(shape)) {
             // Both Line and Arrow share this calculation
-            const s = shape as (LineShape | ArrowShape);
-            const dx = s.endPoint.x - s.startPoint.x;
-            const dy = s.endPoint.y - s.startPoint.y;
-            cx = s.startPoint.x + dx / 2;
-            cy = s.startPoint.y + dy / 2;
+            const dx = shape.endPoint.x - shape.startPoint.x;
+            const dy = shape.endPoint.y - shape.startPoint.y;
+            cx = shape.startPoint.x + dx / 2;
+            cy = shape.startPoint.y + dy / 2;
             transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation})`;
 
             const markerStr = isArrow(shape) ? ' marker-end="url(#arrowhead)"' : '';
             innerSVG = `<line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"${markerStr} />`;
         } else if (isTriangle(shape)) {
-            const s = shape as TriangleShape;
-            cx = (s.points[0].x + s.points[1].x + s.points[2].x) / 3;
-            cy = (s.points[0].y + s.points[1].y + s.points[2].y) / 3;
-            const pts = s.points.map(p => `${p.x - cx},${p.y - cy}`).join(' ');
+            cx = (shape.points[0].x + shape.points[1].x + shape.points[2].x) / 3;
+            cy = (shape.points[0].y + shape.points[1].y + shape.points[2].y) / 3;
+            const pts = shape.points.map(p => `${p.x - cx},${p.y - cy}`).join(' ');
             transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})`;
             innerSVG = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
         }
@@ -153,9 +148,13 @@ function generateSVGString(
 
     textAnnotations.forEach((text: any) => {
         const escapedText = text.text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;");
+
+        let textAnchorStr = 'start';
+        if (text.textAlign === 'center') textAnchorStr = 'middle';
+        else if (text.textAlign === 'right') textAnchorStr = 'end';
 
         svgContent += `
         <text x="${text.x}" y="${text.y}"
@@ -167,11 +166,36 @@ function generateSVGString(
             font-style="${text.fontStyle}"
             text-decoration="${text.textDecoration}"
             dominant-baseline="hanging"
-            text-anchor="${text.textAlign === 'center' ? 'middle' : text.textAlign === 'right' ? 'end' : 'start'}">${escapedText}</text>`;
+            text-anchor="${textAnchorStr}">${escapedText}</text>`;
     });
 
     svgContent += `</svg>`;
     return svgContent;
+}
+
+// ─── Render Helpers to Reduce Ternary Nesting ────────────
+function getMenuItemColor(theme: string, id: string, isLocked: boolean) {
+    if (id === 'lock-session' && isLocked) return '#fbbf24';
+    if (id === 'clear-canvas') return '#ef4444';
+    return theme === 'dark' ? '#c5c6c7' : '#4B5563';
+}
+
+function getMenuItemHoverBg(theme: string, id: string, isLocked: boolean) {
+    if (id === 'lock-session' && isLocked) return 'rgba(245, 158, 11, 0.1)';
+    if (id === 'clear-canvas') return 'rgba(239, 68, 68, 0.1)';
+    return theme === 'dark' ? '#1F2833' : '#F3F4F6';
+}
+
+function getMenuItemHoverColor(theme: string, id: string, isLocked: boolean) {
+    if (id === 'lock-session' && isLocked) return '#fbbf24';
+    if (id === 'clear-canvas') return '#ef4444';
+    return theme === 'dark' ? '#ffffff' : '#111827';
+}
+
+function getMenuIconClass(theme: string, id: string, isLocked: boolean) {
+    if (id === 'lock-session' && isLocked) return 'text-amber-400 group-hover:text-amber-300';
+    if (id === 'clear-canvas') return 'text-red-400 group-hover:text-red-300';
+    return theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900';
 }
 
 const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
@@ -252,13 +276,13 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
 
     const handleExportImage = useCallback((format: 'png' | 'jpeg') => {
         processCanvasExport((canvas) => {
-            const dataURL = canvas.toDataURL(`image/${format}`, 1.0);
+            const dataURL = canvas.toDataURL(`image/${format}`, 1);
             const link = document.createElement('a');
             link.download = `whiteboard-export.${format}`;
             link.href = dataURL;
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
+            link.remove();
         }, format === 'jpeg');
     }, [processCanvasExport]);
 
@@ -273,7 +297,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
         link.href = url;
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
         URL.revokeObjectURL(url);
         setIsOpen(false);
     }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
@@ -301,6 +325,8 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 label: 'Theme',
                 rightElement: (
                     <div
+                        role="button"
+                        tabIndex={0}
                         className="flex items-center gap-1 p-0.5 rounded-full border transition-all cursor-pointer"
                         style={{
                             borderColor: theme === 'dark' ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.3)',
@@ -309,6 +335,13 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                         onClick={(e) => {
                             e.stopPropagation();
                             onToggleTheme?.();
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onToggleTheme?.();
+                            }
                         }}
                     >
                         <div className={`p-1.5 rounded-full flex items-center justify-center transition-colors ${theme === 'light' ? 'bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : ''}`}>
@@ -474,34 +507,20 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                             }}
                                             className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-200 group"
                                             style={{
-                                                // If it's the lock button and it's locked, use amber text. If clear canvas use red if needed, else default text color.
-                                                color: (item.id === 'lock-session' && isLocked) ? '#fbbf24' : (item.id === 'clear-canvas' ? '#ef4444' : (theme === 'dark' ? '#c5c6c7' : '#4B5563'))
+                                                color: getMenuItemColor(theme, item.id, isLocked)
                                             }}
                                             onMouseEnter={(e) => {
-                                                if (item.id === 'lock-session' && isLocked) {
-                                                    e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.1)';
-                                                    e.currentTarget.style.color = '#fbbf24';
-                                                } else if (item.id === 'clear-canvas') {
-                                                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                                                    e.currentTarget.style.color = '#ef4444';
-                                                } else {
-                                                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1F2833' : '#F3F4F6';
-                                                    e.currentTarget.style.color = theme === 'dark' ? '#ffffff' : '#111827';
-                                                }
+                                                e.currentTarget.style.backgroundColor = getMenuItemHoverBg(theme, item.id, isLocked);
+                                                e.currentTarget.style.color = getMenuItemHoverColor(theme, item.id, isLocked);
                                             }}
                                             onMouseLeave={(e) => {
                                                 e.currentTarget.style.backgroundColor = 'transparent';
-                                                e.currentTarget.style.color = (item.id === 'lock-session' && isLocked) ? '#fbbf24' : (item.id === 'clear-canvas' ? '#ef4444' : (theme === 'dark' ? '#c5c6c7' : '#4B5563'));
+                                                e.currentTarget.style.color = getMenuItemColor(theme, item.id, isLocked);
                                             }}
                                         >
                                             {item.icon && (
                                                 <span
-                                                    className={`flex-shrink-0 w-5 flex justify-center transition-colors ${(item.id === 'lock-session' && isLocked)
-                                                        ? 'text-amber-400 group-hover:text-amber-300'
-                                                        : (item.id === 'clear-canvas')
-                                                            ? 'text-red-400 group-hover:text-red-300'
-                                                            : (theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900')
-                                                        }`}
+                                                    className={`flex-shrink-0 w-5 flex justify-center transition-colors ${getMenuIconClass(theme, item.id, isLocked)}`}
                                                 >{item.icon}</span>
                                             )}
                                             <span className="font-medium flex-grow">{item.label}</span>

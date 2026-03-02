@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Konva from 'konva';
 import { jsPDF } from 'jspdf';
-import { Download, FileDown, FileImage } from 'lucide-react';
+import { Download, FileDown, FileImage, Users } from 'lucide-react';
+import LiveCollaborationMenu from './LiveCollaborationMenu';
 import {
     Shape,
     isRectangle,
@@ -35,6 +36,7 @@ interface MenuItem {
     onClick?: () => void;
     dividerAfter?: boolean;
     subItems?: MenuItem[];
+    customContent?: React.ReactNode;
 }
 
 interface MenuSection {
@@ -290,10 +292,16 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
 
     // ─── Built-in Export section ─────────────────────────────
-    const exportSection: MenuSection = {
-        id: 'export',
+    const mainSection: MenuSection = {
+        id: 'main-actions',
         title: 'Actions',
         items: [
+            {
+                id: 'collaboration',
+                label: 'Live collaboration...',
+                icon: <Users size={16} />,
+                customContent: <LiveCollaborationMenu roomId="c8589ed6-mock" />
+            },
             {
                 id: 'export',
                 label: 'Export Canvas',
@@ -308,7 +316,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
         ],
     };
 
-    const allSections = [exportSection, ...extraSections];
+    const allSections = [mainSection, ...extraSections];
 
     const handleItemClick = useCallback((item: MenuItem) => {
         item.onClick?.();
@@ -405,7 +413,8 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                     <React.Fragment key={item.id}>
                                         <button
                                             onClick={() => {
-                                                if (item.subItems) {
+                                                // Prevent closing menu explicitly if clicking a parent with customContent or subItems
+                                                if (item.subItems || item.customContent) {
                                                     setExpandedSubmenus(prev => ({
                                                         ...prev,
                                                         [item.id]: !prev[item.id]
@@ -427,16 +436,17 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                         >
                                             <span className="flex-shrink-0 w-5 flex justify-center text-[#66FCF1] group-hover:text-white transition-colors">{item.icon}</span>
                                             <span className="font-medium flex-grow">{item.label}</span>
-                                            {item.subItems && (
+                                            {/* Expand indicator chevron if subItems OR customContent exists */}
+                                            {(item.subItems || item.customContent) && (
                                                 <span className="text-[10px] opacity-70 transition-transform duration-200 text-[#66FCF1]" style={{ transform: expandedSubmenus[item.id] ? 'rotate(180deg)' : 'none' }}>
                                                     ▼
                                                 </span>
                                             )}
                                         </button>
 
-                                        {/* Sub-items block */}
+                                        {/* Sub-items block (retained from previous fix) */}
                                         {item.subItems && expandedSubmenus[item.id] && (
-                                            <div className="bg-[#0B0C10]/50 border-y border-[rgba(102,252,241,0.05)]">
+                                            <div className="bg-[#0B0C10]/50 border-y border-[rgba(102,252,241,0.05)] pb-1">
                                                 {item.subItems.map((sub) => (
                                                     <button
                                                         key={sub.id}
@@ -456,6 +466,13 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                                         <span>{sub.label}</span>
                                                     </button>
                                                 ))}
+                                            </div>
+                                        )}
+
+                                        {/* Custom content block (for inline UI like QR code) */}
+                                        {item.customContent && expandedSubmenus[item.id] && (
+                                            <div className="bg-[#0B0C10]/50 border-y border-[rgba(102,252,241,0.05)] w-full">
+                                                {item.customContent}
                                             </div>
                                         )}
                                     </React.Fragment>

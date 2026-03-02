@@ -97,58 +97,47 @@ function generateSVGString(
         const stroke = style.stroke;
         const strokeWidth = style.strokeWidth;
 
+        let innerSVG = '';
+        let transformStr = '';
+        let cx = position.x;
+        let cy = position.y;
+
         if (isRectangle(shape)) {
             const s = shape as RectangleShape;
-            const cx = position.x + s.width / 2;
-            const cy = position.y + s.height / 2;
-            svgContent += `
-            <g transform="translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY}) translate(${-s.width / 2}, ${-s.height / 2})" opacity="${opacity}">
-                <rect width="${s.width}" height="${s.height}" rx="${s.cornerRadius || 0}"
-                    fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />
-            </g>`;
+            cx = position.x + s.width / 2;
+            cy = position.y + s.height / 2;
+            transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY}) translate(${-s.width / 2}, ${-s.height / 2})`;
+            innerSVG = `<rect width="${s.width}" height="${s.height}" rx="${s.cornerRadius || 0}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
         } else if (isCircle(shape)) {
             const s = shape as CircleShape;
-            svgContent += `
-            <g transform="translate(${position.x}, ${position.y}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})" opacity="${opacity}">
-                <circle r="${s.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />
-            </g>`;
+            transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})`;
+            innerSVG = `<circle r="${s.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
         } else if (isEllipse(shape)) {
             const s = shape as EllipseShape;
-            svgContent += `
-            <g transform="translate(${position.x}, ${position.y}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})" opacity="${opacity}">
-                <ellipse rx="${s.radiusX}" ry="${s.radiusY}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />
-            </g>`;
-        } else if (isLine(shape)) {
-            const s = shape as LineShape;
+            transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})`;
+            innerSVG = `<ellipse rx="${s.radiusX}" ry="${s.radiusY}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
+        } else if (isLine(shape) || isArrow(shape)) {
+            // Both Line and Arrow share this calculation
+            const s = shape as (LineShape | ArrowShape);
             const dx = s.endPoint.x - s.startPoint.x;
             const dy = s.endPoint.y - s.startPoint.y;
-            const midX = s.startPoint.x + dx / 2;
-            const midY = s.startPoint.y + dy / 2;
-            svgContent += `
-            <g transform="translate(${midX}, ${midY}) rotate(${transform.rotation})" opacity="${opacity}">
-                <line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}"
-                    stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" />
-            </g>`;
-        } else if (isArrow(shape)) {
-            const s = shape as ArrowShape;
-            const dx = s.endPoint.x - s.startPoint.x;
-            const dy = s.endPoint.y - s.startPoint.y;
-            const midX = s.startPoint.x + dx / 2;
-            const midY = s.startPoint.y + dy / 2;
-            svgContent += `
-            <g transform="translate(${midX}, ${midY}) rotate(${transform.rotation})" opacity="${opacity}">
-                <line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}"
-                    stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" marker-end="url(#arrowhead)" />
-            </g>`;
+            cx = s.startPoint.x + dx / 2;
+            cy = s.startPoint.y + dy / 2;
+            transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation})`;
+
+            const markerStr = isArrow(shape) ? ' marker-end="url(#arrowhead)"' : '';
+            innerSVG = `<line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"${markerStr} />`;
         } else if (isTriangle(shape)) {
             const s = shape as TriangleShape;
-            const cx = (s.points[0].x + s.points[1].x + s.points[2].x) / 3;
-            const cy = (s.points[0].y + s.points[1].y + s.points[2].y) / 3;
+            cx = (s.points[0].x + s.points[1].x + s.points[2].x) / 3;
+            cy = (s.points[0].y + s.points[1].y + s.points[2].y) / 3;
             const pts = s.points.map(p => `${p.x - cx},${p.y - cy}`).join(' ');
-            svgContent += `
-            <g transform="translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})" opacity="${opacity}">
-                <polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />
-            </g>`;
+            transformStr = `translate(${cx}, ${cy}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})`;
+            innerSVG = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
+        }
+
+        if (innerSVG && transformStr) {
+            svgContent += `\n    <g transform="${transformStr}" opacity="${opacity}">\n        ${innerSVG}\n    </g>`;
         }
     });
 
@@ -516,10 +505,10 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                             {item.icon && (
                                                 <span
                                                     className={`flex-shrink-0 w-5 flex justify-center transition-colors ${(item.id === 'lock-session' && isLocked)
-                                                            ? 'text-amber-400 group-hover:text-amber-300'
-                                                            : (item.id === 'clear-canvas')
-                                                                ? 'text-red-400 group-hover:text-red-300'
-                                                                : (theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900')
+                                                        ? 'text-amber-400 group-hover:text-amber-300'
+                                                        : (item.id === 'clear-canvas')
+                                                            ? 'text-red-400 group-hover:text-red-300'
+                                                            : (theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900')
                                                         }`}
                                                 >{item.icon}</span>
                                             )}

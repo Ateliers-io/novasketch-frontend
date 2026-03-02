@@ -66,6 +66,7 @@ import MiniMap from './components/MiniMap';
 import RecenterButton from './components/RecenterButton';
 import { UsernameModal } from './components/UsernameModal';
 import PresenceBadge from './components/PresenceBadge';
+import HamburgerMenu from './components/HamburgerMenu';
 import RemoteCursors from './components/RemoteCursors';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
@@ -3147,7 +3148,10 @@ export default function Whiteboard({
       {/* Task 3.1.3: Remote collaborator cursors — always visible on top */}
       <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
 
-      {/* Task 1.4.3-B: Presence Badge — top-right corner, shows live collaborators */}
+      {/* Hamburger Menu — top-left */}
+      <HamburgerMenu />
+
+      {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}
       <PresenceBadge users={users} />
 
       {/* Task 1.3.1-B: Username Modal — blocks canvas until name is provided */}

@@ -123,7 +123,7 @@ export default function Whiteboard({
     const name = localStorage.getItem('novasketch_userName') || 'Anonymous';
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
-      hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+      hash = Math.trunc((hash << 5) - hash + (name.codePointAt(i) || 0));
     }
     const color = PALETTE[Math.abs(hash) % PALETTE.length];
     localStorage.setItem('novasketch_userColor', color);

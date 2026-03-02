@@ -220,38 +220,47 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
         return { width: stageRef.current.width(), height: stageRef.current.height() };
     }, [stageRef]);
 
-    const handleExportImage = useCallback((format: 'png' | 'jpeg') => {
-        const size = getCanvasSize();
-        if (!size) return;
-        const svgString = generateSVGString(size.width, size.height, lines, shapes, textAnnotations, backgroundColor);
-        const img = new Image();
-        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = size.width * 2;
-            canvas.height = size.height * 2;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                if (format === 'jpeg') {
-                    ctx.fillStyle = backgroundColor;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const processCanvasExport = useCallback(
+        (callback: (canvas: HTMLCanvasElement, size: { width: number; height: number; }) => void, fillBackground = false) => {
+            const size = getCanvasSize();
+            if (!size) return;
+            const svgString = generateSVGString(size.width, size.height, lines, shapes, textAnnotations, backgroundColor);
+            const img = new Image();
+            const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = size.width * 2;
+                canvas.height = size.height * 2;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    if (fillBackground) {
+                        ctx.fillStyle = backgroundColor;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                    ctx.scale(2, 2);
+                    ctx.drawImage(img, 0, 0);
+                    callback(canvas, size);
                 }
-                ctx.scale(2, 2);
-                ctx.drawImage(img, 0, 0);
-                const dataURL = canvas.toDataURL(`image/${format}`, 1.0);
-                const link = document.createElement('a');
-                link.download = `whiteboard-export.${format}`;
-                link.href = dataURL;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-            URL.revokeObjectURL(url);
-        };
-        img.src = url;
-        setIsOpen(false);
-    }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+            setIsOpen(false);
+        },
+        [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]
+    );
+
+    const handleExportImage = useCallback((format: 'png' | 'jpeg') => {
+        processCanvasExport((canvas) => {
+            const dataURL = canvas.toDataURL(`image/${format}`, 1.0);
+            const link = document.createElement('a');
+            link.download = `whiteboard-export.${format}`;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }, format === 'jpeg');
+    }, [processCanvasExport]);
 
     const handleExportSVG = useCallback(() => {
         const size = getCanvasSize();
@@ -270,34 +279,17 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
 
     const handleExportPDF = useCallback(() => {
-        const size = getCanvasSize();
-        if (!size) return;
-        const svgString = generateSVGString(size.width, size.height, lines, shapes, textAnnotations, backgroundColor);
-        const img = new Image();
-        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = size.width * 2;
-            canvas.height = size.height * 2;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.scale(2, 2);
-                ctx.drawImage(img, 0, 0);
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF({
-                    orientation: 'landscape',
-                    unit: 'px',
-                    format: [size.width, size.height],
-                });
-                pdf.addImage(imgData, 'PNG', 0, 0, size.width, size.height);
-                pdf.save('whiteboard-export.pdf');
-            }
-            URL.revokeObjectURL(url);
-        };
-        img.src = url;
-        setIsOpen(false);
-    }, [getCanvasSize, lines, shapes, textAnnotations, backgroundColor]);
+        processCanvasExport((canvas, size) => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'px',
+                format: [size.width, size.height],
+            });
+            pdf.addImage(imgData, 'PNG', 0, 0, size.width, size.height);
+            pdf.save('whiteboard-export.pdf');
+        });
+    }, [processCanvasExport]);
 
     // ─── Main Menu Sections ─────────────────────────────
     const mainSection: MenuSection = {

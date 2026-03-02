@@ -23,6 +23,8 @@ interface UseSyncResult {
     isConnected: boolean;
     isSynced: boolean;
     isLoading: boolean;
+    // Task 3.4.3-A: True when local edits haven't been confirmed by the server yet
+    hasPendingChanges: boolean;
 
     // Session 
     isLocked: boolean;
@@ -94,6 +96,9 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
     // Task 1.3.3-B / 3.1.3: Live list of connected collaborators (with cursor positions)
     const [users, setUsers] = useState<{ name: string; color: string; cursor?: { x: number; y: number } }[]>([]);
 
+    // Task 3.4.3-A: Track whether local edits are buffered and unconfirmed
+    const [hasPendingChanges, setHasPendingChanges] = useState(false);
+
     const serviceRef = useRef<SyncService | null>(null);
 
     // Initialize service
@@ -140,6 +145,10 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
             onUndoRedoChange: (canUndoVal, canRedoVal) => {
                 setCanUndo(canUndoVal);
                 setCanRedo(canRedoVal);
+            },
+            // Task 3.4.3-A: Track pending local changes for visual indicator
+            onPendingChange: (hasPending) => {
+                setHasPendingChanges(hasPending);
             },
         });
 
@@ -281,6 +290,7 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         isConnected,
         isSynced,
         isLoading,
+        hasPendingChanges,
         addLine,
         updateLine,
         deleteLine,

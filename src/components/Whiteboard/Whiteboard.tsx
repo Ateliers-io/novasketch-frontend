@@ -171,10 +171,15 @@ export default function Whiteboard({
     setIsLocked,
     setSessionLocked,
     batch,
+    hasPendingChanges,
   } = useSync({ roomId, wsUrl: WS_URL, initialLocked });
 
   // Task 1.5 fix: Owner should NEVER be locked. Only guests see the lock.
   const isEffectivelyLocked = isLocked && !isOwner;
+
+  // Draggable Lock Session badge position
+  const [lockBadgePos, setLockBadgePos] = useState({ x: 16, y: 100 });
+  const lockDragRef = useRef<{ isDragging: boolean; startX: number; startY: number; origX: number; origY: number }>({ isDragging: false, startX: 0, startY: 0, origX: 0, origY: 0 });
 
   // Task 1.3.3-B: Broadcast our identity to collaborators as soon as we connect
   useEffect(() => {
@@ -2470,46 +2475,89 @@ export default function Whiteboard({
         </div>
       )}
 
-      {/* Connection Status Indicator */}
-      <div className="fixed top-4 right-4 z-50 pointer-events-none">
-        <div className={`bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 flex items-center gap-2 ${isConnected ? 'opacity-100' : 'opacity-100'}`}>
+      {/* Task 3.4.3-B: Sync Status — fixed top-right */}
+      <div className="fixed top-4 right-4 z-40 pointer-events-none">
+        <div className={`backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-500 flex items-center gap-2 shadow-lg border ${isLoadingCanvas
+          ? 'bg-yellow-500/15 border-yellow-500/30'
+          : !isConnected
+            ? 'bg-red-500/15 border-red-500/30'
+            : hasPendingChanges
+              ? 'bg-orange-500/15 border-orange-500/30'
+              : 'bg-green-500/15 border-green-500/30'
+          }`}>
           {isLoadingCanvas ? (
             <>
               <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-              <span>Loading...</span>
+              <span className="text-yellow-300">Loading...</span>
             </>
-          ) : isConnected ? (
+          ) : !isConnected ? (
             <>
-              <div className="w-2 h-2 rounded-full bg-green-400" />
-              <span>Connected</span>
+              <div className="relative">
+                <div className="w-2 h-2 rounded-full bg-red-400" />
+                <div className="absolute inset-0 w-2 h-2 rounded-full bg-red-400 animate-ping opacity-75" />
+              </div>
+              <span className="text-red-300">Offline — Working Locally</span>
+            </>
+          ) : hasPendingChanges ? (
+            <>
+              <div className="w-3 h-3 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+              <span className="text-orange-300">Syncing...</span>
             </>
           ) : (
             <>
-              <div className="w-2 h-2 rounded-full bg-orange-400" />
-              <span>Offline (syncing later)</span>
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+              <span className="text-green-300">Synced</span>
             </>
           )}
         </div>
       </div>
 
-      {/* Task 1.5.2: Read-Only Indicator & Lock Toggle */}
-      <div className="fixed top-14 right-4 z-50 pointer-events-auto flex items-center gap-2">
-        {isEffectivelyLocked && (
+      {/* Task 1.5.2: Read-Only Indicator (fixed, non-draggable) */}
+      {isEffectivelyLocked && (
+        <div className="fixed top-14 right-4 z-40 pointer-events-none">
           <div className="bg-amber-500/10 border border-amber-500/30 text-amber-500 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-1.5 backdrop-blur-md">
             <Lock size={12} className="animate-pulse" />
             Read-Only
           </div>
-        )}
-        {isOwner && (
+        </div>
+      )}
+
+      {/* Draggable Lock Session Toggle */}
+      {isOwner && (
+        <div
+          className="fixed z-50 pointer-events-auto select-none"
+          style={{ left: lockBadgePos.x, top: lockBadgePos.y, cursor: lockDragRef.current.isDragging ? 'grabbing' : 'grab' }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            lockDragRef.current = { isDragging: true, startX: e.clientX, startY: e.clientY, origX: lockBadgePos.x, origY: lockBadgePos.y };
+
+            const onMove = (ev: MouseEvent) => {
+              if (!lockDragRef.current.isDragging) return;
+              const dx = ev.clientX - lockDragRef.current.startX;
+              const dy = ev.clientY - lockDragRef.current.startY;
+              setLockBadgePos({ x: lockDragRef.current.origX + dx, y: lockDragRef.current.origY + dy });
+            };
+
+            const onUp = () => {
+              lockDragRef.current.isDragging = false;
+              window.removeEventListener('mousemove', onMove);
+              window.removeEventListener('mouseup', onUp);
+            };
+
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+          }}
+        >
           <button
-            onClick={async () => {
+            onClick={async (e) => {
+              // Only fire click if we didn't just drag
+              if (Math.abs(e.clientX - lockDragRef.current.startX) > 5 || Math.abs(e.clientY - lockDragRef.current.startY) > 5) return;
               try {
                 const newStatus = await toggleSessionLock(roomId, !isLocked);
                 setIsLocked(newStatus);
-                // Broadcast lock state change via Yjs for real-time sync to guests
                 setSessionLocked(newStatus);
-              } catch (e) {
-                console.error("Failed to toggle lock", e);
+              } catch (err) {
+                console.error("Failed to toggle lock", err);
               }
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shadow-lg backdrop-blur-md border ${isLocked
@@ -2520,8 +2568,8 @@ export default function Whiteboard({
             {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
             {isLocked ? 'Unlock Session' : 'Lock Session'}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <Toolbar
         isSessionLocked={isEffectivelyLocked}

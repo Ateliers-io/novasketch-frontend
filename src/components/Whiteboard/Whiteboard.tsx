@@ -39,7 +39,6 @@ import {
   isPointInBoundingBox,
   BoundingBox,
 } from '../../utils/boundingBox';
-import ExportTools from '../ExportTools/ExportTools';
 import Konva from 'konva';
 import { useSync } from '../../services/useSync';
 import { StrokeLine } from '../../services/sync.service';

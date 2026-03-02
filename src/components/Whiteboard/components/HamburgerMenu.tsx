@@ -11,12 +11,6 @@ import {
     isLine,
     isArrow,
     isTriangle,
-    RectangleShape,
-    CircleShape,
-    EllipseShape,
-    LineShape,
-    ArrowShape,
-    TriangleShape,
 } from '../../../types/shapes';
 
 /**
@@ -197,6 +191,118 @@ function getMenuIconClass(theme: string, id: string, isLocked: boolean) {
     if (id === 'clear-canvas') return 'text-red-400 group-hover:text-red-300';
     return theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900';
 }
+
+function getMenuBtnStyle(isOpen: boolean, theme: string) {
+    const isDark = theme === 'dark';
+    if (isOpen) {
+        return {
+            background: isDark ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+            border: `2px solid ${isDark ? '#66FCF1' : '#45A29E'}`,
+            boxShadow: isDark ? '0 0 20px rgba(102,252,241,0.25)' : '0 0 20px rgba(69,162,158,0.25)'
+        };
+    }
+    return {
+        background: 'transparent',
+        border: `2px solid ${isDark ? 'rgba(102,252,241,0.5)' : 'rgba(69,162,158,0.5)'}`,
+        boxShadow: isDark ? '0 0 10px rgba(102,252,241,0.15)' : '0 0 10px rgba(69,162,158,0.15)'
+    };
+}
+
+const HamburgerMenuItemRender: React.FC<{
+    item: MenuItem;
+    theme: string;
+    isLocked: boolean;
+    isExpanded: boolean;
+    onToggle: (item: MenuItem) => void;
+    onItemClick: (item: MenuItem) => void;
+}> = ({ item, theme, isLocked, isExpanded, onToggle, onItemClick }) => {
+    const handleMainClick = async () => {
+        if (item.subItems || item.customContent) {
+            onToggle(item);
+        } else {
+            onItemClick(item);
+        }
+    };
+
+    const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.currentTarget.style.backgroundColor = getMenuItemHoverBg(theme, item.id, isLocked);
+        e.currentTarget.style.color = getMenuItemHoverColor(theme, item.id, isLocked);
+    };
+
+    const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.currentTarget.style.backgroundColor = 'transparent';
+        e.currentTarget.style.color = getMenuItemColor(theme, item.id, isLocked);
+    };
+
+    const handleSubMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1F2833' : '#F3F4F6';
+        e.currentTarget.style.color = theme === 'dark' ? '#ffffff' : '#111827';
+    };
+
+    const handleSubMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.currentTarget.style.backgroundColor = 'transparent';
+        e.currentTarget.style.color = theme === 'dark' ? '#a0a0a0' : '#6B7280';
+    };
+
+    return (
+        <React.Fragment>
+            <button
+                onClick={handleMainClick}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-200 group"
+                style={{ color: getMenuItemColor(theme, item.id, isLocked) }}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+            >
+                {item.icon && (
+                    <span className={`flex-shrink-0 w-5 flex justify-center transition-colors ${getMenuIconClass(theme, item.id, isLocked)}`}>
+                        {item.icon}
+                    </span>
+                )}
+                <span className="font-medium flex-grow">{item.label}</span>
+
+                {item.rightElement && (
+                    <div className="flex-shrink-0 ml-auto">
+                        {item.rightElement}
+                    </div>
+                )}
+
+                {(item.subItems || item.customContent) && (
+                    <span className="text-[10px] opacity-70 transition-transform duration-200" style={{ color: theme === 'dark' ? '#66FCF1' : '#45A29E', transform: isExpanded ? 'rotate(180deg)' : 'none' }}>
+                        ▼
+                    </span>
+                )}
+            </button>
+
+            {item.subItems && isExpanded && (
+                <div className={`pb-1 border-y ${theme === 'dark' ? 'bg-[#0B0C10]/50 border-[rgba(102,252,241,0.05)]' : 'bg-gray-50/50 border-[rgba(69,162,158,0.1)]'}`}>
+                    {item.subItems.map((sub) => (
+                        <button
+                            key={sub.id}
+                            onClick={() => onItemClick(sub)}
+                            className="w-full flex items-center gap-3 pl-11 pr-4 py-2 text-left text-sm transition-all duration-200 group"
+                            style={{ color: theme === 'dark' ? '#a0a0a0' : '#6B7280' }}
+                            onMouseEnter={handleSubMouseEnter}
+                            onMouseLeave={handleSubMouseLeave}
+                        >
+                            {sub.icon && (
+                                <span className={`flex-shrink-0 w-4 flex justify-center transition-colors ${theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900'}`}>
+                                    {sub.icon}
+                                </span>
+                            )}
+                            <span>{sub.label}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {item.customContent && isExpanded && (
+                <div className={`w-full border-y ${theme === 'dark' ? 'bg-[#0B0C10]/50 border-[rgba(102,252,241,0.05)]' : 'bg-gray-50/50 border-[rgba(69,162,158,0.1)]'}`}>
+                    {item.customContent}
+                </div>
+            )}
+        </React.Fragment>
+    );
+};
 
 const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     extraSections = [],
@@ -410,13 +516,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
             <button
                 onClick={() => setIsOpen(prev => !prev)}
                 className="group flex items-center justify-center w-11 h-11 rounded-lg transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#66FCF1]/50"
-                style={{
-                    background: isOpen ? (theme === 'dark' ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)') : 'transparent',
-                    border: `2px solid ${isOpen ? (theme === 'dark' ? '#66FCF1' : '#45A29E') : (theme === 'dark' ? 'rgba(102,252,241,0.5)' : 'rgba(69,162,158,0.5)')}`,
-                    boxShadow: isOpen
-                        ? (theme === 'dark' ? '0 0 20px rgba(102,252,241,0.25)' : '0 0 20px rgba(69,162,158,0.25)')
-                        : (theme === 'dark' ? '0 0 10px rgba(102,252,241,0.15)' : '0 0 10px rgba(69,162,158,0.15)'),
-                }}
+                style={getMenuBtnStyle(isOpen, theme)}
                 title={isOpen ? 'Close menu' : 'Open menu'}
                 aria-expanded={isOpen}
                 aria-haspopup="true"
@@ -492,87 +592,15 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
 
                                 {/* Section items */}
                                 {section.items.map((item) => (
-                                    <React.Fragment key={item.id}>
-                                        <button
-                                            onClick={async () => {
-                                                // Prevent closing menu explicitly if clicking a parent with customContent or subItems
-                                                if (item.subItems || item.customContent) {
-                                                    setExpandedSubmenus(prev => ({
-                                                        ...prev,
-                                                        [item.id]: !prev[item.id]
-                                                    }));
-                                                } else {
-                                                    await handleItemClick(item);
-                                                }
-                                            }}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-200 group"
-                                            style={{
-                                                color: getMenuItemColor(theme, item.id, isLocked)
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = getMenuItemHoverBg(theme, item.id, isLocked);
-                                                e.currentTarget.style.color = getMenuItemHoverColor(theme, item.id, isLocked);
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                e.currentTarget.style.color = getMenuItemColor(theme, item.id, isLocked);
-                                            }}
-                                        >
-                                            {item.icon && (
-                                                <span
-                                                    className={`flex-shrink-0 w-5 flex justify-center transition-colors ${getMenuIconClass(theme, item.id, isLocked)}`}
-                                                >{item.icon}</span>
-                                            )}
-                                            <span className="font-medium flex-grow">{item.label}</span>
-
-                                            {/* Right element if provided */}
-                                            {item.rightElement && (
-                                                <div className="flex-shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
-                                                    {item.rightElement}
-                                                </div>
-                                            )}
-
-                                            {/* Expand indicator chevron if subItems OR customContent exists */}
-                                            {(item.subItems || item.customContent) && (
-                                                <span className="text-[10px] opacity-70 transition-transform duration-200" style={{ color: theme === 'dark' ? '#66FCF1' : '#45A29E', transform: expandedSubmenus[item.id] ? 'rotate(180deg)' : 'none' }}>
-                                                    ▼
-                                                </span>
-                                            )}
-                                        </button>
-
-                                        {item.subItems && expandedSubmenus[item.id] && (
-                                            <div className={`pb-1 border-y ${theme === 'dark' ? 'bg-[#0B0C10]/50 border-[rgba(102,252,241,0.05)]' : 'bg-gray-50/50 border-[rgba(69,162,158,0.1)]'}`}>
-                                                {item.subItems.map((sub) => (
-                                                    <button
-                                                        key={sub.id}
-                                                        onClick={() => handleItemClick(sub)}
-                                                        className="w-full flex items-center gap-3 pl-11 pr-4 py-2 text-left text-sm transition-all duration-200 group"
-                                                        style={{ color: theme === 'dark' ? '#a0a0a0' : '#6B7280' }}
-                                                        onMouseEnter={(e) => {
-                                                            e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1F2833' : '#F3F4F6';
-                                                            e.currentTarget.style.color = theme === 'dark' ? '#ffffff' : '#111827';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.backgroundColor = 'transparent';
-                                                            e.currentTarget.style.color = theme === 'dark' ? '#a0a0a0' : '#6B7280';
-                                                        }}
-                                                    >
-                                                        {sub.icon && (
-                                                            <span className={`flex-shrink-0 w-4 flex justify-center transition-colors ${theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900'}`}>{sub.icon}</span>
-                                                        )}
-                                                        <span>{sub.label}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Custom content block (for inline UI like QR code) */}
-                                        {item.customContent && expandedSubmenus[item.id] && (
-                                            <div className={`w-full border-y ${theme === 'dark' ? 'bg-[#0B0C10]/50 border-[rgba(102,252,241,0.05)]' : 'bg-gray-50/50 border-[rgba(69,162,158,0.1)]'}`}>
-                                                {item.customContent}
-                                            </div>
-                                        )}
-                                    </React.Fragment>
+                                    <HamburgerMenuItemRender
+                                        key={item.id}
+                                        item={item}
+                                        theme={theme}
+                                        isLocked={isLocked}
+                                        isExpanded={!!expandedSubmenus[item.id]}
+                                        onToggle={(i) => setExpandedSubmenus(prev => ({ ...prev, [i.id]: !prev[i.id] }))}
+                                        onItemClick={handleItemClick}
+                                    />
                                 ))}
 
                                 {/* Section divider (except last) */}

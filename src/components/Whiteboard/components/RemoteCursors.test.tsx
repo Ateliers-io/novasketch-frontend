@@ -27,7 +27,7 @@ describe('RemoteCursors Component (Task 3.1.3)', () => {
             { name: 'NoMouse', color: '#10B981' }, // no cursor — should not render
         ];
 
-        const { container } = render(
+        render(
             <RemoteCursors users={users} stagePos={defaultStagePos} stageScale={defaultStageScale} />
         );
 

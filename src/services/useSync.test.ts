@@ -7,10 +7,14 @@ vi.mock('./sync.service', () => ({
         config: any;
         constructor(config: any) { this.config = config; }
         async init() { return Promise.resolve(); }
-        destroy() { }
+        destroy() {
+            // Mock implementation
+        }
         canUndo() { return false; }
         canRedo() { return false; }
-        updateCursorPosition(_x: number, _y: number) { }
+        updateCursorPosition(_x: number, _y: number) {
+            // Mock implementation
+        }
     }
 }));
 

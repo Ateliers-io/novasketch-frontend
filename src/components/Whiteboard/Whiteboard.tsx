@@ -39,7 +39,6 @@ import {
   isPointInBoundingBox,
   BoundingBox,
 } from '../../utils/boundingBox';
-import ExportTools from '../ExportTools/ExportTools';
 import Konva from 'konva';
 import { useSync } from '../../services/useSync';
 import { StrokeLine } from '../../services/sync.service';
@@ -66,6 +65,7 @@ import MiniMap from './components/MiniMap';
 import RecenterButton from './components/RecenterButton';
 import { UsernameModal } from './components/UsernameModal';
 import PresenceBadge from './components/PresenceBadge';
+import HamburgerMenu from './components/HamburgerMenu';
 import RemoteCursors from './components/RemoteCursors';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
@@ -136,6 +136,14 @@ export default function Whiteboard({
     color: userColor,
   }), [userName, userColor]);
 
+  // Theme settings
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('novasketch-theme') as 'light' | 'dark') || 'dark';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('novasketch-theme', theme);
+  }, [theme]);
 
   // syncing everything with yjs.
   // this hook does all the heavy lifting for real-time collab.
@@ -178,8 +186,6 @@ export default function Whiteboard({
   const isEffectivelyLocked = isLocked && !isOwner;
 
   // Draggable Lock Session badge position
-  const [lockBadgePos, setLockBadgePos] = useState({ x: 16, y: 100 });
-  const lockDragRef = useRef<{ isDragging: boolean; startX: number; startY: number; origX: number; origY: number }>({ isDragging: false, startX: 0, startY: 0, origX: 0, origY: 0 });
 
   // Task 1.3.3-B: Broadcast our identity to collaborators as soon as we connect
   useEffect(() => {
@@ -2467,7 +2473,7 @@ export default function Whiteboard({
 
       {/* Loading Overlay */}
       {isLoadingCanvas && (
-        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0B0C10] text-[#66FCF1]">
+        <div className={`absolute inset-0 z-[200] flex items-center justify-center ${theme === 'light' ? 'bg-[#f0f2f5] text-[#45A29E]' : 'bg-[#0B0C10] text-[#66FCF1]'}`}>
           <div className="flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-[#1F2833] border-t-[#66FCF1] rounded-full animate-spin"></div>
             <p className="font-medium animate-pulse">Loading your masterpiece...</p>
@@ -2522,54 +2528,7 @@ export default function Whiteboard({
         </div>
       )}
 
-      {/* Draggable Lock Session Toggle */}
-      {isOwner && (
-        <div
-          className="fixed z-50 pointer-events-auto select-none"
-          style={{ left: lockBadgePos.x, top: lockBadgePos.y, cursor: lockDragRef.current.isDragging ? 'grabbing' : 'grab' }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            lockDragRef.current = { isDragging: true, startX: e.clientX, startY: e.clientY, origX: lockBadgePos.x, origY: lockBadgePos.y };
-
-            const onMove = (ev: MouseEvent) => {
-              if (!lockDragRef.current.isDragging) return;
-              const dx = ev.clientX - lockDragRef.current.startX;
-              const dy = ev.clientY - lockDragRef.current.startY;
-              setLockBadgePos({ x: lockDragRef.current.origX + dx, y: lockDragRef.current.origY + dy });
-            };
-
-            const onUp = () => {
-              lockDragRef.current.isDragging = false;
-              window.removeEventListener('mousemove', onMove);
-              window.removeEventListener('mouseup', onUp);
-            };
-
-            window.addEventListener('mousemove', onMove);
-            window.addEventListener('mouseup', onUp);
-          }}
-        >
-          <button
-            onClick={async (e) => {
-              // Only fire click if we didn't just drag
-              if (Math.abs(e.clientX - lockDragRef.current.startX) > 5 || Math.abs(e.clientY - lockDragRef.current.startY) > 5) return;
-              try {
-                const newStatus = await toggleSessionLock(roomId, !isLocked);
-                setIsLocked(newStatus);
-                setSessionLocked(newStatus);
-              } catch (err) {
-                console.error("Failed to toggle lock", err);
-              }
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shadow-lg backdrop-blur-md border ${isLocked
-              ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 hover:bg-amber-500/30'
-              : 'bg-[#1F2833]/80 text-[#66FCF1] border-[#66FCF1]/30 hover:bg-[#1F2833]'
-              }`}
-          >
-            {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
-            {isLocked ? 'Unlock Session' : 'Lock Session'}
-          </button>
-        </div>
-      )}
+      {/* Draggable Lock Session Toggle — Moved to Hamburger Menu */}
 
       <Toolbar
         isSessionLocked={isEffectivelyLocked}
@@ -2801,9 +2760,9 @@ export default function Whiteboard({
 
       {/* LAYER 1: BACKGROUND (Infinite Pan using backgroundPosition) */}
       <div
-        className="absolute inset-0 z-0 pointer-events-none select-none"
+        className="absolute inset-0 z-0 pointer-events-none select-none transition-colors duration-300"
         style={{
-          backgroundColor: canvasBackgroundColor || '#121212',
+          backgroundColor: theme === 'light' ? '#f0f2f5' : (canvasBackgroundColor || '#121212'),
         }}
       />
 
@@ -3051,16 +3010,7 @@ export default function Whiteboard({
         )}
       </div>
 
-      {/* Export Tools Overlay */}
-      <ExportTools
-        stageRef={stageRef}
-        lines={lines}
-        shapes={shapes}
-        textAnnotations={textAnnotations}
-        onClear={clearAll}
-        backgroundColor={canvasBackgroundColor}
-      />
-
+      {/* Export Tools Overlay - Moved to Hamburger Menu */}
       {/* Task 5.4.1: Recenter Button */}
       <RecenterButton onRecenter={handleRecenter} />
 
@@ -3130,24 +3080,39 @@ export default function Whiteboard({
         </button>
       </div>
 
-      {/* Standalone Clear Canvas Button */}
-      <button
-        onClick={() => {
-          if (confirm('Are you sure you want to clear the entire canvas? This action can be undone.')) {
-            clearAll();
-          }
-        }}
-        className="fixed bottom-4 left-4 bg-transparent border-2 border-red-500/60 text-red-400 p-2.5 rounded-lg shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:bg-red-900/20 hover:text-red-300 transition-all duration-300 z-50 flex items-center gap-2 text-xs font-medium"
-        title="Clear Canvas"
-      >
-        <Trash2 size={16} />
-        <span>Clear</span>
-      </button>
+      {/* Standalone Clear Canvas Button - Moved to HamburgerMenu */}
 
       {/* Task 3.1.3: Remote collaborator cursors — always visible on top */}
       <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
 
-      {/* Task 1.4.3-B: Presence Badge — top-right corner, shows live collaborators */}
+      {/* Hamburger Menu — top-left */}
+      <HamburgerMenu
+        stageRef={stageRef}
+        lines={lines}
+        shapes={shapes}
+        textAnnotations={textAnnotations}
+        backgroundColor={canvasBackgroundColor}
+        isOwner={isOwner}
+        isLocked={isLocked}
+        onToggleLock={async () => {
+          try {
+            const newStatus = await toggleSessionLock(roomId, !isLocked);
+            setIsLocked(newStatus);
+            setSessionLocked(newStatus);
+          } catch (err) {
+            console.error("Failed to toggle lock from menu", err);
+          }
+        }}
+        onClearCanvas={() => {
+          if (confirm('Are you sure you want to clear the entire canvas? This action can be undone.')) {
+            clearAll();
+          }
+        }}
+        theme={theme}
+        onToggleTheme={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+      />
+
+      {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}
       <PresenceBadge users={users} />
 
       {/* Task 1.3.1-B: Username Modal — blocks canvas until name is provided */}

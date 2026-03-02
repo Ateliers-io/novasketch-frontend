@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface CollaboratorUser {
     name: string;
@@ -18,17 +18,76 @@ function getInitial(name: string): string {
 
 const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
     const [expanded, setExpanded] = useState(false);
+    // Draggable position — starts top-left area (away from synced badge in top-right)
+    const [pos, setPos] = useState({ x: 16, y: 16 });
+    const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number; origX: number; origY: number }>({
+        isDragging: false, startX: 0, startY: 0, origX: 0, origY: 0,
+    });
 
     const count = users.length;
     const visible = users.slice(0, MAX_VISIBLE);
     const overflow = count - MAX_VISIBLE;
 
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Click-away to close expanded dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setExpanded(false);
+            }
+        };
+
+        if (expanded) {
+            document.addEventListener('mousedown', handleClickOutside);
+        } else {
+            document.removeEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [expanded]);
+
+    // Drag handlers
+    const handleDragStart = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        dragRef.current = { isDragging: true, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+
+        const onMove = (ev: MouseEvent) => {
+            if (!dragRef.current.isDragging) return;
+            const dx = ev.clientX - dragRef.current.startX;
+            const dy = ev.clientY - dragRef.current.startY;
+            setPos({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy });
+        };
+
+        const onUp = () => {
+            dragRef.current.isDragging = false;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        };
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+    }, [pos]);
+
+    const handlePillClick = useCallback((e: React.MouseEvent) => {
+        // Only toggle if it wasn't a drag
+        if (Math.abs(e.clientX - dragRef.current.startX) > 5 || Math.abs(e.clientY - dragRef.current.startY) > 5) return;
+        setExpanded(prev => !prev);
+    }, []);
+
     return (
-        <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2 select-none">
+        <div
+            ref={containerRef}
+            className="fixed z-50 flex flex-col items-start gap-2 select-none"
+            style={{ left: pos.x, top: pos.y, cursor: dragRef.current.isDragging ? 'grabbing' : 'grab' }}
+            onMouseDown={handleDragStart}
+        >
 
             {/* Main pill badge */}
             <button
-                onClick={() => setExpanded(prev => !prev)}
+                onClick={handlePillClick}
                 title={expanded ? 'Hide members' : 'Show members'}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300"
                 style={{
@@ -99,7 +158,7 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                         className="text-xs font-semibold whitespace-nowrap"
                         style={{ color: count > 0 ? '#e2e8f0' : '#64748b' }}
                     >
-                        {count} {count === 1 ? 'Online' : 'Online'}
+                        {count} Online
                     </span>
                 </div>
             </button>

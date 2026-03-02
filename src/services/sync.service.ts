@@ -116,6 +116,8 @@ export interface SyncServiceConfig {
     onLockChange?: (locked: boolean) => void;
     // Notifies React whenever the undo/redo stack changes so buttons update
     onUndoRedoChange?: (canUndo: boolean, canRedo: boolean) => void;
+    // Task 3.4.3-A: Notifies React when local edits are buffered and not yet confirmed by server
+    onPendingChange?: (hasPending: boolean) => void;
 }
 
 class SyncService {
@@ -132,6 +134,9 @@ class SyncService {
 
     private config: SyncServiceConfig;
     private isInitialized = false;
+    // Task 3.4.3-A: Track unsynced local mutations
+    private wsConnected = false;
+    private pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(config: SyncServiceConfig) {
         this.config = config;
@@ -225,10 +230,49 @@ class SyncService {
             connect: true,
         });
 
+        // Task 3.4.3-A: Track local doc mutations for pending-change detection.
+        // When origin === 'local', show "Syncing..." briefly. If connected, Yjs sends
+        // the data almost instantly, so we auto-clear after 1.5s. If disconnected,
+        // the pending state persists until reconnection + sync.
+        this.doc.on('update', (_update: Uint8Array, origin: any) => {
+            if (origin === 'local') {
+                this.config.onPendingChange?.(true);
+
+                // Clear any existing timer
+                if (this.pendingTimer) clearTimeout(this.pendingTimer);
+
+                // If connected, data is sent instantly — auto-clear after short delay
+                if (this.wsConnected) {
+                    this.pendingTimer = setTimeout(() => {
+                        this.config.onPendingChange?.(false);
+                        this.pendingTimer = null;
+                    }, 1500);
+                }
+                // If disconnected, stay pending (cleared on reconnect+sync)
+            }
+        });
+
         this.wsProvider.on('status', (event: { status: string }) => {
             const connected = event.status === 'connected';
+            this.wsConnected = connected;
             console.log(`[SyncService] WebSocket ${connected ? 'connected' : 'disconnected'}`);
             this.config.onConnectionChange?.(connected);
+
+            // Task 3.4.3-A: Going offline — cancel auto-clear timer so badge stays pending
+            if (!connected && this.pendingTimer) {
+                clearTimeout(this.pendingTimer);
+                this.pendingTimer = null;
+            }
+
+            // Task 3.4.3-A: Reconnected — auto-clear pending after short delay
+            // The sync event doesn't always re-fire on reconnect, so this is the safety net.
+            if (connected) {
+                if (this.pendingTimer) clearTimeout(this.pendingTimer);
+                this.pendingTimer = setTimeout(() => {
+                    this.config.onPendingChange?.(false);
+                    this.pendingTimer = null;
+                }, 2000);
+            }
 
             // Setup listener for custom backend messages (type 4 - presence/events)
             if (connected && this.wsProvider && (this.wsProvider as any).ws) {
@@ -295,6 +339,13 @@ class SyncService {
                     canvasBackgroundColor: this.yMeta.get('bgColor') || '#0B0C10',
                     isLocked: this.yMeta.get('isLocked') === true,
                 });
+
+                // Task 3.4.3-A: Server confirmed sync — clear pending state immediately
+                if (this.pendingTimer) {
+                    clearTimeout(this.pendingTimer);
+                    this.pendingTimer = null;
+                }
+                this.config.onPendingChange?.(false);
             }
         });
 

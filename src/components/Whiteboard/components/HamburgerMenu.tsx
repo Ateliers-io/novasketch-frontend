@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Konva from 'konva';
 import { jsPDF } from 'jspdf';
-import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2 } from 'lucide-react';
+import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2, Sun, Moon } from 'lucide-react';
 import LiveCollaborationMenu from './LiveCollaborationMenu';
 import {
     Shape,
@@ -32,11 +32,12 @@ import {
 interface MenuItem {
     id: string;
     label: string;
-    icon: React.ReactNode | string;
+    icon?: React.ReactNode | string;
     onClick?: () => void;
     dividerAfter?: boolean;
     subItems?: MenuItem[];
     customContent?: React.ReactNode;
+    rightElement?: React.ReactNode;
 }
 
 interface MenuSection {
@@ -62,6 +63,10 @@ interface HamburgerMenuProps {
 
     /** Clear canvas action */
     onClearCanvas?: () => void;
+
+    /** Theme toggle */
+    theme?: 'light' | 'dark';
+    onToggleTheme?: () => void;
 }
 
 // ─── SVG Generation (same as ExportTools) ───────────────────
@@ -191,6 +196,8 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     isLocked = false,
     onToggleLock,
     onClearCanvas,
+    theme = 'dark',
+    onToggleTheme,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedSubmenus, setExpandedSubmenus] = useState<Record<string, boolean>>({});
@@ -309,6 +316,30 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
         title: 'Actions',
         items: [
             {
+                id: 'theme-toggle',
+                label: 'Theme',
+                rightElement: (
+                    <div
+                        className="flex items-center gap-1 p-0.5 rounded-full border transition-all cursor-pointer"
+                        style={{
+                            borderColor: theme === 'dark' ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.3)',
+                            background: theme === 'dark' ? 'transparent' : 'rgba(0,0,0,0.05)',
+                        }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleTheme?.();
+                        }}
+                    >
+                        <div className={`p-1.5 rounded-full flex items-center justify-center transition-colors ${theme === 'light' ? 'bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : ''}`}>
+                            <Sun size={14} color={theme === 'light' ? '#45A29E' : '#6b7280'} strokeWidth={theme === 'light' ? 2.5 : 2} />
+                        </div>
+                        <div className={`p-1.5 rounded-full flex items-center justify-center transition-colors ${theme === 'dark' ? 'bg-[#1F2833] shadow-[0_2px_4px_rgba(0,0,0,0.5)]' : ''}`}>
+                            <Moon size={14} color={theme === 'dark' ? '#66FCF1' : '#9ca3af'} strokeWidth={theme === 'dark' ? 2.5 : 2} />
+                        </div>
+                    </div>
+                )
+            },
+            {
                 id: 'collaboration',
                 label: 'Live collaboration...',
                 icon: <Users size={16} />,
@@ -366,11 +397,11 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 onClick={() => setIsOpen(prev => !prev)}
                 className="group flex items-center justify-center w-11 h-11 rounded-lg transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#66FCF1]/50"
                 style={{
-                    background: isOpen ? 'rgba(11, 12, 16, 0.92)' : 'transparent',
-                    border: `2px solid ${isOpen ? '#66FCF1' : 'rgba(102,252,241,0.5)'}`,
+                    background: isOpen ? (theme === 'dark' ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)') : 'transparent',
+                    border: `2px solid ${isOpen ? (theme === 'dark' ? '#66FCF1' : '#45A29E') : (theme === 'dark' ? 'rgba(102,252,241,0.5)' : 'rgba(69,162,158,0.5)')}`,
                     boxShadow: isOpen
-                        ? '0 0 20px rgba(102,252,241,0.25)'
-                        : '0 0 10px rgba(102,252,241,0.15)',
+                        ? (theme === 'dark' ? '0 0 20px rgba(102,252,241,0.25)' : '0 0 20px rgba(69,162,158,0.25)')
+                        : (theme === 'dark' ? '0 0 10px rgba(102,252,241,0.15)' : '0 0 10px rgba(69,162,158,0.15)'),
                 }}
                 title={isOpen ? 'Close menu' : 'Open menu'}
                 aria-expanded={isOpen}
@@ -381,14 +412,14 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                     <span
                         className="block h-[2px] w-5 rounded-full transition-all duration-300"
                         style={{
-                            backgroundColor: '#66FCF1',
+                            backgroundColor: theme === 'dark' ? '#66FCF1' : '#45A29E',
                             transform: isOpen ? 'rotate(45deg) translate(2.5px, 2.5px)' : 'none',
                         }}
                     />
                     <span
                         className="block h-[2px] w-5 rounded-full transition-all duration-300"
                         style={{
-                            backgroundColor: '#66FCF1',
+                            backgroundColor: theme === 'dark' ? '#66FCF1' : '#45A29E',
                             opacity: isOpen ? 0 : 1,
                             transform: isOpen ? 'scaleX(0)' : 'scaleX(1)',
                         }}
@@ -396,7 +427,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                     <span
                         className="block h-[2px] w-5 rounded-full transition-all duration-300"
                         style={{
-                            backgroundColor: '#66FCF1',
+                            backgroundColor: theme === 'dark' ? '#66FCF1' : '#45A29E',
                             transform: isOpen ? 'rotate(-45deg) translate(2.5px, -2.5px)' : 'none',
                         }}
                     />
@@ -408,11 +439,11 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 <div
                     className="mt-2 rounded-xl overflow-hidden"
                     style={{
-                        background: 'rgba(11, 12, 16, 0.92)',
+                        background: theme === 'dark' ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.96)',
                         backdropFilter: 'blur(16px)',
                         WebkitBackdropFilter: 'blur(16px)',
-                        border: '1px solid rgba(102,252,241,0.2)',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(102,252,241,0.08)',
+                        border: `1px solid ${theme === 'dark' ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.2)'}`,
+                        boxShadow: theme === 'dark' ? '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(102,252,241,0.08)' : '0 8px 32px rgba(0,0,0,0.1), 0 0 20px rgba(69,162,158,0.08)',
                         minWidth: 220,
                         maxHeight: '70vh',
                         animation: 'menuSlideIn 0.2s ease-out',
@@ -422,8 +453,8 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                     <div
                         className="px-4 py-2.5 text-xs font-semibold uppercase tracking-widest flex items-center gap-2"
                         style={{
-                            color: '#66FCF1',
-                            borderBottom: '1px solid rgba(102,252,241,0.1)',
+                            color: theme === 'dark' ? '#66FCF1' : '#45A29E',
+                            borderBottom: `1px solid ${theme === 'dark' ? 'rgba(102,252,241,0.1)' : 'rgba(69,162,158,0.2)'}`,
                         }}
                     >
                         <span>☰</span>
@@ -440,7 +471,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                 {/* Section header */}
                                 <div
                                     className="px-4 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.15em]"
-                                    style={{ color: 'rgba(102,252,241,0.5)' }}
+                                    style={{ color: theme === 'dark' ? 'rgba(102,252,241,0.5)' : 'rgba(69,162,158,0.7)' }}
                                 >
                                     {section.title}
                                 </div>
@@ -463,7 +494,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                             className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-200 group"
                                             style={{
                                                 // If it's the lock button and it's locked, use amber text. If clear canvas use red if needed, else default text color.
-                                                color: (item.id === 'lock-session' && isLocked) ? '#fbbf24' : (item.id === 'clear-canvas' ? '#ef4444' : '#c5c6c7')
+                                                color: (item.id === 'lock-session' && isLocked) ? '#fbbf24' : (item.id === 'clear-canvas' ? '#ef4444' : (theme === 'dark' ? '#c5c6c7' : '#4B5563'))
                                             }}
                                             onMouseEnter={(e) => {
                                                 if (item.id === 'lock-session' && isLocked) {
@@ -473,51 +504,62 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                                     e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
                                                     e.currentTarget.style.color = '#ef4444';
                                                 } else {
-                                                    e.currentTarget.style.backgroundColor = '#1F2833';
-                                                    e.currentTarget.style.color = '#ffffff';
+                                                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1F2833' : '#F3F4F6';
+                                                    e.currentTarget.style.color = theme === 'dark' ? '#ffffff' : '#111827';
                                                 }
                                             }}
                                             onMouseLeave={(e) => {
                                                 e.currentTarget.style.backgroundColor = 'transparent';
-                                                e.currentTarget.style.color = (item.id === 'lock-session' && isLocked) ? '#fbbf24' : (item.id === 'clear-canvas' ? '#ef4444' : '#c5c6c7');
+                                                e.currentTarget.style.color = (item.id === 'lock-session' && isLocked) ? '#fbbf24' : (item.id === 'clear-canvas' ? '#ef4444' : (theme === 'dark' ? '#c5c6c7' : '#4B5563'));
                                             }}
                                         >
-                                            <span
-                                                className={`flex-shrink-0 w-5 flex justify-center transition-colors ${(item.id === 'lock-session' && isLocked)
-                                                        ? 'text-amber-400 group-hover:text-amber-300'
-                                                        : (item.id === 'clear-canvas')
-                                                            ? 'text-red-400 group-hover:text-red-300'
-                                                            : 'text-[#66FCF1] group-hover:text-white'
-                                                    }`}
-                                            >{item.icon}</span>
+                                            {item.icon && (
+                                                <span
+                                                    className={`flex-shrink-0 w-5 flex justify-center transition-colors ${(item.id === 'lock-session' && isLocked)
+                                                            ? 'text-amber-400 group-hover:text-amber-300'
+                                                            : (item.id === 'clear-canvas')
+                                                                ? 'text-red-400 group-hover:text-red-300'
+                                                                : (theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900')
+                                                        }`}
+                                                >{item.icon}</span>
+                                            )}
                                             <span className="font-medium flex-grow">{item.label}</span>
+
+                                            {/* Right element if provided */}
+                                            {item.rightElement && (
+                                                <div className="flex-shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+                                                    {item.rightElement}
+                                                </div>
+                                            )}
+
                                             {/* Expand indicator chevron if subItems OR customContent exists */}
                                             {(item.subItems || item.customContent) && (
-                                                <span className="text-[10px] opacity-70 transition-transform duration-200 text-[#66FCF1]" style={{ transform: expandedSubmenus[item.id] ? 'rotate(180deg)' : 'none' }}>
+                                                <span className="text-[10px] opacity-70 transition-transform duration-200" style={{ color: theme === 'dark' ? '#66FCF1' : '#45A29E', transform: expandedSubmenus[item.id] ? 'rotate(180deg)' : 'none' }}>
                                                     ▼
                                                 </span>
                                             )}
                                         </button>
 
-                                        {/* Sub-items block (retained from previous fix) */}
                                         {item.subItems && expandedSubmenus[item.id] && (
-                                            <div className="bg-[#0B0C10]/50 border-y border-[rgba(102,252,241,0.05)] pb-1">
+                                            <div className={`pb-1 border-y ${theme === 'dark' ? 'bg-[#0B0C10]/50 border-[rgba(102,252,241,0.05)]' : 'bg-gray-50/50 border-[rgba(69,162,158,0.1)]'}`}>
                                                 {item.subItems.map((sub) => (
                                                     <button
                                                         key={sub.id}
                                                         onClick={() => handleItemClick(sub)}
                                                         className="w-full flex items-center gap-3 pl-11 pr-4 py-2 text-left text-sm transition-all duration-200 group"
-                                                        style={{ color: '#a0a0a0' }}
+                                                        style={{ color: theme === 'dark' ? '#a0a0a0' : '#6B7280' }}
                                                         onMouseEnter={(e) => {
-                                                            e.currentTarget.style.backgroundColor = '#1F2833';
-                                                            e.currentTarget.style.color = '#ffffff';
+                                                            e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1F2833' : '#F3F4F6';
+                                                            e.currentTarget.style.color = theme === 'dark' ? '#ffffff' : '#111827';
                                                         }}
                                                         onMouseLeave={(e) => {
                                                             e.currentTarget.style.backgroundColor = 'transparent';
-                                                            e.currentTarget.style.color = '#a0a0a0';
+                                                            e.currentTarget.style.color = theme === 'dark' ? '#a0a0a0' : '#6B7280';
                                                         }}
                                                     >
-                                                        <span className="flex-shrink-0 w-4 flex justify-center text-[#66FCF1] group-hover:text-white transition-colors">{sub.icon}</span>
+                                                        {sub.icon && (
+                                                            <span className={`flex-shrink-0 w-4 flex justify-center transition-colors ${theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900'}`}>{sub.icon}</span>
+                                                        )}
                                                         <span>{sub.label}</span>
                                                     </button>
                                                 ))}
@@ -526,7 +568,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
 
                                         {/* Custom content block (for inline UI like QR code) */}
                                         {item.customContent && expandedSubmenus[item.id] && (
-                                            <div className="bg-[#0B0C10]/50 border-y border-[rgba(102,252,241,0.05)] w-full">
+                                            <div className={`w-full border-y ${theme === 'dark' ? 'bg-[#0B0C10]/50 border-[rgba(102,252,241,0.05)]' : 'bg-gray-50/50 border-[rgba(69,162,158,0.1)]'}`}>
                                                 {item.customContent}
                                             </div>
                                         )}
@@ -535,7 +577,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
 
                                 {/* Section divider (except last) */}
                                 {sIdx < allSections.length - 1 && (
-                                    <div className="mx-3 my-1.5" style={{ borderTop: '1px solid rgba(102,252,241,0.08)' }} />
+                                    <div className="mx-3 my-1.5" style={{ borderTop: `1px solid ${theme === 'dark' ? 'rgba(102,252,241,0.08)' : 'rgba(69,162,158,0.1)'}` }} />
                                 )}
                             </div>
                         ))}

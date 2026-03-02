@@ -18,8 +18,8 @@ function getInitial(name: string): string {
 
 const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
     const [expanded, setExpanded] = useState(false);
-    // Draggable position — starts top-left area (away from synced badge in top-right)
-    const [pos, setPos] = useState({ x: 16, y: 16 });
+    // Draggable position — starts in top-left area, shifted right to avoid overlapping the new Hamburger menu
+    const [pos, setPos] = useState({ x: 74, y: 16 });
     const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number; origX: number; origY: number }>({
         isDragging: false, startX: 0, startY: 0, origX: 0, origY: 0,
     });

@@ -29,7 +29,10 @@ export const sanitizeDisplayName = (
     .normalize('NFKD')
     .replaceAll(/[\u0300-\u036f]/g, '')
 
-    // Remove unsupported characters
+    // Replace dots with spaces (preserves word boundaries in names like V.L.Name)
+    .replaceAll('.', ' ')
+
+    // Remove remaining unsupported characters
     .replaceAll(/[^a-zA-Z0-9\s\-_]/g, '')
 
     // Collapse whitespace
@@ -46,7 +49,7 @@ export const sanitizeDisplayName = (
   sanitized = sanitized.slice(0, 30).trim();
 
   if (sanitized.length < 2) {
-    return '';
+    return 'User';
   }
 
   return sanitized;
@@ -77,11 +80,11 @@ export const getDisplayNameError = (
   if (!/^[a-zA-Z]/.test(displayName))
     return 'Display name must start with a letter';
 
-  if (!VALIDATION_PATTERN.test(displayName))
-    return 'Only letters, numbers, spaces, hyphens, or underscores are allowed';
-
   if (displayName.length < 2)
     return 'Display name must be at least 2 characters';
+
+  if (!VALIDATION_PATTERN.test(displayName))
+    return 'Only letters, numbers, spaces, hyphens, or underscores are allowed';
 
   return '';
 };

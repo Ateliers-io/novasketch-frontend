@@ -4,7 +4,7 @@
  * Handles session creation and retrieval for whiteboard boards.
  *
  * Strategy:
- *   - Tries the backend API first (POST /api/session).
+ *   - Tries the backend API first (POST /api/canvas).
  *   - If the backend is unavailable (not yet deployed / teammate hasn't finished 1.1.1),
  *     falls back to generating a UUID on the client side so the frontend
  *     continues to work independently.
@@ -41,7 +41,7 @@ function generateClientUUID(): string {
 /**
  * Create a new whiteboard session.
  *
- * Attempts to call POST /api/session on the backend.
+ * Attempts to call POST /api/canvas on the backend.
  * If the backend is not available, generates a client-side UUID and returns
  * a session object so the app still works.
  *
@@ -50,8 +50,10 @@ function generateClientUUID(): string {
  */
 export async function createSession(name?: string): Promise<{ sessionId: string; url: string }> {
     try {
-        const response = await api.post('/session', { name: name || 'Untitled Board' });
-        const { sessionId, url } = response.data;
+        const response = await api.post('/canvas', { name: name || 'Untitled Board' });
+        // Backend returns { canvasId, name, url }
+        const sessionId = response.data.canvasId || response.data.sessionId;
+        const url = response.data.url || `/board/${sessionId}`;
 
         // Track ownership locally since backend assigns 'anonymous' globally across all unprotected routes
         const owned = JSON.parse(localStorage.getItem('novasketch_owned_boards') || '[]');
@@ -60,7 +62,7 @@ export async function createSession(name?: string): Promise<{ sessionId: string;
             localStorage.setItem('novasketch_owned_boards', JSON.stringify(owned));
         }
 
-        return { sessionId, url: url || `/board/${sessionId}` };
+        return { sessionId, url };
     } catch (error) {
         // Backend not available — fall back to client-generated UUID.
         // This ensures the frontend works even before 1.1.1 is deployed.
@@ -88,8 +90,17 @@ export async function createSession(name?: string): Promise<{ sessionId: string;
  */
 export async function getSession(id: string): Promise<SessionInfo | null> {
     try {
-        const response = await api.get(`/session/${id}`);
-        return response.data as SessionInfo;
+        const response = await api.get(`/canvas/${id}`);
+        const data = response.data;
+        // Map backend response (canvasId) to frontend interface (sessionId)
+        return {
+            sessionId: data.canvasId || data.sessionId || id,
+            name: data.name || 'Untitled Board',
+            createdBy: data.owner?.displayName || data.createdBy || 'unknown',
+            createdAt: data.createdAt || new Date().toISOString(),
+            url: `/board/${data.canvasId || data.sessionId || id}`,
+            is_locked: data.is_locked,
+        } as SessionInfo;
     } catch (error) {
         // Session not found or backend unavailable
         console.warn(`[SessionService] Could not fetch session ${id}.`);
@@ -109,7 +120,7 @@ export async function getSession(id: string): Promise<SessionInfo | null> {
  */
 export async function toggleSessionLock(id: string, is_locked: boolean): Promise<boolean> {
     try {
-        const response = await api.patch(`/session/${id}/lock`, { is_locked });
+        const response = await api.patch(`/canvas/${id}/lock`, { is_locked });
         return response.data.is_locked;
     } catch (error) {
         console.error(`[SessionService] Could not toggle lock for session ${id}.`, error);

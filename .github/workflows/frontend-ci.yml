@@ -2,33 +2,41 @@ name: frontend_CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  test:
+  test-and-sonar:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
-          cache: 'pnpm'
+          node-version: 20
+          cache: pnpm
 
-      - name: Install Dependencies
+      - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Run Typecheck
+      - name: Typecheck
         run: pnpm exec tsc -b
 
-      - name: Run Unit Tests
-        run: pnpm run test:run
+      - name: Test with coverage
+        run: pnpm run test:coverage
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

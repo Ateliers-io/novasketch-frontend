@@ -9,29 +9,91 @@ import {
     isLine,
     isArrow,
     isTriangle,
-    RectangleShape,
-    CircleShape,
-    EllipseShape,
-    LineShape,
-    TriangleShape,
 } from '../../../types/shapes';
 import { StrokeLine } from '../../../services/sync.service';
 import { distSq, getSegmentCircleIntersections } from './mathUtils';
+type Point = {
+    x: number;
+    y: number;
+};
+
+type Eraser = {
+    center: Point;
+    radius: number;
+};
+
+type StrokeContext = {
+    currentLinePoints: number[];
+    finishLine: () => void;
+};
+function processStrokeSegment(
+    previous: Point,
+    current: Point,
+    eraser: Eraser,
+    ctx: StrokeContext
+): Point {
+
+    const intersections =
+        getSegmentCircleIntersections(
+            previous,
+            current,
+            eraser.center,
+            eraser.radius
+        );
+
+    if (intersections.length > 0) {
+        intersections.sort(
+            (a, b) => distSq(previous, a) - distSq(previous, b)
+        );
+
+        const p1Outside =
+            distSq(previous, eraser.center) >= eraser.radius ** 2;
+
+        if (p1Outside) {
+            ctx.currentLinePoints.push(
+                intersections[0].x,
+                intersections[0].y
+            );
+
+            ctx.finishLine();
+
+            if (intersections.length === 2) {
+                ctx.currentLinePoints.push(
+                    intersections[1].x,
+                    intersections[1].y
+                );
+            }
+        } else {
+            ctx.currentLinePoints.push(
+                intersections[0].x,
+                intersections[0].y
+            );
+        }
+    }
+
+    if (
+        distSq(current, eraser.center) >=
+        eraser.radius ** 2
+    ) {
+        ctx.currentLinePoints.push(current.x, current.y);
+    } else if (ctx.currentLinePoints.length > 0) {
+        ctx.finishLine();
+    }
+
+    return current;
+}
 
 export function eraseAtPosition(x: number, y: number, strokes: StrokeLine[], eraserRadius: number): StrokeLine[] {
     const result: StrokeLine[] = [];
     for (const stroke of strokes) {
         const points = stroke.points;
         let currentLinePoints: number[] = [];
-        let segmentCount = 0;
 
         const finishLine = () => {
             if (currentLinePoints.length >= 4) {
-                // Generating a unique ID for the new stroke fragment.
-                // Using Math.random() here is sufficient as the collision probability within a single session is negligible.
                 result.push({ ...stroke, id: `${stroke.id}-${Math.floor(Math.random() * 1000000)}`, points: [...currentLinePoints] });
             }
-            currentLinePoints = [];
+            currentLinePoints.length = 0; // Clear in-place to preserve reference in ctx
         };
 
         if (points.length < 4) { result.push(stroke); continue; }
@@ -42,37 +104,36 @@ export function eraseAtPosition(x: number, y: number, strokes: StrokeLine[], era
         if (distSq({ x: px, y: py }, { x, y }) >= eraserRadius ** 2) {
             currentLinePoints.push(px, py);
         }
+        const previous: Point = { x: 0, y: 0 };
+        const current: Point = { x: 0, y: 0 };
+
+        const eraser: Eraser = {
+            center: { x, y },
+            radius: eraserRadius,
+        };
+
+        const ctx: StrokeContext = {
+            currentLinePoints,
+            finishLine,
+        };
 
         for (let i = 2; i < points.length; i += 2) {
-            const cx = points[i];
-            const cy = points[i + 1];
-            const p1 = { x: px, y: py };
-            const p2 = { x: cx, y: cy };
 
-            // Performing expensive circle-segment intersection check.
-            const intersections = getSegmentCircleIntersections(p1, p2, { x, y }, eraserRadius);
+            previous.x = px;
+            previous.y = py;
 
-            if (intersections.length > 0) {
-                intersections.sort((a, b) => distSq(p1, a) - distSq(p1, b));
-                if (distSq(p1, { x, y }) >= eraserRadius ** 2) {
-                    currentLinePoints.push(intersections[0].x, intersections[0].y);
-                    finishLine();
-                }
-                if (intersections.length === 2) {
-                    currentLinePoints.push(intersections[1].x, intersections[1].y);
-                }
-            }
+            current.x = points[i];
+            current.y = points[i + 1];
 
-            if (distSq(p2, { x, y }) >= eraserRadius ** 2) {
-                currentLinePoints.push(cx, cy);
-            } else {
-                if (currentLinePoints.length > 0) {
-                    finishLine();
-                }
-            }
+            const nextPoint = processStrokeSegment(
+                previous,
+                current,
+                eraser,
+                ctx
+            );
 
-            px = cx;
-            py = cy;
+            px = nextPoint.x;
+            py = nextPoint.y;
         }
         finishLine();
     }
@@ -94,42 +155,33 @@ export function removeStrokesAt(x: number, y: number, strokes: StrokeLine[], rad
 // Utilizes bounding box or geometric distance checks depending on shape type.
 export function isPointInShape(shape: Shape, x: number, y: number, radius: number): boolean {
     if (isRectangle(shape)) {
-        const s = shape as RectangleShape;
-        return x >= s.position.x - radius &&
-            x <= s.position.x + s.width + radius &&
-            y >= s.position.y - radius &&
-            y <= s.position.y + s.height + radius;
-    }
-    if (isCircle(shape)) {
-        const s = shape as CircleShape;
-        const dist = Math.sqrt((s.position.x - x) ** 2 + (s.position.y - y) ** 2);
-        return dist <= s.radius + radius;
-    }
-    if (isEllipse(shape)) {
-        const s = shape as EllipseShape;
-        const dx = (x - s.position.x) / (s.radiusX + radius);
-        const dy = (y - s.position.y) / (s.radiusY + radius);
+        return x >= shape.position.x - radius &&
+            x <= shape.position.x + shape.width + radius &&
+            y >= shape.position.y - radius &&
+            y <= shape.position.y + shape.height + radius;
+    } else if (isCircle(shape)) {
+        const dist = Math.hypot(shape.position.x - x, shape.position.y - y);
+        return dist <= shape.radius + radius;
+    } else if (isEllipse(shape)) {
+        const dx = (x - shape.position.x) / (shape.radiusX + radius);
+        const dy = (y - shape.position.y) / (shape.radiusY + radius);
         return dx * dx + dy * dy <= 1;
-    }
-    if (isLine(shape) || isArrow(shape)) {
-        const s = shape as LineShape;
+    } else if (isLine(shape) || isArrow(shape)) {
         // Point-to-line-segment distance
-        const dx = s.endPoint.x - s.startPoint.x;
-        const dy = s.endPoint.y - s.startPoint.y;
+        const dx = shape.endPoint.x - shape.startPoint.x;
+        const dy = shape.endPoint.y - shape.startPoint.y;
         const lenSq = dx * dx + dy * dy;
-        if (lenSq === 0) return Math.sqrt((s.startPoint.x - x) ** 2 + (s.startPoint.y - y) ** 2) <= radius + 5;
-        let t = ((x - s.startPoint.x) * dx + (y - s.startPoint.y) * dy) / lenSq;
+        if (lenSq === 0) return Math.hypot(shape.startPoint.x - x, shape.startPoint.y - y) <= radius + 5;
+        let t = ((x - shape.startPoint.x) * dx + (y - shape.startPoint.y) * dy) / lenSq;
         t = Math.max(0, Math.min(1, t));
-        const closestX = s.startPoint.x + t * dx;
-        const closestY = s.startPoint.y + t * dy;
-        const dist = Math.sqrt((x - closestX) ** 2 + (y - closestY) ** 2);
-        return dist <= radius + s.style.strokeWidth / 2 + 5;
-    }
-    if (isTriangle(shape)) {
-        const s = shape as TriangleShape;
+        const closestX = shape.startPoint.x + t * dx;
+        const closestY = shape.startPoint.y + t * dy;
+        const dist = Math.hypot(x - closestX, y - closestY);
+        return dist <= radius + shape.style.strokeWidth / 2 + 5;
+    } else if (isTriangle(shape)) {
         // Bounding box check
-        const xs = s.points.map(p => p.x);
-        const ys = s.points.map(p => p.y);
+        const xs = shape.points.map(p => p.x);
+        const ys = shape.points.map(p => p.y);
         const minX = Math.min(...xs) - radius;
         const maxX = Math.max(...xs) + radius;
         const minY = Math.min(...ys) - radius;

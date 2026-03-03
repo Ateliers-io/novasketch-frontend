@@ -37,9 +37,40 @@ describe('brushUtils', () => {
             expect(props.globalCompositeOperation).toBe('lighter');
         });
 
-        it('should default to standard brush attributes for unknown types', () => {
+        it('should return default to standard brush attributes for unknown types', () => {
             const props = getBrushProperties('UNKNOWN_BRUSH' as BrushType, 5, '#000000');
             expect(props).toHaveProperty('lineCap', 'round');
+        });
+
+        it('should return properties for CALLIGRAPHY', () => {
+            const props = getBrushProperties(BrushType.CALLIGRAPHY, 5, '#000');
+            expect(props.lineCap).toBe('butt');
+            expect(props.lineJoin).toBe('bevel');
+            expect(props.strokeWidth).toBe(7.5);
+        });
+
+        it('should return properties for CALLIGRAPHY_PEN', () => {
+            const props = getBrushProperties(BrushType.CALLIGRAPHY_PEN, 5, '#000');
+            expect(props.lineCap).toBe('square');
+            expect(props.tension).toBe(0);
+        });
+
+        it('should return properties for AIRBRUSH', () => {
+            const props = getBrushProperties(BrushType.AIRBRUSH, 5, '#123');
+            expect(props.shadowBlur).toBe(10);
+            expect(props.shadowColor).toBe('#123');
+        });
+
+        it('should return properties for OIL_BRUSH', () => {
+            const props = getBrushProperties(BrushType.OIL_BRUSH, 5, '#321');
+            expect(props.opacity).toBe(0.9);
+            expect(props.shadowBlur).toBe(2);
+        });
+
+        it('should return properties for NATURAL_PENCIL', () => {
+            const props = getBrushProperties(BrushType.NATURAL_PENCIL, 5, '#000');
+            expect(props.dash).toEqual([0.5, 0.5]);
+            expect(props.strokeWidth).toBe(3);
         });
     });
 

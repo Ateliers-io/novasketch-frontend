@@ -1,15 +1,15 @@
 {
   "compilerOptions": {
-    "types": [
-      "vite/client"
-    ],
+    "types": ["vite/client"],
     "target": "ES2020",
     "useDefineForClassFields": true,
+
     "lib": [
-      "ES2020",
+      "ES2021",
       "DOM",
       "DOM.Iterable"
     ],
+
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -23,12 +23,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }
-/*
-When noUnusedLocals is true,
- the TypeScript compiler (tsc) acts like a strict supervisor.
- If you import something but don't use it in your code, it throws a "Hard Error" instead of a "Warning
-*/

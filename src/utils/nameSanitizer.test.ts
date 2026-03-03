@@ -5,7 +5,7 @@ describe('Name Sanitizer', () => {
   describe('sanitizeDisplayName', () => {
     it('should remove periods from names with initials', () => {
       const result = sanitizeDisplayName('V.L.Narasimha Kushal Kurapati');
-      expect(result).toBe('VL Narasimha Kushal Kurapati');
+      expect(result).toBe('V L Narasimha Kushal Kurapati');
       expect(isValidDisplayName(result)).toBe(true);
     });
 
@@ -23,7 +23,7 @@ describe('Name Sanitizer', () => {
 
     it('should remove special characters and accents', () => {
       const result = sanitizeDisplayName('José García');
-      expect(result).toBe('Jos Garca');
+      expect(result).toBe('Jose Garcia');
       expect(isValidDisplayName(result)).toBe(true);
     });
 
@@ -125,7 +125,7 @@ describe('Name Sanitizer', () => {
       expect(getDisplayNameError('J')).toBe('Display name must be at least 2 characters');
       expect(getDisplayNameError('A' + 'B'.repeat(30))).toBe('Display name must be 30 characters or less');
       expect(getDisplayNameError('1John')).toBe('Display name must start with a letter');
-      expect(getDisplayNameError('John.Doe')).toBe('Display name can only contain letters, numbers, spaces, hyphens, or underscores');
+      expect(getDisplayNameError('John.Doe')).toBe('Only letters, numbers, spaces, hyphens, or underscores are allowed');
     });
 
     it('should return empty string for valid names', () => {

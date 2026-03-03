@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import api from '../services/api';
+import { sanitizeDisplayName } from '../utils/nameSanitizer';
 
 export interface User {
     id: string;
@@ -83,6 +84,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             // backend validates code with Google, we just forward it.
             const response = await api.post('/auth/google', { code });
             const { token, user: userData } = response.data;
+            
+            // Sanitize displayName to ensure it meets validation requirements
+            // This is a client-side safety measure
+            if (userData?.displayName) {
+                userData.displayName = sanitizeDisplayName(userData.displayName);
+            }
+            
             handleAuthSuccess(token, userData);
         } catch (err: any) {
             // generic error handler, backend messages might not always be user-friendly

@@ -15,7 +15,7 @@ describe('Session Service - Lock Feature', () => {
 
         const result = await toggleSessionLock('test-room', true);
 
-        expect(api.patch).toHaveBeenCalledWith('/session/test-room/lock', { is_locked: true });
+        expect(api.patch).toHaveBeenCalledWith('/canvas/test-room/lock', { is_locked: true });
         expect(result).toBe(true);
     });
 

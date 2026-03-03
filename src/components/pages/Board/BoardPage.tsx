@@ -46,10 +46,23 @@ export const BoardPage = () => {
                 setSessionInfo(session);
                 setStatus('found');
             } else {
-                // Session not found or backend returned 404.
-                // Show the "Board Not Found" error page.
-                setSessionInfo(null);
-                setStatus('not-found');
+                // Backend couldn't confirm the session. This can happen when:
+                //   - User is not authenticated (401)
+                //   - Canvas was created client-side (fallback UUID)
+                //   - Backend is temporarily unreachable
+                //
+                // If the ID looks like a valid UUID, load the whiteboard anyway.
+                // Yjs WebSocket sync creates rooms on-the-fly and doesn't depend
+                // on the REST API. Only show "not found" for clearly invalid IDs.
+                const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (UUID_REGEX.test(id)) {
+                    // Proceed with a minimal session — Yjs will handle data sync
+                    setSessionInfo(null);
+                    setStatus('found');
+                } else {
+                    setSessionInfo(null);
+                    setStatus('not-found');
+                }
             }
         };
 

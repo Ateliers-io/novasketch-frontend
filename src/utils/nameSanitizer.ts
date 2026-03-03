@@ -18,7 +18,7 @@ export const sanitizeDisplayName = (
   displayName: string
 ): string => {
 
-  if (!displayName || typeof displayName !== 'string') {
+  if (displayName == null || typeof displayName !== 'string') {
     return '';
   }
 
@@ -44,6 +44,8 @@ export const sanitizeDisplayName = (
 
   if (match) {
     sanitized = sanitized.slice(match.index);
+  } else {
+    return 'User';
   }
 
   sanitized = sanitized.slice(0, 30).trim();

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Konva from 'konva';
 import { jsPDF } from 'jspdf';
-import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2, Sun, Moon } from 'lucide-react';
+import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2, Sun, Moon, Sparkles } from 'lucide-react';
 import LiveCollaborationMenu from './LiveCollaborationMenu';
+import AnalyzeWithAI from './AnalyzeWithAI';
 import {
     Shape,
     isRectangle,
@@ -61,6 +62,9 @@ interface HamburgerMenuProps {
     /** Theme toggle */
     theme?: 'light' | 'dark';
     onToggleTheme?: () => void;
+
+    /** Canvas capture callback for AI sharing */
+    onCaptureCanvas?: () => Promise<Blob | null>;
 }
 
 // ─── SVG Generation (same as ExportTools) ───────────────────
@@ -167,45 +171,70 @@ function generateSVGString(
     return svgContent;
 }
 
+// ─── NovaSketch Light Theme Palette ───────────────────────
+// Instead of generic white/gray, we use a warm cream-teal palette
+// that harmonises with the dark theme's cyber-teal identity.
+const LIGHT = {
+    bg: '#F8FAFB',           // Soft ice-white
+    bgPanel: 'rgba(248,250,251,0.96)',
+    bgHover: 'rgba(69,162,158,0.08)',
+    bgSub: 'rgba(69,162,158,0.04)',
+    border: 'rgba(69,162,158,0.18)',
+    borderSub: 'rgba(69,162,158,0.10)',
+    accent: '#2A9D8F',       // Warm teal (more vibrant than the dark theme's muted teal)
+    accentGlow: 'rgba(42,157,143,0.12)',
+    text: '#1A3C40',         // Dark teal-charcoal  (readable, NovaSketch-branded)
+    textMuted: '#5B7F82',    // Softer teal-gray
+    textSection: 'rgba(42,157,143,0.65)',
+    shadow: '0 8px 32px rgba(42,157,143,0.08), 0 2px 12px rgba(0,0,0,0.06)',
+    btnShadow: '0 2px 12px rgba(42,157,143,0.18)',
+    btnBorder: 'rgba(42,157,143,0.35)',
+    btnBg: 'rgba(248,250,251,0.88)',
+};
+
+const DARK = {
+    bg: '#0B0C10',
+    bgPanel: 'rgba(11,12,16,0.92)',
+    bgHover: '#1F2833',
+    bgSub: 'rgba(11,12,16,0.50)',
+    border: 'rgba(102,252,241,0.2)',
+    borderSub: 'rgba(102,252,241,0.05)',
+    accent: '#66FCF1',
+    accentGlow: 'rgba(102,252,241,0.08)',
+    text: '#c5c6c7',
+    textMuted: '#a0a0a0',
+    textSection: 'rgba(102,252,241,0.5)',
+    shadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(102,252,241,0.08)',
+    btnShadow: '0 0 16px rgba(102,252,241,0.20)',
+    btnBorder: 'rgba(102,252,241,0.5)',
+    btnBg: 'rgba(11,12,16,0.80)',
+};
+
+const palette = (theme: string) => theme === 'dark' ? DARK : LIGHT;
+
 // ─── Render Helpers to Reduce Ternary Nesting ────────────
 function getMenuItemColor(theme: string, id: string, isLocked: boolean) {
     if (id === 'lock-session' && isLocked) return '#fbbf24';
     if (id === 'clear-canvas') return '#ef4444';
-    return theme === 'dark' ? '#c5c6c7' : '#4B5563';
+    return palette(theme).text;
 }
 
 function getMenuItemHoverBg(theme: string, id: string, isLocked: boolean) {
     if (id === 'lock-session' && isLocked) return 'rgba(245, 158, 11, 0.1)';
     if (id === 'clear-canvas') return 'rgba(239, 68, 68, 0.1)';
-    return theme === 'dark' ? '#1F2833' : '#F3F4F6';
+    return palette(theme).bgHover;
 }
 
 function getMenuItemHoverColor(theme: string, id: string, isLocked: boolean) {
     if (id === 'lock-session' && isLocked) return '#fbbf24';
     if (id === 'clear-canvas') return '#ef4444';
-    return theme === 'dark' ? '#ffffff' : '#111827';
+    return theme === 'dark' ? '#ffffff' : '#0D3B3B';
 }
 
 function getMenuIconClass(theme: string, id: string, isLocked: boolean) {
     if (id === 'lock-session' && isLocked) return 'text-amber-400 group-hover:text-amber-300';
     if (id === 'clear-canvas') return 'text-red-400 group-hover:text-red-300';
-    return theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900';
-}
-
-function getMenuBtnStyle(isOpen: boolean, theme: string) {
-    const isDark = theme === 'dark';
-    if (isOpen) {
-        return {
-            background: isDark ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)',
-            border: `2px solid ${isDark ? '#66FCF1' : '#45A29E'}`,
-            boxShadow: isDark ? '0 0 20px rgba(102,252,241,0.25)' : '0 0 20px rgba(69,162,158,0.25)'
-        };
-    }
-    return {
-        background: 'transparent',
-        border: `2px solid ${isDark ? 'rgba(102,252,241,0.5)' : 'rgba(69,162,158,0.5)'}`,
-        boxShadow: isDark ? '0 0 10px rgba(102,252,241,0.15)' : '0 0 10px rgba(69,162,158,0.15)'
-    };
+    return theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#2A9D8F] group-hover:text-[#1A3C40]';
 }
 
 const HamburgerMenuItemRender: React.FC<{
@@ -235,13 +264,13 @@ const HamburgerMenuItemRender: React.FC<{
     };
 
     const handleSubMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1F2833' : '#F3F4F6';
-        e.currentTarget.style.color = theme === 'dark' ? '#ffffff' : '#111827';
+        e.currentTarget.style.backgroundColor = palette(theme).bgHover;
+        e.currentTarget.style.color = theme === 'dark' ? '#ffffff' : '#0D3B3B';
     };
 
     const handleSubMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.currentTarget.style.backgroundColor = 'transparent';
-        e.currentTarget.style.color = theme === 'dark' ? '#a0a0a0' : '#6B7280';
+        e.currentTarget.style.color = palette(theme).textMuted;
     };
 
     return (
@@ -267,25 +296,25 @@ const HamburgerMenuItemRender: React.FC<{
                 )}
 
                 {(item.subItems || item.customContent) && (
-                    <span className="text-[10px] opacity-70 transition-transform duration-200" style={{ color: theme === 'dark' ? '#66FCF1' : '#45A29E', transform: isExpanded ? 'rotate(180deg)' : 'none' }}>
+                    <span className="text-[10px] opacity-70 transition-transform duration-200" style={{ color: palette(theme).accent, transform: isExpanded ? 'rotate(180deg)' : 'none' }}>
                         ▼
                     </span>
                 )}
             </button>
 
             {item.subItems && isExpanded && (
-                <div className={`pb-1 border-y ${theme === 'dark' ? 'bg-[#0B0C10]/50 border-[rgba(102,252,241,0.05)]' : 'bg-gray-50/50 border-[rgba(69,162,158,0.1)]'}`}>
+                <div style={{ background: palette(theme).bgSub, borderTop: `1px solid ${palette(theme).borderSub}`, borderBottom: `1px solid ${palette(theme).borderSub}` }} className="pb-1">
                     {item.subItems.map((sub) => (
                         <button
                             key={sub.id}
                             onClick={() => onItemClick(sub)}
-                            className="w-full flex items-center gap-3 pl-11 pr-4 py-2 text-left text-sm transition-all duration-200 group"
-                            style={{ color: theme === 'dark' ? '#a0a0a0' : '#6B7280' }}
+                            className="w-full flex items-center gap-3 pl-11 pr-4 py-2 text-left text-sm transition-all duration-200 group rounded-md"
+                            style={{ color: palette(theme).textMuted }}
                             onMouseEnter={handleSubMouseEnter}
                             onMouseLeave={handleSubMouseLeave}
                         >
                             {sub.icon && (
-                                <span className={`flex-shrink-0 w-4 flex justify-center transition-colors ${theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#45A29E] group-hover:text-gray-900'}`}>
+                                <span className={`flex-shrink-0 w-4 flex justify-center transition-colors ${theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#2A9D8F] group-hover:text-[#1A3C40]'}`}>
                                     {sub.icon}
                                 </span>
                             )}
@@ -296,7 +325,7 @@ const HamburgerMenuItemRender: React.FC<{
             )}
 
             {item.customContent && isExpanded && (
-                <div className={`w-full border-y ${theme === 'dark' ? 'bg-[#0B0C10]/50 border-[rgba(102,252,241,0.05)]' : 'bg-gray-50/50 border-[rgba(69,162,158,0.1)]'}`}>
+                <div style={{ background: palette(theme).bgSub, borderTop: `1px solid ${palette(theme).borderSub}`, borderBottom: `1px solid ${palette(theme).borderSub}` }} className="w-full">
                     {item.customContent}
                 </div>
             )}
@@ -317,6 +346,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     onClearCanvas,
     theme = 'dark',
     onToggleTheme,
+    onCaptureCanvas,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedSubmenus, setExpandedSubmenus] = useState<Record<string, boolean>>({});
@@ -429,14 +459,15 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
             {
                 id: 'theme-toggle',
                 label: 'Theme',
+                icon: theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />,
                 rightElement: (
                     <div
                         role="button"
                         tabIndex={0}
-                        className="flex items-center gap-1 p-0.5 rounded-full border transition-all cursor-pointer"
+                        className="flex items-center gap-0.5 p-[3px] rounded-full transition-all cursor-pointer"
                         style={{
-                            borderColor: theme === 'dark' ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.3)',
-                            background: theme === 'dark' ? 'transparent' : 'rgba(0,0,0,0.05)',
+                            border: `1.5px solid ${palette(theme).btnBorder}`,
+                            background: theme === 'dark' ? 'rgba(31,40,51,0.6)' : 'rgba(42,157,143,0.06)',
                         }}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -450,11 +481,21 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                             }
                         }}
                     >
-                        <div className={`p-1.5 rounded-full flex items-center justify-center transition-colors ${theme === 'light' ? 'bg-white shadow-[0_2px_4px_rgba(0,0,0,0.1)]' : ''}`}>
-                            <Sun size={14} color={theme === 'light' ? '#45A29E' : '#6b7280'} strokeWidth={theme === 'light' ? 2.5 : 2} />
+                        <div className="p-1.5 rounded-full flex items-center justify-center transition-all duration-200"
+                            style={{
+                                background: theme === 'light' ? '#2A9D8F' : 'transparent',
+                                boxShadow: theme === 'light' ? '0 1px 6px rgba(42,157,143,0.35)' : 'none',
+                            }}
+                        >
+                            <Sun size={13} color={theme === 'light' ? '#fff' : '#6b7280'} strokeWidth={2.5} />
                         </div>
-                        <div className={`p-1.5 rounded-full flex items-center justify-center transition-colors ${theme === 'dark' ? 'bg-[#1F2833] shadow-[0_2px_4px_rgba(0,0,0,0.5)]' : ''}`}>
-                            <Moon size={14} color={theme === 'dark' ? '#66FCF1' : '#9ca3af'} strokeWidth={theme === 'dark' ? 2.5 : 2} />
+                        <div className="p-1.5 rounded-full flex items-center justify-center transition-all duration-200"
+                            style={{
+                                background: theme === 'dark' ? '#1F2833' : 'transparent',
+                                boxShadow: theme === 'dark' ? '0 1px 6px rgba(102,252,241,0.3)' : 'none',
+                            }}
+                        >
+                            <Moon size={13} color={theme === 'dark' ? '#66FCF1' : '#b0b8b9'} strokeWidth={2.5} />
                         </div>
                     </div>
                 )
@@ -463,7 +504,13 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 id: 'collaboration',
                 label: 'Live collaboration...',
                 icon: <Users size={16} />,
-                customContent: <LiveCollaborationMenu roomId="c8589ed6-mock" />
+                customContent: <LiveCollaborationMenu roomId="c8589ed6-mock" theme={theme} />
+            },
+            {
+                id: 'analyze-ai',
+                label: 'Analyze with AI',
+                icon: <Sparkles size={16} />,
+                customContent: <AnalyzeWithAI theme={theme} onCaptureCanvas={onCaptureCanvas} />
             },
             // Include Lock Session only if user is owner
             ...(isOwner ? [{
@@ -512,115 +559,152 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
 
     return (
         <div ref={containerRef} className="fixed top-4 left-4 z-50 select-none">
-            {/* Hamburger button */}
+            {/* Hamburger button — premium glassmorphism style */}
             <button
                 onClick={() => setIsOpen(prev => !prev)}
-                className="group flex items-center justify-center w-11 h-11 rounded-lg transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#66FCF1]/50"
-                style={getMenuBtnStyle(isOpen, theme)}
+                className="group relative flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#66FCF1]/50"
+                style={{
+                    background: isOpen
+                        ? palette(theme).bgPanel
+                        : palette(theme).btnBg,
+                    border: `1.5px solid ${isOpen ? palette(theme).accent : palette(theme).btnBorder}`,
+                    boxShadow: isOpen
+                        ? `0 0 24px ${palette(theme).accentGlow}`
+                        : palette(theme).btnShadow,
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                }}
                 title={isOpen ? 'Close menu' : 'Open menu'}
                 aria-expanded={isOpen}
                 aria-haspopup="true"
             >
+                {/* Subtle pulse ring on hover */}
+                <span
+                    className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{
+                        boxShadow: `inset 0 0 0 1px ${palette(theme).accent}, 0 0 16px ${palette(theme).accentGlow}`,
+                    }}
+                />
+
                 {/* Animated hamburger → X */}
-                <div className="flex flex-col items-center justify-center gap-[5px] w-5 h-5 relative">
+                <div className="relative z-10" style={{ width: 16, height: 14 }}>
+                    {/* Top bar */}
                     <span
-                        className="block h-[2px] w-5 rounded-full transition-all duration-300"
+                        className="absolute block rounded-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                         style={{
-                            backgroundColor: theme === 'dark' ? '#66FCF1' : '#45A29E',
-                            transform: isOpen ? 'rotate(45deg) translate(2.5px, 2.5px)' : 'none',
+                            width: 16,
+                            height: 2,
+                            left: 0,
+                            backgroundColor: palette(theme).accent,
+                            top: isOpen ? 6 : 1,
+                            transform: isOpen ? 'rotate(45deg)' : 'none',
+                            transformOrigin: 'center',
                         }}
                     />
+                    {/* Middle bar */}
                     <span
-                        className="block h-[2px] w-5 rounded-full transition-all duration-300"
+                        className="absolute block rounded-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                         style={{
-                            backgroundColor: theme === 'dark' ? '#66FCF1' : '#45A29E',
+                            width: 16,
+                            height: 2,
+                            left: 0,
+                            backgroundColor: palette(theme).accent,
+                            top: 6,
                             opacity: isOpen ? 0 : 1,
-                            transform: isOpen ? 'scaleX(0)' : 'scaleX(1)',
                         }}
                     />
+                    {/* Bottom bar */}
                     <span
-                        className="block h-[2px] w-5 rounded-full transition-all duration-300"
+                        className="absolute block rounded-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                         style={{
-                            backgroundColor: theme === 'dark' ? '#66FCF1' : '#45A29E',
-                            transform: isOpen ? 'rotate(-45deg) translate(2.5px, -2.5px)' : 'none',
+                            width: 16,
+                            height: 2,
+                            left: 0,
+                            backgroundColor: palette(theme).accent,
+                            top: isOpen ? 6 : 11,
+                            transform: isOpen ? 'rotate(-45deg)' : 'none',
+                            transformOrigin: 'center',
                         }}
                     />
                 </div>
             </button>
 
             {/* Dropdown panel */}
-            {isOpen && (
-                <div
-                    className="mt-2 rounded-xl overflow-hidden"
-                    style={{
-                        background: theme === 'dark' ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.96)',
-                        backdropFilter: 'blur(16px)',
-                        WebkitBackdropFilter: 'blur(16px)',
-                        border: `1px solid ${theme === 'dark' ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.2)'}`,
-                        boxShadow: theme === 'dark' ? '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(102,252,241,0.08)' : '0 8px 32px rgba(0,0,0,0.1), 0 0 20px rgba(69,162,158,0.08)',
-                        minWidth: 220,
-                        maxHeight: '70vh',
-                        animation: 'menuSlideIn 0.2s ease-out',
-                    }}
-                >
-                    {/* Header */}
+            {
+                isOpen && (
                     <div
-                        className="px-4 py-2.5 text-xs font-semibold uppercase tracking-widest flex items-center gap-2"
+                        className="mt-2 rounded-xl overflow-hidden"
                         style={{
-                            color: theme === 'dark' ? '#66FCF1' : '#45A29E',
-                            borderBottom: `1px solid ${theme === 'dark' ? 'rgba(102,252,241,0.1)' : 'rgba(69,162,158,0.2)'}`,
+                            background: palette(theme).bgPanel,
+                            backdropFilter: 'blur(20px)',
+                            WebkitBackdropFilter: 'blur(20px)',
+                            border: `1px solid ${palette(theme).border}`,
+                            boxShadow: palette(theme).shadow,
+                            minWidth: 240,
+                            maxHeight: '70vh',
+                            animation: 'menuSlideIn 0.25s cubic-bezier(0.16,1,0.3,1)',
                         }}
                     >
-                        <span>☰</span>
-                        <span>Menu</span>
-                    </div>
+                        {/* Header with NovaSketch branding */}
+                        <div
+                            className="px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-2.5"
+                            style={{
+                                color: palette(theme).accent,
+                                borderBottom: `1px solid ${palette(theme).borderSub}`,
+                                background: theme === 'dark' ? 'rgba(102,252,241,0.03)' : 'rgba(42,157,143,0.03)',
+                            }}
+                        >
+                            <span style={{ fontSize: 14, opacity: 0.8 }}>✦</span>
+                            <span>NovaSketch</span>
+                        </div>
 
-                    {/* Scrollable sections */}
-                    <div
-                        className="py-1 overflow-y-auto"
-                        style={{ maxHeight: 'calc(70vh - 44px)' }}
-                    >
-                        {allSections.map((section, sIdx) => (
-                            <div key={section.id}>
-                                {/* Section header */}
-                                <div
-                                    className="px-4 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.15em]"
-                                    style={{ color: theme === 'dark' ? 'rgba(102,252,241,0.5)' : 'rgba(69,162,158,0.7)' }}
-                                >
-                                    {section.title}
+                        {/* Scrollable sections */}
+                        <div
+                            className="py-1.5 overflow-y-auto"
+                            style={{ maxHeight: 'calc(70vh - 48px)' }}
+                        >
+                            {allSections.map((section, sIdx) => (
+                                <div key={section.id}>
+                                    {/* Section header */}
+                                    <div
+                                        className="px-4 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.18em]"
+                                        style={{ color: palette(theme).textSection }}
+                                    >
+                                        {section.title}
+                                    </div>
+
+                                    {/* Section items */}
+                                    {section.items.map((item) => (
+                                        <HamburgerMenuItemRender
+                                            key={item.id}
+                                            item={item}
+                                            theme={theme}
+                                            isLocked={isLocked}
+                                            isExpanded={!!expandedSubmenus[item.id]}
+                                            onToggle={(i) => setExpandedSubmenus(prev => ({ ...prev, [i.id]: !prev[i.id] }))}
+                                            onItemClick={handleItemClick}
+                                        />
+                                    ))}
+
+                                    {/* Section divider (except last) */}
+                                    {sIdx < allSections.length - 1 && (
+                                        <div className="mx-3 my-1.5" style={{ borderTop: `1px solid ${palette(theme).borderSub}` }} />
+                                    )}
                                 </div>
-
-                                {/* Section items */}
-                                {section.items.map((item) => (
-                                    <HamburgerMenuItemRender
-                                        key={item.id}
-                                        item={item}
-                                        theme={theme}
-                                        isLocked={isLocked}
-                                        isExpanded={!!expandedSubmenus[item.id]}
-                                        onToggle={(i) => setExpandedSubmenus(prev => ({ ...prev, [i.id]: !prev[i.id] }))}
-                                        onItemClick={handleItemClick}
-                                    />
-                                ))}
-
-                                {/* Section divider (except last) */}
-                                {sIdx < allSections.length - 1 && (
-                                    <div className="mx-3 my-1.5" style={{ borderTop: `1px solid ${theme === 'dark' ? 'rgba(102,252,241,0.08)' : 'rgba(69,162,158,0.1)'}` }} />
-                                )}
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Slide-in animation */}
             <style>{`
                 @keyframes menuSlideIn {
-                    from { opacity: 0; transform: translateY(-8px); }
-                    to   { opacity: 1; transform: translateY(0); }
+                    from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+                    to   { opacity: 1; transform: translateY(0) scale(1); }
                 }
             `}</style>
-        </div>
+        </div >
     );
 };
 

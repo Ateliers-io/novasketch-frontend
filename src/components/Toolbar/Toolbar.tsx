@@ -470,7 +470,12 @@ export default function Toolbar({
                                     {/* Stroke Bubble */}
                                     <div className="flex flex-col items-center gap-0.5">
                                         <div
-                                            className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${activeColorMode === 'stroke' ? 'ring-2 ring-[#2dd4bf] border-white z-10' : 'border-gray-600 opacity-60 hover:opacity-100'}`}
+                                            className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 z-10`}
+                                            style={{
+                                                borderColor: activeColorMode === 'stroke' ? (theme === 'light' ? '#E6EAF0' : '#1F2833') : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                                opacity: activeColorMode === 'stroke' ? 1 : 0.6,
+                                                boxShadow: activeColorMode === 'stroke' ? `0 0 0 2px ${theme === 'light' ? '#20C9C3' : '#2dd4bf'}` : 'none'
+                                            }}
                                             onClick={() => setActiveColorMode('stroke')}
                                             title="Stroke Color"
                                         >
@@ -484,7 +489,12 @@ export default function Toolbar({
                                     {/* Fill Bubble */}
                                     <div className="flex flex-col items-center gap-0.5">
                                         <div
-                                            className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${activeColorMode === 'fill' ? 'ring-2 ring-[#2dd4bf] border-white z-10' : 'border-gray-600 opacity-60 hover:opacity-100'}`}
+                                            className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 z-10`}
+                                            style={{
+                                                borderColor: activeColorMode === 'fill' ? (theme === 'light' ? '#E6EAF0' : '#1F2833') : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                                opacity: activeColorMode === 'fill' ? 1 : 0.6,
+                                                boxShadow: activeColorMode === 'fill' ? `0 0 0 2px ${theme === 'light' ? '#20C9C3' : '#2dd4bf'}` : 'none'
+                                            }}
                                             onClick={() => setActiveColorMode('fill')}
                                             title="Fill Color"
                                         >

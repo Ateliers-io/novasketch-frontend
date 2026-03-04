@@ -38,15 +38,20 @@ import { GridConfig, GridSnapType, GridAppearance } from '../../types/grid';
 export type ActiveTool = ToolType | 'text' | 'select' | 'eraser';
 export type EraserMode = 'partial' | 'stroke';
 
-const PRO_COLORS = [
+const PRO_COLORS_DARK = [
     '#000000', '#FFFFFF',
-    // carefully selected palette. disallow random hex unless in custom picker to keep designs cohesive.
+    // vibrant dark theme colors
     '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4',
     '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e',
     '#78716c'
-    // hardcoded set of tailwind default colors.
-    // keep this list small to avoid overwhelming user choice. 
-    // if expand, need a scrollable container.
+];
+
+const PRO_COLORS_LIGHT = [
+    '#bae6fd', '#FFFFFF',
+    // softer, light/pastel theme colors
+    '#fca5a5', '#fdba74', '#fde047', '#bef264', '#86efac', '#67e8f9',
+    '#93c5fd', '#a5b4fc', '#c4b5fd', '#f0abfc', '#fda4af',
+    '#d6d3d1'
 ];
 
 interface ToolbarProps {
@@ -94,6 +99,7 @@ interface ToolbarProps {
     gridConfig: GridConfig;
     onGridConfigChange: (config: GridConfig) => void;
     isSessionLocked?: boolean;
+    theme?: 'light' | 'dark';
 }
 
 /* --- BRUSH DATA --- */
@@ -150,10 +156,18 @@ const ToolButton = ({
         className={`
             relative group flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150
             ${isActive
-                ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40 shadow-[0_0_8px_rgba(45,212,191,0.15)]'
-                : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'
+                ? 'shadow-sm'
+                : ''
             }
         `}
+        style={{
+            background: isActive ? 'var(--ns-toolbar-active-bg)' : 'transparent',
+            color: isActive ? 'var(--ns-toolbar-active-text)' : 'var(--ns-toolbar-muted)',
+            boxShadow: isActive ? '0 0 8px var(--ns-toolbar-active-ring)' : 'none',
+            ...(isActive ? { outline: '1px solid var(--ns-toolbar-active-ring)' } : {}),
+        }}
+        onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
+        onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted)'; } }}
     >
         <Icon size={size} />
         {hasDropdown && (
@@ -163,10 +177,11 @@ const ToolButton = ({
 );
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-    <div className="text-[8px] font-semibold uppercase text-[#4a5b6a] tracking-[0.12em] text-center select-none leading-none">
+    <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-center select-none leading-none" style={{ color: 'var(--ns-section-label)' }}>
         {children}
     </div>
 );
+
 
 const ToolSection = ({ children, label }: { children: React.ReactNode; label: string }) => (
     <div className="flex flex-col items-center gap-[3px]">
@@ -177,7 +192,7 @@ const ToolSection = ({ children, label }: { children: React.ReactNode; label: st
     </div>
 );
 
-const Separator = () => <div className="w-px h-9 bg-[#2a333b] mx-1.5 self-center" />;
+const Separator = () => <div className="w-px h-9 mx-1.5 self-center" style={{ background: 'var(--ns-separator)' }} />;
 
 
 
@@ -203,11 +218,15 @@ export default function Toolbar({
     onDeleteSelected,
     gridConfig, onGridConfigChange,
     isSessionLocked = false,
+    theme = 'dark',
 }: ToolbarProps) {
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const [showBrushMenu, setShowBrushMenu] = useState(false);
     const [showStrokeStyleMenu, setShowStrokeStyleMenu] = useState(false);
     const [showGridMenu, setShowGridMenu] = useState(false);
+
+    const ACTIVE_COLORS = theme === 'light' ? PRO_COLORS_LIGHT : PRO_COLORS_DARK;
+
     // Local state for Color Mode (Stroke vs Fill)
     const [activeColorMode, setActiveColorMode] = useState<'stroke' | 'fill'>('stroke');
     const eraserMenuRef = useRef<HTMLDivElement>(null);
@@ -239,16 +258,32 @@ export default function Toolbar({
 
     return (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50" data-component="toolbar">
-            <div className={`flex items-stretch gap-0 px-3 py-1.5 bg-[#151a1f]/97 backdrop-blur-2xl border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] text-[#dde3e8] transition-all duration-300 ${isSessionLocked ? 'opacity-50 pointer-events-none border-amber-500/30' : 'opacity-100 border-[#2a333b]/80'}`}>
+            <div
+                className="flex items-stretch gap-0 px-3 py-1.5 backdrop-blur-2xl rounded-2xl transition-all duration-300"
+                style={{
+                    background: 'var(--ns-toolbar-bg)',
+                    border: `1px solid ${isSessionLocked ? 'rgba(245,158,11,0.3)' : 'var(--ns-toolbar-border)'}`,
+                    boxShadow: 'var(--ns-toolbar-shadow)',
+                    color: 'var(--ns-toolbar-text)',
+                    opacity: isSessionLocked ? 0.5 : 1,
+                    pointerEvents: isSessionLocked ? 'none' : 'auto',
+                }}
+            >
 
                 {/* ═══ HISTORY ═══ */}
                 <ToolSection label="History">
                     <button onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)"
-                        className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${!canUndo ? 'text-[#2a333b] cursor-not-allowed' : 'text-[#5a6d7e] hover:bg-[#262e35] hover:text-white active:scale-95'}`}>
+                        className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 active:scale-95"
+                        style={{ color: !canUndo ? 'var(--ns-disabled)' : 'var(--ns-toolbar-muted)', cursor: !canUndo ? 'not-allowed' : 'pointer' }}
+                        onMouseEnter={(e) => { if (canUndo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = !canUndo ? 'var(--ns-disabled)' : 'var(--ns-toolbar-muted)'; }}>
                         <Undo2 size={15} />
                     </button>
                     <button onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Y)"
-                        className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${!canRedo ? 'text-[#2a333b] cursor-not-allowed' : 'text-[#5a6d7e] hover:bg-[#262e35] hover:text-white active:scale-95'}`}>
+                        className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 active:scale-95"
+                        style={{ color: !canRedo ? 'var(--ns-disabled)' : 'var(--ns-toolbar-muted)', cursor: !canRedo ? 'not-allowed' : 'pointer' }}
+                        onMouseEnter={(e) => { if (canRedo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = !canRedo ? 'var(--ns-disabled)' : 'var(--ns-toolbar-muted)'; }}>
                         <Redo2 size={15} />
                     </button>
                 </ToolSection>
@@ -346,12 +381,12 @@ export default function Toolbar({
                                 </div>
                                 {eraserMode === 'partial' && (
                                     <div className="space-y-1.5">
-                                        <div className="flex justify-between text-[9px] uppercase text-[#4a5b6a] font-bold">
-                                            <span>Size</span><span>{eraserSize}px</span>
+                                        <div className="flex justify-between text-[9px] uppercase font-bold" style={{ color: 'var(--ns-section-label)' }}>
+                                            <span>Size</span><span style={{ color: 'var(--ns-accent)' }}>{eraserSize}px</span>
                                         </div>
                                         <input type="range" min={5} max={50} value={eraserSize}
                                             onChange={(e) => onEraserSizeChange(Number(e.target.value))}
-                                            className="w-full h-1 bg-[#1e262d] rounded-lg appearance-none cursor-pointer accent-[#2dd4bf]" />
+                                            className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
                                     </div>
                                 )}
                             </div>
@@ -405,7 +440,14 @@ export default function Toolbar({
                                     ]).map(({ style, label, dash }) => (
                                         <button key={style}
                                             onClick={() => { onStrokeStyleChange(style); setShowStrokeStyleMenu(false); }}
-                                            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all ${strokeStyle === style ? 'bg-[#2dd4bf]/10 text-[#2dd4bf]' : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white'}`}>
+                                            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all"
+                                            style={{
+                                                background: strokeStyle === style ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.1))' : 'transparent',
+                                                color: strokeStyle === style ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #b0bec5)'
+                                            }}
+                                            onMouseEnter={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                            onMouseLeave={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #b0bec5)'; } }}
+                                        >
                                             <svg width="50" height="6" viewBox="0 0 50 6"><line x1="0" y1="3" x2="50" y2="3" stroke="currentColor" strokeWidth="2" strokeDasharray={dash} strokeLinecap="round" /></svg>
                                             <span className="text-[11px] font-medium">{label}</span>
                                         </button>
@@ -476,14 +518,14 @@ export default function Toolbar({
                                     </button>
 
                                     {/* Colors */}
-                                    {PRO_COLORS.map(c => {
+                                    {ACTIVE_COLORS.map(c => {
                                         const isSelected = (activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c);
                                         return (
                                             <button
                                                 key={c}
                                                 // simplistic toggle: click to apply to currently active mode (stroke or fill).
                                                 onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
-                                                className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : 'border-gray-700/50 hover:border-white hover:scale-110'}`}
+                                                className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : `border-gray-700/50 hover:scale-110 ${theme === 'light' ? 'hover:border-gray-400' : 'hover:border-white'}`}`}
                                                 style={{ background: c }}
                                                 title={c}
                                             >
@@ -516,21 +558,21 @@ export default function Toolbar({
                             <div className="flex gap-4 px-1">
                                 {/* Size Slider */}
                                 <div className="flex flex-col gap-0.5 w-[72px]">
-                                    <div className="flex justify-between text-[8px] font-mono text-[#4a5b6a]">
+                                    <div className="flex justify-between text-[8px] font-mono" style={{ color: 'var(--ns-section-label)' }}>
                                         <span>SIZE</span>
-                                        <span className="text-[#2dd4bf] font-bold">{brushSize}px</span>
+                                        <span className="font-bold" style={{ color: 'var(--ns-accent)' }}>{brushSize}px</span>
                                     </div>
                                     <input type="range" min={1} max={50} value={brushSize}
                                         onChange={(e) => onBrushSizeChange(Number(e.target.value))}
-                                        className="w-full h-1 bg-[#1e262d] rounded-lg appearance-none cursor-pointer accent-[#2dd4bf]" />
+                                        className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
                                 </div>
 
                                 {/* Corner Radius Slider (Contextual) */}
                                 {(activeTool === ToolType.RECTANGLE || (hasSelection && cornerRadius !== undefined)) && (
                                     <div className="flex flex-col gap-0.5 w-[72px] animate-fadeIn">
-                                        <div className="flex justify-between text-[8px] font-mono text-[#4a5b6a]">
+                                        <div className="flex justify-between text-[8px] font-mono" style={{ color: 'var(--ns-section-label)' }}>
                                             <span>ROUNDNESS</span>
-                                            <span className="text-[#a855f7] font-bold">{Math.round(cornerRadius || 0)}</span>
+                                            <span className="font-bold text-[#a855f7]">{Math.round(cornerRadius || 0)}</span>
                                         </div>
                                         <input
                                             type="range"
@@ -538,7 +580,7 @@ export default function Toolbar({
                                             max="50"
                                             value={cornerRadius || 0}
                                             onChange={(e) => onCornerRadiusChange?.(Number(e.target.value))}
-                                            className="w-full h-1 bg-[#1e262d] rounded-lg appearance-none cursor-pointer accent-[#a855f7]"
+                                            className="w-full cursor-pointer" style={{ accentColor: '#a855f7' }}
                                         />
                                     </div>
                                 )}
@@ -584,21 +626,22 @@ export default function Toolbar({
                         </button>
 
                         {showGridMenu && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[220px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[200] overflow-hidden"
-                                style={{ animation: 'fadeIn 150ms ease-out' }}>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[200] overflow-hidden transition-colors"
+                                style={{ animation: 'fadeIn 150ms ease-out', background: 'var(--ns-panel-bg, #151a1f)', border: '1px solid var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
 
-                                <div className="px-3 py-2 bg-[#1e262d] border-b border-[#2a333b] flex justify-between items-center">
-                                    <span className="text-[11px] font-bold text-[#dde3e8]">Grid Options</span>
+                                <div className="px-3 py-2 flex justify-between items-center transition-colors border-b" style={{ background: 'var(--ns-toolbar-hover, #1e262d)', borderColor: 'var(--ns-separator, #2a333b)' }}>
+                                    <span className="text-[11px] font-bold" style={{ color: 'var(--ns-toolbar-text, #dde3e8)' }}>Grid Options</span>
                                 </div>
 
                                 <div className="p-3 space-y-3 max-h-[400px] overflow-y-auto">
 
                                     {/* Snap Toggle */}
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px] uppercase font-semibold text-[#8b9dad]">Snap to Grid</span>
+                                        <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Snap to Grid</span>
                                         <button
                                             onClick={() => onGridConfigChange({ ...gridConfig, snapEnabled: !gridConfig.snapEnabled })}
-                                            className={`relative w-8 h-4 rounded-full transition-colors ${gridConfig.snapEnabled ? 'bg-[#2dd4bf]' : 'bg-[#2a333b]'}`}
+                                            className="relative w-8 h-4 rounded-full transition-colors"
+                                            style={{ background: gridConfig.snapEnabled ? 'var(--ns-accent, #2dd4bf)' : 'var(--ns-separator, #2a333b)' }}
                                         >
                                             <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${gridConfig.snapEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
                                         </button>
@@ -607,7 +650,7 @@ export default function Toolbar({
                                     {/* Snap Type */}
                                     {gridConfig.snapEnabled && (
                                         <div className="space-y-1.5">
-                                            <div className="text-[10px] uppercase font-semibold text-[#8b9dad]">Grid Snapping</div>
+                                            <div className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Grid Snapping</div>
                                             <div className="flex flex-col gap-1">
                                                 {[
                                                     { value: 'none', label: 'None' },
@@ -638,37 +681,49 @@ export default function Toolbar({
                                         </div>
                                     )}
 
-                                    <div className="w-full h-px bg-[#2a333b]" />
+                                    <div className="w-full h-px" style={{ background: 'var(--ns-separator, #2a333b)' }} />
 
                                     {/* Appearance */}
                                     <div className="space-y-1.5">
-                                        <div className="text-[10px] uppercase font-semibold text-[#8b9dad]">Appearance</div>
+                                        <div className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Appearance</div>
                                         <div className="grid grid-cols-2 gap-1.5">
-                                            {['dots', 'lines', 'crosses', 'none' as any].map(t => (
-                                                <button key={t}
-                                                    onClick={() => onGridConfigChange({ ...gridConfig, appearance: t as GridAppearance })}
-                                                    className={`px-2 py-1 text-[10px] rounded border transition-colors ${gridConfig.appearance === t ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] border-[#2dd4bf]/40' : 'bg-[#151a1f] text-[#8b9dad] border-[#2a333b] hover:bg-[#1e262d]'}`}
-                                                >{t === 'none' ? 'Hidden' : t}</button>
-                                            ))}
+                                            {['dots', 'lines', 'crosses', 'none'].map(app => {
+                                                const isSel = gridConfig.appearance === app;
+                                                return (
+                                                    <button key={app} onClick={() => onGridConfigChange({ ...gridConfig, appearance: app as GridAppearance })}
+                                                        className="px-2 py-1 text-[11px] rounded transition-colors border"
+                                                        style={{
+                                                            background: isSel ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.15))' : 'transparent',
+                                                            color: isSel ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #8b9dad)',
+                                                            borderColor: isSel ? 'transparent' : 'var(--ns-separator, #2a333b)'
+                                                        }}
+                                                        onMouseEnter={(e) => { if (!isSel) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                                        onMouseLeave={(e) => { if (!isSel) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #8b9dad)'; } }}
+                                                    >{app === 'none' ? 'Hidden' : app}</button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
                                     {/* Size Slider */}
                                     <div className="space-y-1.5">
-                                        <div className="flex justify-between text-[10px] font-semibold text-[#8b9dad]">
-                                            <span>Cell Size</span>
-                                            <span className="text-[#2dd4bf] font-mono">{gridConfig.size}px</span>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Cell Size</span>
+                                            <span className="text-[10px] tabular-nums" style={{ color: 'var(--ns-toolbar-active-text, #2dd4bf)' }}>{gridConfig.size}px</span>
                                         </div>
-                                        <input type="range" min={10} max={100} step={5} value={gridConfig.size}
-                                            onChange={(e) => onGridConfigChange({ ...gridConfig, size: Number(e.target.value) })}
-                                            className="w-full h-1 bg-[#2a333b] rounded-lg appearance-none cursor-pointer accent-[#2dd4bf]" />
+                                        <div className="relative pt-2 pb-1">
+                                            <input type="range" min="10" max="100" step="5" value={gridConfig.size}
+                                                onChange={(e) => onGridConfigChange({ ...gridConfig, size: Number(e.target.value) })}
+                                                className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }}
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* Color Picker */}
                                     <div className="space-y-1.5">
-                                        <div className="text-[10px] uppercase font-semibold text-[#8b9dad]">Color</div>
+                                        <div className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Color</div>
                                         <div className="flex items-center gap-2">
-                                            <div className="relative w-full h-6 rounded border border-[#2a333b] overflow-hidden">
+                                            <div className="relative w-full h-6 rounded border overflow-hidden" style={{ borderColor: 'var(--ns-separator, #2a333b)' }}>
                                                 <div className="absolute inset-0" style={{ background: gridConfig.color }} />
                                                 <input type="color" value={gridConfig.color}
                                                     onChange={(e) => onGridConfigChange({ ...gridConfig, color: e.target.value })}
@@ -686,45 +741,87 @@ export default function Toolbar({
 
             {/* Floating Text Formatting Toolbar */}
             {(isTextMode || (activeTool === 'select' && isTextSelected)) && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 flex items-center gap-1.5 px-2 py-1.5 bg-[#151a1f] border border-[#2a333b] rounded-lg shadow-xl animate-fadeIn z-[100] whitespace-nowrap">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 flex items-center gap-1.5 px-2 py-1.5 rounded-lg shadow-xl animate-fadeIn z-[100] whitespace-nowrap border"
+                    style={{ background: 'var(--ns-panel-bg, #151a1f)', borderColor: 'var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
                     {/* Font Family */}
                     <div className="relative group">
                         <select value={fontFamily} onChange={(e) => onFontFamilyChange(e.target.value)}
-                            className="appearance-none bg-[#0d1117] text-[11px] font-medium text-white border border-[#2a333b] rounded h-7 pl-2 pr-6 hover:bg-[#1e262d] focus:border-blue-500 outline-none cursor-pointer min-w-[120px]">
+                            className="appearance-none text-[11px] font-medium rounded h-7 pl-2 pr-6 outline-none cursor-pointer min-w-[120px] transition-colors border"
+                            style={{ background: 'var(--ns-toolbar-bg, #0d1117)', color: 'var(--ns-toolbar-text, #fff)', borderColor: 'var(--ns-separator, #2a333b)' }}
+                        >
                             <option value="Arial">Arial</option>
                             <option value="Times New Roman">Times New Roman</option>
                             <option value="Courier New">Courier New</option>
                         </select>
-                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--ns-toolbar-muted)' }} />
                     </div>
 
-                    <div className="w-px h-4 bg-[#2a333b]" />
+                    <div className="w-px h-4" style={{ background: 'var(--ns-separator)' }} />
 
                     {/* Font Size */}
                     <div className="relative group">
                         <select value={fontSize} onChange={(e) => onFontSizeChange(Number(e.target.value))}
-                            className="appearance-none bg-[#0d1117] text-[11px] font-medium text-white border border-[#2a333b] rounded h-7 pl-2 pr-6 hover:bg-[#1e262d] focus:border-blue-500 outline-none cursor-pointer min-w-[60px]">
+                            className="appearance-none text-[11px] font-medium rounded h-7 pl-2 pr-6 outline-none cursor-pointer min-w-[60px] transition-colors border"
+                            style={{ background: 'var(--ns-toolbar-bg, #0d1117)', color: 'var(--ns-toolbar-text, #fff)', borderColor: 'var(--ns-separator, #2a333b)' }}
+                        >
                             {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--ns-toolbar-muted)' }} />
                     </div>
 
-                    <div className="w-px h-4 bg-[#2a333b]" />
+                    <div className="w-px h-4" style={{ background: 'var(--ns-separator)' }} />
 
                     {/* Bold/Italic/Underline */}
-                    <div className="flex bg-[#0d1117] rounded border border-[#2a333b] p-0.5 gap-0.5">
-                        <button onClick={() => onBoldChange(!isBold)} className={`p-1 rounded ${isBold ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><Bold size={13} /></button>
-                        <button onClick={() => onItalicChange(!isItalic)} className={`p-1 rounded ${isItalic ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><Italic size={13} /></button>
-                        <button onClick={() => onUnderlineChange(!isUnderline)} className={`p-1 rounded ${isUnderline ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><Underline size={13} /></button>
+                    <div className="flex rounded p-0.5 gap-0.5 border" style={{ background: 'var(--ns-toolbar-bg, #0d1117)', borderColor: 'var(--ns-separator, #2a333b)' }}>
+                        <button
+                            onClick={() => onBoldChange(!isBold)}
+                            className="p-1 rounded transition-colors"
+                            style={{ background: isBold ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isBold ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                            onMouseEnter={(e) => { if (!isBold) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                            onMouseLeave={(e) => { if (!isBold) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                        ><Bold size={13} /></button>
+                        <button
+                            onClick={() => onItalicChange(!isItalic)}
+                            className="p-1 rounded transition-colors"
+                            style={{ background: isItalic ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isItalic ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                            onMouseEnter={(e) => { if (!isItalic) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                            onMouseLeave={(e) => { if (!isItalic) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                        ><Italic size={13} /></button>
+                        <button
+                            onClick={() => onUnderlineChange(!isUnderline)}
+                            className="p-1 rounded transition-colors"
+                            style={{ background: isUnderline ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isUnderline ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                            onMouseEnter={(e) => { if (!isUnderline) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                            onMouseLeave={(e) => { if (!isUnderline) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                        ><Underline size={13} /></button>
                     </div>
 
                     {/* Align */}
                     <>
-                        <div className="w-px h-4 bg-[#2a333b]" />
-                        <div className="flex bg-[#0d1117] rounded border border-[#2a333b] p-0.5 gap-0.5">
-                            <button onClick={() => onTextAlignChange('left')} className={`p-1 rounded ${textAlign === 'left' ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><AlignLeft size={13} /></button>
-                            <button onClick={() => onTextAlignChange('center')} className={`p-1 rounded ${textAlign === 'center' ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><AlignCenter size={13} /></button>
-                            <button onClick={() => onTextAlignChange('right')} className={`p-1 rounded ${textAlign === 'right' ? 'bg-[#2dd4bf]/20 text-[#2dd4bf]' : 'text-gray-400 hover:text-white hover:bg-[#1e262d]'}`}><AlignRight size={13} /></button>
+                        <div className="w-px h-4" style={{ background: 'var(--ns-separator)' }} />
+
+                        <div className="flex rounded p-0.5 gap-0.5 border" style={{ background: 'var(--ns-toolbar-bg, #0d1117)', borderColor: 'var(--ns-separator, #2a333b)' }}>
+                            <button
+                                onClick={() => onTextAlignChange('left')}
+                                className="p-1 rounded transition-colors"
+                                style={{ background: textAlign === 'left' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'left' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                onMouseEnter={(e) => { if (textAlign !== 'left') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                onMouseLeave={(e) => { if (textAlign !== 'left') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                            ><AlignLeft size={13} /></button>
+                            <button
+                                onClick={() => onTextAlignChange('center')}
+                                className="p-1 rounded transition-colors"
+                                style={{ background: textAlign === 'center' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'center' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                onMouseEnter={(e) => { if (textAlign !== 'center') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                onMouseLeave={(e) => { if (textAlign !== 'center') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                            ><AlignCenter size={13} /></button>
+                            <button
+                                onClick={() => onTextAlignChange('right')}
+                                className="p-1 rounded transition-colors"
+                                style={{ background: textAlign === 'right' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'right' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                onMouseEnter={(e) => { if (textAlign !== 'right') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                onMouseLeave={(e) => { if (textAlign !== 'right') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                            ><AlignRight size={13} /></button>
                         </div>
                     </>
                 </div>

@@ -79,3 +79,171 @@
 ::selection {
   @apply bg-primary/30 text-primary-dark;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   NOVASKETCH WHITEBOARD — LIGHT THEME OVERRIDES
+   Uses [data-ns-theme="light"] to comprehensively restyle ALL
+   hardcoded dark Tailwind classes in Toolbar, dropdowns, menus, etc.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Toolbar container — clean white ── */
+[data-ns-theme="light"] [data-component="toolbar"]>div {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: #E6EAF0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  color: #111827 !important;
+  border-radius: 12px !important;
+}
+
+/* ── Tool buttons: idle state ── */
+[data-ns-theme="light"] [data-component="toolbar"] button {
+  color: #2F3A4A;
+}
+
+[data-ns-theme="light"] [data-component="toolbar"] button:not([style*="background"]):hover {
+  background: rgba(32, 201, 195, 0.1) !important;
+  color: #20C9C3 !important;
+}
+
+/* ── Hardcoded dark background classes → light ── */
+[data-ns-theme="light"] .bg-\[\#151a1f\]\/97,
+[data-ns-theme="light"] .bg-\[\#0B0C10\],
+[data-ns-theme="light"] .bg-\[\#1F2833\],
+[data-ns-theme="light"] .bg-\[\#151a1f\],
+[data-ns-theme="light"] .bg-\[\#1e262d\],
+[data-ns-theme="light"] .bg-\[\#0d1117\] {
+  background-color: #ffffff !important;
+}
+
+/* ── Hardcoded dark hover backgrounds → teal-tinted ── */
+[data-ns-theme="light"] .hover\:bg-\[\#262e35\]:hover,
+[data-ns-theme="light"] .hover\:bg-\[\#1F2833\]:hover,
+[data-ns-theme="light"] .hover\:bg-\[\#1e262d\]:hover,
+[data-ns-theme="light"] .hover\:bg-\[\#0d1117\]:hover,
+[data-ns-theme="light"] .hover\:bg-white\/10:hover {
+  background-color: rgba(32, 201, 195, 0.1) !important;
+}
+
+/* ── Text color overrides ── */
+[data-ns-theme="light"] .text-\[\#dde3e8\],
+[data-ns-theme="light"] .text-white,
+[data-ns-theme="light"] .hover\:text-white:hover {
+  color: #111827 !important;
+}
+
+[data-ns-theme="light"] .text-\[\#8b9dad\],
+[data-ns-theme="light"] .text-\[\#5a6d7e\],
+[data-ns-theme="light"] .text-\[\#4a5b6a\] {
+  color: #64748b !important;
+}
+
+[data-ns-theme="light"] .text-\[\#2a333b\] {
+  color: #cbd5e1 !important;
+}
+
+/* ── Accent colors ── */
+[data-ns-theme="light"] .text-\[\#66FCF1\],
+[data-ns-theme="light"] .text-\[\#2dd4bf\] {
+  color: #20C9C3 !important;
+}
+
+[data-ns-theme="light"] .bg-\[\#2dd4bf\]\/15 {
+  background-color: rgba(32, 201, 195, 0.1) !important;
+}
+
+[data-ns-theme="light"] .ring-\[\#2dd4bf\]\/40 {
+  --tw-ring-color: rgba(32, 201, 195, 0.40) !important;
+}
+
+/* ── Separator lines ── */
+[data-ns-theme="light"] .bg-\[\#2a333b\] {
+  background-color: #E6EAF0 !important;
+}
+
+/* ── Border overrides ── */
+[data-ns-theme="light"] .border-\[\#2a333b\]\/80,
+[data-ns-theme="light"] .border-\[\#2a333b\],
+[data-ns-theme="light"] .border-white\/10,
+[data-ns-theme="light"] .border-white\/15 {
+  border-color: #E6EAF0 !important;
+}
+
+/* ── Dropdown menus (brush picker, stroke style, grid, floating toolbar) ── */
+[data-ns-theme="light"] [data-component="toolbar"] .absolute,
+[data-ns-theme="light"] .animate-fadeIn {
+  background: #ffffff !important;
+  border-color: #E6EAF0 !important;
+  color: #111827 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ── Select dropdowns in light theme ── */
+[data-ns-theme="light"] select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #E6EAF0 !important;
+}
+
+/* Dropdown item styles */
+
+/* ── Color swatch borders in light mode ── */
+[data-ns-theme="light"] [data-component="toolbar"] .rounded-full[style*="border: 2px solid"] {
+  border-color: #E6EAF0 !important;
+}
+
+/* ── White/light opacity text → dark teal-charcoal ── */
+[data-ns-theme="light"] .text-white\/70,
+[data-ns-theme="light"] .text-white\/50,
+[data-ns-theme="light"] .text-white\/40 {
+  color: #64748b !important;
+}
+
+/* ── Black overlay backgrounds → soft cream ── */
+[data-ns-theme="light"] .bg-black\/50,
+[data-ns-theme="light"] .bg-black\/30 {
+  background-color: #ffffff !important;
+}
+
+/* ── Canvas background in light mode — pure white ── */
+[data-ns-theme="light"]>.absolute.inset-0.z-0 {
+  background-color: #ffffff !important;
+}
+
+/* ── Slider / range input in light mode ── */
+[data-ns-theme="light"] input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent !important;
+}
+
+[data-ns-theme="light"] input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  background: #E6EAF0 !important;
+  border-radius: 4px;
+}
+
+[data-ns-theme="light"] input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #20C9C3;
+  margin-top: -4px;
+  cursor: pointer;
+}
+
+/* ── Scrollbar in light mode ── */
+[data-ns-theme="light"] ::-webkit-scrollbar-thumb {
+  background-color: rgba(42, 157, 143, 0.20) !important;
+}
+
+[data-ns-theme="light"] ::-webkit-scrollbar-track {
+  background-color: transparent !important;
+}
+
+/* ── Smooth theme transition ── */
+[data-ns-theme] [data-component="toolbar"],
+[data-ns-theme] [data-component="toolbar"]>div {
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+}

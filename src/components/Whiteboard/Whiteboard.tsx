@@ -2449,6 +2449,7 @@ export default function Whiteboard({
   return (
     <div
       ref={containerRef}
+      data-ns-theme={theme}
       className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning || activeTool === ToolType.HAND
         ? isPanning || isStageDragging || activeTool === ToolType.HAND ? 'cursor-grab active:cursor-grabbing' : 'cursor-move'
         : activeTool === 'select'
@@ -2461,7 +2462,25 @@ export default function Whiteboard({
         backgroundColor: canvasBackgroundColor,
         touchAction: 'none',
         overscrollBehaviorX: 'none' as any,
-      }}
+        // Theme CSS custom properties — child components use var(--ns-*)
+        '--ns-toolbar-bg': theme === 'light' ? '#ffffff' : 'rgba(21,26,31,0.97)',
+        '--ns-toolbar-border': theme === 'light' ? '#E6EAF0' : 'rgba(42,51,59,0.8)',
+        '--ns-toolbar-text': theme === 'light' ? '#111827' : '#dde3e8',
+        '--ns-toolbar-muted': theme === 'light' ? '#2F3A4A' : '#5a6d7e',
+        '--ns-toolbar-hover': theme === 'light' ? 'rgba(32, 201, 195, 0.1)' : '#262e35',
+        '--ns-toolbar-active-bg': theme === 'light' ? 'rgba(32, 201, 195, 0.1)' : 'rgba(45,212,191,0.15)',
+        '--ns-toolbar-active-text': theme === 'light' ? '#20C9C3' : '#2dd4bf',
+        '--ns-toolbar-active-ring': theme === 'light' ? '#20C9C3' : 'rgba(45,212,191,0.40)',
+        '--ns-toolbar-shadow': theme === 'light' ? '0 4px 12px rgba(0,0,0,0.05)' : '0 8px 32px rgba(0,0,0,0.5)',
+        '--ns-separator': theme === 'light' ? '#E6EAF0' : '#2a333b',
+        '--ns-section-label': theme === 'light' ? '#64748b' : '#4a5b6a',
+        '--ns-disabled': theme === 'light' ? '#cbd5e1' : '#2a333b',
+        '--ns-panel-bg': theme === 'light' ? 'rgba(255, 255, 255, 0.98)' : 'rgba(11,12,16,0.85)',
+        '--ns-panel-border': theme === 'light' ? '#E6EAF0' : 'rgba(255,255,255,0.15)',
+        '--ns-panel-shadow': theme === 'light' ? '0 4px 12px rgba(0,0,0,0.05)' : '0 4px 20px rgba(0,0,0,0.5)',
+        '--ns-accent': theme === 'light' ? '#20C9C3' : '#66FCF1',
+        '--ns-accent-dim': theme === 'light' ? '#2ED3C6' : 'rgba(255,255,255,0.7)',
+      } as React.CSSProperties}
       onMouseMove={handlePointerMove}
       onMouseDown={handlePointerDown}
       onMouseUp={handlePointerUp}
@@ -2531,6 +2550,7 @@ export default function Whiteboard({
       {/* Draggable Lock Session Toggle — Moved to Hamburger Menu */}
 
       <Toolbar
+        theme={theme}
         isSessionLocked={isEffectivelyLocked}
         activeTool={activeTool}
         onToolChange={setActiveTool}
@@ -2762,7 +2782,7 @@ export default function Whiteboard({
       <div
         className="absolute inset-0 z-0 pointer-events-none select-none transition-colors duration-300"
         style={{
-          backgroundColor: theme === 'light' ? '#f0f2f5' : (canvasBackgroundColor || '#121212'),
+          backgroundColor: theme === 'light' ? '#F7F9FC' : (canvasBackgroundColor || '#121212'),
         }}
       />
 
@@ -2778,7 +2798,10 @@ export default function Whiteboard({
         >
           <Layer>
             <GridRenderer
-              config={gridConfig}
+              config={{
+                ...gridConfig,
+                color: theme === 'light' && gridConfig.color === '#374151' ? '#D6DEE8' : gridConfig.color
+              }}
               width={dimensions.width}
               height={dimensions.height}
               stageScale={stageScale}
@@ -3033,7 +3056,14 @@ export default function Whiteboard({
       />
 
       {/* Task 5.2.3: Zoom Percentage Indicator */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-lg border border-white/10 shadow-lg">
+      <div
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 backdrop-blur-sm rounded-lg shadow-lg"
+        style={{
+          background: 'var(--ns-panel-bg)',
+          border: '1px solid var(--ns-panel-border)',
+          boxShadow: 'var(--ns-panel-shadow)',
+        }}
+      >
         <button
           onClick={() => {
             const newScale = Math.max(0.1, stageScale - 0.1);
@@ -3044,7 +3074,8 @@ export default function Whiteboard({
             setStagePos({ x: centerX - worldX * newScale, y: centerY - worldY * newScale });
             setStageScale(newScale);
           }}
-          className="px-2 py-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-l-lg transition-colors text-sm font-medium"
+          className="px-2 py-1.5 rounded-l-lg transition-colors text-sm font-medium"
+          style={{ color: 'var(--ns-accent-dim)' }}
           title="Zoom Out (Ctrl+-)"
         >
           −
@@ -3058,7 +3089,8 @@ export default function Whiteboard({
             setStagePos({ x: centerX - worldX * 1, y: centerY - worldY * 1 });
             setStageScale(1);
           }}
-          className="px-2 py-1.5 text-[#66FCF1] hover:text-white hover:bg-white/10 transition-colors text-xs font-semibold min-w-[52px] text-center tabular-nums"
+          className="px-2 py-1.5 transition-colors text-xs font-semibold min-w-[52px] text-center tabular-nums"
+          style={{ color: 'var(--ns-accent)' }}
           title="Reset Zoom (Ctrl+0)"
         >
           {Math.round(stageScale * 100)}%
@@ -3073,7 +3105,8 @@ export default function Whiteboard({
             setStagePos({ x: centerX - worldX * newScale, y: centerY - worldY * newScale });
             setStageScale(newScale);
           }}
-          className="px-2 py-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-r-lg transition-colors text-sm font-medium"
+          className="px-2 py-1.5 rounded-r-lg transition-colors text-sm font-medium"
+          style={{ color: 'var(--ns-accent-dim)' }}
           title="Zoom In (Ctrl+=)"
         >
           +
@@ -3110,6 +3143,102 @@ export default function Whiteboard({
         }}
         theme={theme}
         onToggleTheme={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+        onCaptureCanvas={() => {
+          // Use the same SVG-to-canvas pipeline as the export feature
+          // so we capture all drawings (lines, shapes, text) with the background
+          return new Promise<Blob | null>((resolve) => {
+            if (!stageRef.current) { resolve(null); return; }
+            const w = stageRef.current.width();
+            const h = stageRef.current.height();
+            const bg = canvasBackgroundColor || (theme === 'light' ? '#F7F9FC' : '#121212');
+
+            // Build SVG string from drawing data (same logic as HamburgerMenu export)
+            let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+            svg += `<defs><marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#66FCF1"/></marker></defs>`;
+            svg += `<rect width="100%" height="100%" fill="${bg}"/>`;
+
+            // Shapes
+            [...shapes].sort((a, b) => a.zIndex - b.zIndex).forEach(shape => {
+              if (!shape.visible) return;
+              const { position, transform: t, opacity, style } = shape;
+              const fill = style.hasFill ? style.fill : 'none';
+              const stroke = style.stroke;
+              const sw = style.strokeWidth;
+              let inner = '', tr = '', cx = position.x, cy = position.y;
+
+              if (shape.type === 'rectangle') {
+                const s = shape as any;
+                cx = position.x + s.width / 2; cy = position.y + s.height / 2;
+                tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY}) translate(${-s.width / 2},${-s.height / 2})`;
+                inner = `<rect width="${s.width}" height="${s.height}" rx="${s.cornerRadius || 0}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+              } else if (shape.type === 'circle') {
+                const s = shape as any;
+                tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
+                inner = `<circle r="${s.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+              } else if (shape.type === 'ellipse') {
+                const s = shape as any;
+                tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
+                inner = `<ellipse rx="${s.radiusX}" ry="${s.radiusY}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+              } else if (shape.type === 'line' || shape.type === 'arrow') {
+                const s = shape as any;
+                const dx = s.endPoint.x - s.startPoint.x, dy = s.endPoint.y - s.startPoint.y;
+                cx = s.startPoint.x + dx / 2; cy = s.startPoint.y + dy / 2;
+                tr = `translate(${cx},${cy}) rotate(${t.rotation})`;
+                const marker = shape.type === 'arrow' ? ' marker-end="url(#ah)"' : '';
+                inner = `<line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"${marker}/>`;
+              } else if (shape.type === 'triangle') {
+                const s = shape as any;
+                cx = (s.points[0].x + s.points[1].x + s.points[2].x) / 3;
+                cy = (s.points[0].y + s.points[1].y + s.points[2].y) / 3;
+                const pts = s.points.map((p: any) => `${p.x - cx},${p.y - cy}`).join(' ');
+                tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
+                inner = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+              }
+              if (inner && tr) svg += `<g transform="${tr}" opacity="${opacity}">${inner}</g>`;
+            });
+
+            // Freehand lines
+            lines.forEach((line: any) => {
+              const pts = line.points;
+              if (pts.length < 2) return;
+              let d = `M ${pts[0]} ${pts[1]}`;
+              for (let i = 2; i < pts.length; i += 2) d += ` L ${pts[i]} ${pts[i + 1]}`;
+              svg += `<path d="${d}" stroke="${line.color}" stroke-width="${line.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+            });
+
+            // Text annotations
+            textAnnotations.forEach((txt: any) => {
+              const escaped = txt.text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+              const anchor = txt.textAlign === 'center' ? 'middle' : txt.textAlign === 'right' ? 'end' : 'start';
+              svg += `<text x="${txt.x}" y="${txt.y}" transform="rotate(${txt.rotation || 0},${txt.x},${txt.y})" font-family="${txt.fontFamily}" font-size="${txt.fontSize}" fill="${txt.color}" font-weight="${txt.fontWeight}" font-style="${txt.fontStyle}" text-decoration="${txt.textDecoration}" dominant-baseline="hanging" text-anchor="${anchor}">${escaped}</text>`;
+            });
+
+            svg += `</svg>`;
+
+            // Render SVG to canvas then export as PNG blob
+            const img = new Image();
+            const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = w * 2;
+              canvas.height = h * 2;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.scale(2, 2);
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob(b => resolve(b), 'image/png');
+              } else {
+                resolve(null);
+              }
+              URL.revokeObjectURL(url);
+            };
+            img.onerror = () => { resolve(null); URL.revokeObjectURL(url); };
+            img.src = url;
+          });
+        }}
       />
 
       {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}

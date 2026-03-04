@@ -221,12 +221,14 @@ const MiniMap: React.FC<MiniMapProps> = ({
 
     return (
         <div
-            className="fixed bottom-4 right-4 z-50 rounded-lg overflow-hidden border border-white/15 shadow-xl"
+            className="fixed bottom-4 right-4 z-50 rounded-lg overflow-hidden shadow-xl"
             style={{
                 width: MINIMAP_WIDTH,
                 height: MINIMAP_HEIGHT,
-                background: 'rgba(11, 12, 16, 0.85)',
+                background: 'var(--ns-panel-bg, rgba(11, 12, 16, 0.85))',
                 backdropFilter: 'blur(8px)',
+                border: '1px solid var(--ns-panel-border, rgba(255,255,255,0.15))',
+                boxShadow: 'var(--ns-panel-shadow, 0 4px 20px rgba(0,0,0,0.5))',
             }}
         >
 

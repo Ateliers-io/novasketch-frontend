@@ -91,13 +91,13 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                 title={expanded ? 'Hide members' : 'Show members'}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300"
                 style={{
-                    background: 'rgba(11, 12, 16, 0.75)',
+                    background: 'var(--ns-panel-bg, rgba(11, 12, 16, 0.75))',
                     backdropFilter: 'blur(12px)',
                     WebkitBackdropFilter: 'blur(12px)',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    border: '1px solid var(--ns-panel-border, rgba(255,255,255,0.12))',
                     boxShadow: count > 0
-                        ? '0 0 16px rgba(102,252,241,0.12), 0 4px 16px rgba(0,0,0,0.4)'
-                        : '0 4px 16px rgba(0,0,0,0.4)',
+                        ? '0 0 16px var(--ns-toolbar-active-ring, rgba(102,252,241,0.12)), var(--ns-panel-shadow, 0 4px 16px rgba(0,0,0,0.4))'
+                        : 'var(--ns-panel-shadow, 0 4px 16px rgba(0,0,0,0.4))',
                 }}
             >
                 {/* Overlapping avatar stack */}
@@ -111,7 +111,7 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                                 height: 26,
                                 fontSize: 10,
                                 background: 'rgba(255,255,255,0.12)',
-                                border: '2px solid rgba(11,12,16,0.9)',
+                                border: '2px solid var(--ns-panel-bg, rgba(11,12,16,0.9))',
                                 marginRight: -6,
                                 flexShrink: 0,
                             }}
@@ -131,7 +131,7 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                                 height: 26,
                                 fontSize: 11,
                                 background: user.color,
-                                border: '2px solid rgba(11,12,16,0.9)',
+                                border: '2px solid var(--ns-panel-bg, rgba(11,12,16,0.9))',
                                 marginRight: idx === 0 ? 0 : -8,
                                 zIndex: visible.length - idx,
                                 boxShadow: `0 0 8px ${user.color}55`,
@@ -156,7 +156,7 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                     />
                     <span
                         className="text-xs font-semibold whitespace-nowrap"
-                        style={{ color: count > 0 ? '#e2e8f0' : '#64748b' }}
+                        style={{ color: count > 0 ? 'var(--ns-toolbar-text, #e2e8f0)' : 'var(--ns-toolbar-muted, #64748b)' }}
                     >
                         {count} Online
                     </span>
@@ -168,11 +168,11 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                 <div
                     className="rounded-xl overflow-hidden"
                     style={{
-                        background: 'rgba(11,12,16,0.88)',
+                        background: 'var(--ns-panel-bg, rgba(11,12,16,0.88))',
                         backdropFilter: 'blur(16px)',
                         WebkitBackdropFilter: 'blur(16px)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(102,252,241,0.08)',
+                        border: '1px solid var(--ns-panel-border, rgba(255,255,255,0.1))',
+                        boxShadow: 'var(--ns-panel-shadow, 0 8px 32px rgba(0,0,0,0.5))',
                         minWidth: 180,
                     }}
                 >

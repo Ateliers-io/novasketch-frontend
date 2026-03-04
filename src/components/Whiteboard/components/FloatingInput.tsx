@@ -57,14 +57,20 @@ const FloatingInput: React.FC<FloatingInputProps> = ({ x, y, style, value, onCha
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
         >
-            <div className="bg-[#1a2026]/95 backdrop-blur-md p-2 rounded-lg shadow-2xl border border-[#2d2d44] ring-1 ring-white/10">
+            <div className="backdrop-blur-md p-2 rounded-lg shadow-2xl transition-colors duration-300"
+                style={{
+                    background: 'var(--ns-panel-bg, rgba(26,32,38,0.95))',
+                    border: '1px solid var(--ns-panel-border, #2d2d44)',
+                    boxShadow: 'var(--ns-panel-shadow)'
+                }}
+            >
                 <textarea
                     ref={ref}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Type something..."
-                    className="block w-full h-full bg-transparent text-white outline-none resize-none overflow-hidden min-w-[200px] min-h-[50px] placeholder:text-gray-500"
+                    className="block w-full h-full bg-transparent outline-none resize-none overflow-hidden min-w-[200px] min-h-[50px] placeholder:text-gray-500"
                     style={{
                         // fallback logic handled in utils, keeping default just in case.
                         fontSize: `${style.size || style.fontSize || 18}px`,
@@ -73,10 +79,14 @@ const FloatingInput: React.FC<FloatingInputProps> = ({ x, y, style, value, onCha
                         fontStyle: style.italic ? 'italic' : 'normal',
                         textDecoration: style.underline ? 'underline' : 'none',
                         textAlign: style.textAlign || 'left',
-                        color: style.color,
+                        color: style.color || 'var(--ns-toolbar-text, #ffffff)',
                     }}
                 />
-                <div className="text-[10px] text-gray-500 text-right px-1 pt-1 font-mono">Press Enter to save</div>
+                <div className="text-[10px] text-right px-1 pt-1 font-mono transition-colors duration-300"
+                    style={{ color: 'var(--ns-section-label, #6b7280)' }}
+                >
+                    Press Enter to save
+                </div>
             </div>
         </div>
     );

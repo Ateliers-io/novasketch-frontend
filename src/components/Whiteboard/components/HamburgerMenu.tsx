@@ -67,6 +67,63 @@ interface HamburgerMenuProps {
     onCaptureCanvas?: () => Promise<Blob | null>;
 }
 
+// ─── Compute bounding box of all content ─────────────────────
+function computeContentBounds(lines: any[], shapes: Shape[], textAnnotations: any[]) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hasContent = false;
+
+    shapes.forEach(s => {
+        if (!s.visible) return;
+        const p = s.position;
+        if ((s as any).width !== undefined) {
+            const r = s as any;
+            minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x + r.width); maxY = Math.max(maxY, p.y + r.height);
+        } else if ((s as any).radius !== undefined) {
+            const c = s as any;
+            minX = Math.min(minX, p.x - c.radius); minY = Math.min(minY, p.y - c.radius);
+            maxX = Math.max(maxX, p.x + c.radius); maxY = Math.max(maxY, p.y + c.radius);
+        } else if ((s as any).radiusX !== undefined) {
+            const e = s as any;
+            minX = Math.min(minX, p.x - e.radiusX); minY = Math.min(minY, p.y - e.radiusY);
+            maxX = Math.max(maxX, p.x + e.radiusX); maxY = Math.max(maxY, p.y + e.radiusY);
+        } else if ((s as any).startPoint !== undefined) {
+            const l = s as any;
+            minX = Math.min(minX, l.startPoint.x, l.endPoint.x);
+            minY = Math.min(minY, l.startPoint.y, l.endPoint.y);
+            maxX = Math.max(maxX, l.startPoint.x, l.endPoint.x);
+            maxY = Math.max(maxY, l.startPoint.y, l.endPoint.y);
+        } else if ((s as any).points !== undefined) {
+            const t = s as any;
+            t.points.forEach((pt: any) => {
+                minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y);
+                maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y);
+            });
+        }
+        hasContent = true;
+    });
+
+    lines.forEach(l => {
+        const pts = l.points;
+        for (let i = 0; i < pts.length; i += 2) {
+            minX = Math.min(minX, pts[i]); minY = Math.min(minY, pts[i + 1]);
+            maxX = Math.max(maxX, pts[i]); maxY = Math.max(maxY, pts[i + 1]);
+        }
+        if (pts.length >= 2) hasContent = true;
+    });
+
+    textAnnotations.forEach((t: any) => {
+        const w = t.text.length * (t.fontSize || 18) * 0.6;
+        const h = (t.fontSize || 18) * 1.2;
+        minX = Math.min(minX, t.x); minY = Math.min(minY, t.y);
+        maxX = Math.max(maxX, t.x + w); maxY = Math.max(maxY, t.y + h);
+        hasContent = true;
+    });
+
+    if (!hasContent) return null;
+    return { minX, minY, maxX, maxY };
+}
+
 // ─── SVG Generation (same as ExportTools) ───────────────────
 function generateSVGString(
     width: number,
@@ -382,16 +439,44 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
 
     const processCanvasExport = useCallback(
         (callback: (canvas: HTMLCanvasElement, size: { width: number; height: number; }) => void, fillBackground = false) => {
-            const size = getCanvasSize();
-            if (!size) return;
-            const svgString = generateSVGString(size.width, size.height, lines, shapes, textAnnotations, backgroundColor);
+            // Compute bounds of ALL content, with padding
+            const bounds = computeContentBounds(lines, shapes, textAnnotations);
+            const viewportSize = getCanvasSize();
+            if (!viewportSize) return;
+
+            let exportWidth: number, exportHeight: number, offsetX: number, offsetY: number;
+
+            if (bounds) {
+                const PADDING = 40;
+                offsetX = bounds.minX - PADDING;
+                offsetY = bounds.minY - PADDING;
+                exportWidth = (bounds.maxX - bounds.minX) + PADDING * 2;
+                exportHeight = (bounds.maxY - bounds.minY) + PADDING * 2;
+                // Ensure minimum size
+                exportWidth = Math.max(exportWidth, 200);
+                exportHeight = Math.max(exportHeight, 200);
+            } else {
+                // No content — use viewport
+                offsetX = 0;
+                offsetY = 0;
+                exportWidth = viewportSize.width;
+                exportHeight = viewportSize.height;
+            }
+
+            // Generate SVG with a viewBox that encompasses all content
+            const svgString = generateSVGString(exportWidth, exportHeight, lines, shapes, textAnnotations, backgroundColor)
+                .replace(
+                    `viewBox="0 0 ${exportWidth} ${exportHeight}"`,
+                    `viewBox="${offsetX} ${offsetY} ${exportWidth} ${exportHeight}"`
+                );
+
             const img = new Image();
             const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                canvas.width = size.width * 2;
-                canvas.height = size.height * 2;
+                canvas.width = exportWidth * 2;
+                canvas.height = exportHeight * 2;
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
                     if (fillBackground) {
@@ -400,7 +485,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                     }
                     ctx.scale(2, 2);
                     ctx.drawImage(img, 0, 0);
-                    callback(canvas, size);
+                    callback(canvas, { width: exportWidth, height: exportHeight });
                 }
                 URL.revokeObjectURL(url);
             };

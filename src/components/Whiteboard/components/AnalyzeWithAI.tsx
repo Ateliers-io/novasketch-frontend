@@ -83,17 +83,52 @@ const AnalyzeWithAI: React.FC<AnalyzeWithAIProps> = ({ theme = 'dark', onCapture
             {/* Status toast */}
             {status && (
                 <div
-                    className="text-center text-[11px] font-medium py-1.5 rounded-md transition-all"
+                    className="text-center text-[11px] font-medium py-2 px-3 rounded-lg transition-all"
                     style={{
                         backgroundColor: status === 'Image copied!'
-                            ? (isLight ? 'rgba(42,157,143,0.1)' : 'rgba(102,252,241,0.1)')
-                            : (isLight ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.1)'),
+                            ? (isLight ? 'rgba(42,157,143,0.12)' : 'rgba(102,252,241,0.12)')
+                            : status === 'Capturing...'
+                                ? (isLight ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.12)')
+                                : (isLight ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.1)'),
                         color: status === 'Image copied!'
                             ? (isLight ? '#2A9D8F' : '#66FCF1')
-                            : '#ef4444'
+                            : status === 'Capturing...'
+                                ? (isLight ? '#3b82f6' : '#60a5fa')
+                                : '#ef4444',
+                        border: `1px solid ${status === 'Image copied!' ? (isLight ? 'rgba(42,157,143,0.2)' : 'rgba(102,252,241,0.2)') : 'transparent'}`,
                     }}
                 >
-                    {status === 'Image copied!' ? '✓ ' : ''}{status} {status === 'Image copied!' ? '— Paste with Ctrl+V' : ''}
+                    {status === 'Capturing...' && (
+                        <div className="flex items-center justify-center gap-2">
+                            <span className="animate-pulse">📸</span> Capturing your drawing...
+                        </div>
+                    )}
+                    {status === 'Image copied!' && (
+                        <div className="flex flex-col items-center gap-1">
+                            <div className="flex items-center gap-1.5">
+                                <span>✅</span>
+                                <span className="font-bold">Image copied to clipboard!</span>
+                            </div>
+                            <div className="text-[10px] mt-0.5 flex items-center gap-1" style={{ opacity: 0.85 }}>
+                                Now press
+                                <kbd className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{
+                                    background: isLight ? '#e2e8f0' : '#334155',
+                                    border: `1px solid ${isLight ? '#cbd5e1' : '#475569'}`,
+                                }}>Ctrl</kbd>
+                                <span>+</span>
+                                <kbd className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{
+                                    background: isLight ? '#e2e8f0' : '#334155',
+                                    border: `1px solid ${isLight ? '#cbd5e1' : '#475569'}`,
+                                }}>V</kbd>
+                                in the AI chat to paste
+                            </div>
+                        </div>
+                    )}
+                    {status !== 'Image copied!' && status !== 'Capturing...' && (
+                        <div className="flex items-center justify-center gap-2">
+                            <span>⚠️</span> {status}
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -3144,18 +3144,69 @@ export default function Whiteboard({
         theme={theme}
         onToggleTheme={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
         onCaptureCanvas={() => {
-          // Use the same SVG-to-canvas pipeline as the export feature
-          // so we capture all drawings (lines, shapes, text) with the background
           return new Promise<Blob | null>((resolve) => {
             if (!stageRef.current) { resolve(null); return; }
-            const w = stageRef.current.width();
-            const h = stageRef.current.height();
             const bg = canvasBackgroundColor || (theme === 'light' ? '#F7F9FC' : '#121212');
 
-            // Build SVG string from drawing data (same logic as HamburgerMenu export)
-            let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+            // Compute bounds of ALL content
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            let hasContent = false;
+
+            shapes.forEach((s: any) => {
+              if (!s.visible) return;
+              const p = s.position;
+              if (s.width !== undefined) {
+                minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                maxX = Math.max(maxX, p.x + s.width); maxY = Math.max(maxY, p.y + s.height);
+              } else if (s.radius !== undefined) {
+                minX = Math.min(minX, p.x - s.radius); minY = Math.min(minY, p.y - s.radius);
+                maxX = Math.max(maxX, p.x + s.radius); maxY = Math.max(maxY, p.y + s.radius);
+              } else if (s.radiusX !== undefined) {
+                minX = Math.min(minX, p.x - s.radiusX); minY = Math.min(minY, p.y - s.radiusY);
+                maxX = Math.max(maxX, p.x + s.radiusX); maxY = Math.max(maxY, p.y + s.radiusY);
+              } else if (s.startPoint) {
+                minX = Math.min(minX, s.startPoint.x, s.endPoint.x);
+                minY = Math.min(minY, s.startPoint.y, s.endPoint.y);
+                maxX = Math.max(maxX, s.startPoint.x, s.endPoint.x);
+                maxY = Math.max(maxY, s.startPoint.y, s.endPoint.y);
+              } else if (s.points) {
+                s.points.forEach((pt: any) => {
+                  minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y);
+                  maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y);
+                });
+              }
+              hasContent = true;
+            });
+
+            lines.forEach((l: any) => {
+              const pts = l.points;
+              for (let i = 0; i < pts.length; i += 2) {
+                minX = Math.min(minX, pts[i]); minY = Math.min(minY, pts[i + 1]);
+                maxX = Math.max(maxX, pts[i]); maxY = Math.max(maxY, pts[i + 1]);
+              }
+              if (pts.length >= 2) hasContent = true;
+            });
+
+            textAnnotations.forEach((t: any) => {
+              const tw = t.text.length * (t.fontSize || 18) * 0.6;
+              const th = (t.fontSize || 18) * 1.2;
+              minX = Math.min(minX, t.x); minY = Math.min(minY, t.y);
+              maxX = Math.max(maxX, t.x + tw); maxY = Math.max(maxY, t.y + th);
+              hasContent = true;
+            });
+
+            if (!hasContent) { resolve(null); return; }
+
+            const PAD = 40;
+            const offX = minX - PAD;
+            const offY = minY - PAD;
+            const w = Math.max((maxX - minX) + PAD * 2, 200);
+            const h = Math.max((maxY - minY) + PAD * 2, 200);
+
+            // Build SVG with viewBox encompassing all content
+            let svg = `<svg width="${w}" height="${h}" viewBox="${offX} ${offY} ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
             svg += `<defs><marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#66FCF1"/></marker></defs>`;
-            svg += `<rect width="100%" height="100%" fill="${bg}"/>`;
+            svg += `<rect x="${offX}" y="${offY}" width="${w}" height="${h}" fill="${bg}"/>`;
 
             // Shapes
             [...shapes].sort((a, b) => a.zIndex - b.zIndex).forEach(shape => {

@@ -102,7 +102,7 @@
 
 [data-ns-theme="light"] [data-component="toolbar"] button:not([style*="background"]):hover {
   background: rgba(32, 201, 195, 0.1) !important;
-  color: #0E7C77 !important;
+  color: #0f766e !important;
 }
 
 /* ── Hardcoded dark background classes → light ── */
@@ -144,7 +144,7 @@
 /* ── Accent colors ── */
 [data-ns-theme="light"] .text-\[\#66FCF1\],
 [data-ns-theme="light"] .text-\[\#2dd4bf\] {
-  color: #20C9C3 !important;
+  color: #0f766e !important;
 }
 
 [data-ns-theme="light"] .bg-\[\#2dd4bf\]\/15 {

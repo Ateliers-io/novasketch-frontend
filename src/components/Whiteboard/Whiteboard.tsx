@@ -80,6 +80,137 @@ import { SessionInfo, toggleSessionLock } from '../../services/session.service';
 const GRID_DOT_COLOR = '#45A29E';
 const DEFAULT_STROKE_COLOR = '#66FCF1';
 
+// Helper functions for capturing the canvas to SVG/PNG
+const calculateContentBounds = (shapes: any[], lines: any[], textAnnotations: any[]) => {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let hasContent = false;
+  shapes.forEach((s: any) => {
+    if (!s.visible) return;
+    const p = s.position;
+    if (s.width !== undefined) {
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x + s.width); maxY = Math.max(maxY, p.y + s.height);
+    } else if (s.radius !== undefined) {
+      minX = Math.min(minX, p.x - s.radius); minY = Math.min(minY, p.y - s.radius);
+      maxX = Math.max(maxX, p.x + s.radius); maxY = Math.max(maxY, p.y + s.radius);
+    } else if (s.radiusX !== undefined) {
+      minX = Math.min(minX, p.x - s.radiusX); minY = Math.min(minY, p.y - s.radiusY);
+      maxX = Math.max(maxX, p.x + s.radiusX); maxY = Math.max(maxY, p.y + s.radiusY);
+    } else if (s.startPoint) {
+      minX = Math.min(minX, s.startPoint.x, s.endPoint.x); minY = Math.min(minY, s.startPoint.y, s.endPoint.y);
+      maxX = Math.max(maxX, s.startPoint.x, s.endPoint.x); maxY = Math.max(maxY, s.startPoint.y, s.endPoint.y);
+    } else if (s.points) {
+      s.points.forEach((pt: any) => {
+        minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y);
+        maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y);
+      });
+    }
+    hasContent = true;
+  });
+  lines.forEach((l: any) => {
+    const pts = l.points;
+    for (let i = 0; i < pts.length; i += 2) {
+      minX = Math.min(minX, pts[i]); minY = Math.min(minY, pts[i + 1]);
+      maxX = Math.max(maxX, pts[i]); maxY = Math.max(maxY, pts[i + 1]);
+    }
+    if (pts.length >= 2) hasContent = true;
+  });
+  textAnnotations.forEach((t: any) => {
+    const tw = t.text.length * (t.fontSize || 18) * 0.6;
+    const th = (t.fontSize || 18) * 1.2;
+    minX = Math.min(minX, t.x); minY = Math.min(minY, t.y);
+    maxX = Math.max(maxX, t.x + tw); maxY = Math.max(maxY, t.y + th);
+    hasContent = true;
+  });
+  return { minX, minY, maxX, maxY, hasContent };
+};
+
+const generateSvgContent = (shapes: any[], lines: any[], textAnnotations: any[], bg: string, w: number, h: number, offX: number, offY: number) => {
+  let svg = `<svg width="${w}" height="${h}" viewBox="${offX} ${offY} ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += `<defs><marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#66FCF1"/></marker></defs>`;
+  svg += `<rect x="${offX}" y="${offY}" width="${w}" height="${h}" fill="${bg}"/>`;
+
+  [...shapes].sort((a, b) => a.zIndex - b.zIndex).forEach(shape => {
+    if (!shape.visible) return;
+    const { position, transform: t, opacity, style } = shape;
+    const fill = style.hasFill ? style.fill : 'none';
+    const stroke = style.stroke;
+    const sw = style.strokeWidth;
+    let inner = '', tr = '', cx = position.x, cy = position.y;
+
+    if (shape.type === 'rectangle') {
+      const s = shape as any;
+      cx = position.x + s.width / 2; cy = position.y + s.height / 2;
+      tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY}) translate(${-s.width / 2},${-s.height / 2})`;
+      inner = `<rect width="${s.width}" height="${s.height}" rx="${s.cornerRadius || 0}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    } else if (shape.type === 'circle') {
+      const s = shape as any;
+      tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
+      inner = `<circle r="${s.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    } else if (shape.type === 'ellipse') {
+      const s = shape as any;
+      tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
+      inner = `<ellipse rx="${s.radiusX}" ry="${s.radiusY}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    } else if (shape.type === 'line' || shape.type === 'arrow') {
+      const s = shape as any;
+      const dx = s.endPoint.x - s.startPoint.x, dy = s.endPoint.y - s.startPoint.y;
+      cx = s.startPoint.x + dx / 2; cy = s.startPoint.y + dy / 2;
+      tr = `translate(${cx},${cy}) rotate(${t.rotation})`;
+      const marker = shape.type === 'arrow' ? ' marker-end="url(#ah)"' : '';
+      inner = `<line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"${marker}/>`;
+    } else if (shape.type === 'triangle') {
+      const s = shape as any;
+      cx = (s.points[0].x + s.points[1].x + s.points[2].x) / 3; cy = (s.points[0].y + s.points[1].y + s.points[2].y) / 3;
+      const pts = s.points.map((p: any) => `${p.x - cx},${p.y - cy}`).join(' ');
+      tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
+      inner = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    }
+    if (inner && tr) svg += `<g transform="${tr}" opacity="${opacity}">${inner}</g>`;
+  });
+
+  lines.forEach((line: any) => {
+    const pts = line.points;
+    if (pts.length < 2) return;
+    let d = `M ${pts[0]} ${pts[1]}`;
+    for (let i = 2; i < pts.length; i += 2) d += ` L ${pts[i]} ${pts[i + 1]}`;
+    svg += `<path d="${d}" stroke="${line.color}" stroke-width="${line.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  });
+
+  textAnnotations.forEach((txt: any) => {
+    const escaped = txt.text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+    let anchor = 'start';
+    if (txt.textAlign === 'center') anchor = 'middle';
+    else if (txt.textAlign === 'right') anchor = 'end';
+    svg += `<text x="${txt.x}" y="${txt.y}" transform="rotate(${txt.rotation || 0},${txt.x},${txt.y})" font-family="${txt.fontFamily}" font-size="${txt.fontSize}" fill="${txt.color}" font-weight="${txt.fontWeight}" font-style="${txt.fontStyle}" text-decoration="${txt.textDecoration}" dominant-baseline="hanging" text-anchor="${anchor}">${escaped}</text>`;
+  });
+
+  svg += `</svg>`;
+  return svg;
+};
+
+const renderSvgToBlob = (svg: string, bg: string, w: number, h: number): Promise<Blob | null> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w * 2; canvas.height = h * 2;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.scale(2, 2);
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(resolve, 'image/png');
+      } else resolve(null);
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => { resolve(null); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
+};
+
 // Monolithic whiteboard component. needs splitting up.
 export default function Whiteboard({
   initialLocked = false,
@@ -2446,167 +2577,38 @@ export default function Whiteboard({
   }, [textAnnotations, visibleBounds]);
 
   const handleCaptureCanvas = (): Promise<Blob | null> => {
-    return new Promise<Blob | null>((resolve) => {
-      if (!stageRef.current) { resolve(null); return; }
-      const bg = canvasBackgroundColor || (theme === 'light' ? '#F7F9FC' : '#121212');
+    if (!stageRef.current) return Promise.resolve(null);
+    const bg = canvasBackgroundColor || (theme === 'light' ? '#F7F9FC' : '#121212');
 
-      // Compute bounds of ALL content
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      let hasContent = false;
+    // Compute bounds of ALL content
+    const { minX, minY, maxX, maxY, hasContent } = calculateContentBounds(shapes, lines, textAnnotations);
+    if (!hasContent) return Promise.resolve(null);
 
-      shapes.forEach((s: any) => {
-        if (!s.visible) return;
-        const p = s.position;
-        if (s.width !== undefined) {
-          minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
-          maxX = Math.max(maxX, p.x + s.width); maxY = Math.max(maxY, p.y + s.height);
-        } else if (s.radius !== undefined) {
-          minX = Math.min(minX, p.x - s.radius); minY = Math.min(minY, p.y - s.radius);
-          maxX = Math.max(maxX, p.x + s.radius); maxY = Math.max(maxY, p.y + s.radius);
-        } else if (s.radiusX !== undefined) {
-          minX = Math.min(minX, p.x - s.radiusX); minY = Math.min(minY, p.y - s.radiusY);
-          maxX = Math.max(maxX, p.x + s.radiusX); maxY = Math.max(maxY, p.y + s.radiusY);
-        } else if (s.startPoint) {
-          minX = Math.min(minX, s.startPoint.x, s.endPoint.x);
-          minY = Math.min(minY, s.startPoint.y, s.endPoint.y);
-          maxX = Math.max(maxX, s.startPoint.x, s.endPoint.x);
-          maxY = Math.max(maxY, s.startPoint.y, s.endPoint.y);
-        } else if (s.points) {
-          s.points.forEach((pt: any) => {
-            minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y);
-            maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y);
-          });
-        }
-        hasContent = true;
-      });
+    const PAD = 40;
+    const offX = minX - PAD;
+    const offY = minY - PAD;
+    const w = Math.max((maxX - minX) + PAD * 2, 200);
+    const h = Math.max((maxY - minY) + PAD * 2, 200);
 
-      lines.forEach((l: any) => {
-        const pts = l.points;
-        for (let i = 0; i < pts.length; i += 2) {
-          minX = Math.min(minX, pts[i]); minY = Math.min(minY, pts[i + 1]);
-          maxX = Math.max(maxX, pts[i]); maxY = Math.max(maxY, pts[i + 1]);
-        }
-        if (pts.length >= 2) hasContent = true;
-      });
+    // Build SVG with viewBox encompassing all content
+    const svg = generateSvgContent(shapes, lines, textAnnotations, bg, w, h, offX, offY);
 
-      textAnnotations.forEach((t: any) => {
-        const tw = t.text.length * (t.fontSize || 18) * 0.6;
-        const th = (t.fontSize || 18) * 1.2;
-        minX = Math.min(minX, t.x); minY = Math.min(minY, t.y);
-        maxX = Math.max(maxX, t.x + tw); maxY = Math.max(maxY, t.y + th);
-        hasContent = true;
-      });
-
-      if (!hasContent) { resolve(null); return; }
-
-      const PAD = 40;
-      const offX = minX - PAD;
-      const offY = minY - PAD;
-      const w = Math.max((maxX - minX) + PAD * 2, 200);
-      const h = Math.max((maxY - minY) + PAD * 2, 200);
-
-      // Build SVG with viewBox encompassing all content
-      let svg = `<svg width="${w}" height="${h}" viewBox="${offX} ${offY} ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
-      svg += `<defs><marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#66FCF1"/></marker></defs>`;
-      svg += `<rect x="${offX}" y="${offY}" width="${w}" height="${h}" fill="${bg}"/>`;
-
-      // Shapes
-      [...shapes].sort((a, b) => a.zIndex - b.zIndex).forEach(shape => {
-        if (!shape.visible) return;
-        const { position, transform: t, opacity, style } = shape;
-        const fill = style.hasFill ? style.fill : 'none';
-        const stroke = style.stroke;
-        const sw = style.strokeWidth;
-        let inner = '', tr = '', cx = position.x, cy = position.y;
-
-        if (shape.type === 'rectangle') {
-          const s = shape as any;
-          cx = position.x + s.width / 2; cy = position.y + s.height / 2;
-          tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY}) translate(${-s.width / 2},${-s.height / 2})`;
-          inner = `<rect width="${s.width}" height="${s.height}" rx="${s.cornerRadius || 0}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-        } else if (shape.type === 'circle') {
-          const s = shape as any;
-          tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
-          inner = `<circle r="${s.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-        } else if (shape.type === 'ellipse') {
-          const s = shape as any;
-          tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
-          inner = `<ellipse rx="${s.radiusX}" ry="${s.radiusY}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-        } else if (shape.type === 'line' || shape.type === 'arrow') {
-          const s = shape as any;
-          const dx = s.endPoint.x - s.startPoint.x, dy = s.endPoint.y - s.startPoint.y;
-          cx = s.startPoint.x + dx / 2; cy = s.startPoint.y + dy / 2;
-          tr = `translate(${cx},${cy}) rotate(${t.rotation})`;
-          const marker = shape.type === 'arrow' ? ' marker-end="url(#ah)"' : '';
-          inner = `<line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"${marker}/>`;
-        } else if (shape.type === 'triangle') {
-          const s = shape as any;
-          cx = (s.points[0].x + s.points[1].x + s.points[2].x) / 3;
-          cy = (s.points[0].y + s.points[1].y + s.points[2].y) / 3;
-          const pts = s.points.map((p: any) => `${p.x - cx},${p.y - cy}`).join(' ');
-          tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
-          inner = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-        }
-        if (inner && tr) svg += `<g transform="${tr}" opacity="${opacity}">${inner}</g>`;
-      });
-
-      // Freehand lines
-      lines.forEach((line: any) => {
-        const pts = line.points;
-        if (pts.length < 2) return;
-        let d = `M ${pts[0]} ${pts[1]}`;
-        for (let i = 2; i < pts.length; i += 2) d += ` L ${pts[i]} ${pts[i + 1]}`;
-        svg += `<path d="${d}" stroke="${line.color}" stroke-width="${line.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
-      });
-
-      // Text annotations
-      textAnnotations.forEach((txt: any) => {
-        const escaped = txt.text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-        const anchor = txt.textAlign === 'center' ? 'middle' : txt.textAlign === 'right' ? 'end' : 'start';
-        svg += `<text x="${txt.x}" y="${txt.y}" transform="rotate(${txt.rotation || 0},${txt.x},${txt.y})" font-family="${txt.fontFamily}" font-size="${txt.fontSize}" fill="${txt.color}" font-weight="${txt.fontWeight}" font-style="${txt.fontStyle}" text-decoration="${txt.textDecoration}" dominant-baseline="hanging" text-anchor="${anchor}">${escaped}</text>`;
-      });
-
-      svg += `</svg>`;
-
-      // Render SVG to canvas then export as PNG blob
-      const img = new Image();
-      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = w * 2;
-        canvas.height = h * 2;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = bg;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.scale(2, 2);
-          ctx.drawImage(img, 0, 0);
-          canvas.toBlob(b => resolve(b), 'image/png');
-        } else {
-          resolve(null);
-        }
-        URL.revokeObjectURL(url);
-      };
-      img.onerror = () => { resolve(null); URL.revokeObjectURL(url); };
-      img.src = url;
-    });
+    // Render SVG to canvas then export as PNG blob
+    return renderSvgToBlob(svg, bg, w, h);
   };
-
-  let cursorClass = 'cursor-crosshair';
-  if (isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning || activeTool === ToolType.HAND) {
-    cursorClass = (isPanning || isStageDragging || activeTool === ToolType.HAND) ? 'cursor-grab active:cursor-grabbing' : 'cursor-move';
-  } else if (activeTool === 'select') {
-    cursorClass = 'cursor-default';
-  } else if (activeTool === ToolType.FILL_BUCKET) {
-    cursorClass = 'cursor-pointer';
-  }
 
   return (
     <div
       ref={containerRef}
       data-ns-theme={theme}
-      className={`relative w-screen h-screen overflow-hidden select-none ${cursorClass}`}
+      className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning || activeTool === ToolType.HAND
+        ? isPanning || isStageDragging || activeTool === ToolType.HAND ? 'cursor-grab active:cursor-grabbing' : 'cursor-move'
+        : activeTool === 'select'
+          ? 'cursor-default'
+          : activeTool === ToolType.FILL_BUCKET
+            ? 'cursor-pointer'
+            : 'cursor-crosshair'
+        }`}
       style={{
         backgroundColor: canvasBackgroundColor,
         touchAction: 'none',

@@ -145,8 +145,8 @@ const AnalyzeWithAI: React.FC<AnalyzeWithAIProps> = ({ theme = 'dark', onCapture
 
             {/* AI Buttons */}
             <div className="flex items-center justify-center gap-6 w-full py-1">
-                <AIButton service="chatgpt" label="ChatGPT" imgSrc="/share-icons/chatgpt.webp" isLight={isLight} onClick={() => captureAndOpen('chatgpt')} />
-                <AIButton service="gemini" label="Gemini" imgSrc="/share-icons/gemini.webp" isLight={isLight} onClick={() => captureAndOpen('gemini')} />
+                <AIButton label="ChatGPT" imgSrc="/share-icons/chatgpt.webp" isLight={isLight} onClick={() => captureAndOpen('chatgpt')} />
+                <AIButton label="Gemini" imgSrc="/share-icons/gemini.webp" isLight={isLight} onClick={() => captureAndOpen('gemini')} />
             </div>
 
             {/* Status toast */}

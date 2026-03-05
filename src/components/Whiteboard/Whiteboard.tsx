@@ -416,7 +416,7 @@ export default function Whiteboard({
   const [isToolLocked, setIsToolLocked] = useState(false); // Lock tool for multiple drawings
   // Task 4.2.1: State for calculating drag delta
   const [isDraggingSelection, setIsDraggingSelection] = useState(false);
-  const [lastPointerPos, setLastPointerPos] = useState<Position | null>(null);
+  const lastPointerPosRef = useRef<Position | null>(null);
   const [isHoveringSelection, setIsHoveringSelection] = useState(false); // Task 4.2.4: Track hover for cursor
 
   // Resizing State
@@ -768,6 +768,7 @@ export default function Whiteboard({
     shapes,
     lines,
     textAnnotations,
+    isDragging: isDraggingSelection,
   });
 
   // Synchronize Toolbar with Text Selection
@@ -1174,7 +1175,7 @@ export default function Whiteboard({
 
       if (typeof clientX === 'number' && typeof clientY === 'number') {
         setIsStageDragging(true);
-        setLastPointerPos({ x: clientX, y: clientY });
+        lastPointerPosRef.current = { x: clientX, y: clientY };
       }
       return;
     }
@@ -1277,7 +1278,7 @@ export default function Whiteboard({
       // If we have a selection and click inside its bounding box, start dragging
       if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
         setIsDraggingSelection(true);
-        setLastPointerPos({ x, y });
+        lastPointerPosRef.current = { x, y };
         // Snapshot for Undo
         setInitialDragState({
           shapes: new Map(shapes.filter(s => selectedShapeIds.has(s.id)).map(s => [s.id, s])),
@@ -1464,16 +1465,16 @@ export default function Whiteboard({
   // Logic here runs every frame during drag interactions. Optimized to minimize allocation and avoid lag.
   const handlePointerMove = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
     // Panning Logic
-    if (isStageDragging && lastPointerPos) {
+    if (isStageDragging && lastPointerPosRef.current) {
       const nativeEvent = (e as any).nativeEvent || (e as any).evt;
       const clientX = nativeEvent?.clientX ?? (e as any).clientX;
       const clientY = nativeEvent?.clientY ?? (e as any).clientY;
 
       if (typeof clientX === 'number' && typeof clientY === 'number') {
-        const dx = clientX - lastPointerPos.x;
-        const dy = clientY - lastPointerPos.y;
+        const dx = clientX - lastPointerPosRef.current.x;
+        const dy = clientY - lastPointerPosRef.current.y;
         setStagePos((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-        setLastPointerPos({ x: clientX, y: clientY });
+        lastPointerPosRef.current = { x: clientX, y: clientY };
       }
       return;
     }
@@ -1863,12 +1864,12 @@ export default function Whiteboard({
     }
 
     // Task 4.2.1: Calculate Delta during drag
-    if (isDraggingSelection && lastPointerPos) {
+    if (isDraggingSelection && lastPointerPosRef.current) {
       // standard delta calculation. using simple difference since last frame.
       // heavily relying on consistent pointer move event firing.
       // heavily relying on consistent pointer move event firing.
-      let dx = x - lastPointerPos.x;
-      let dy = y - lastPointerPos.y;
+      let dx = x - lastPointerPosRef.current.x;
+      let dy = y - lastPointerPosRef.current.y;
 
       // Task 5.5.2: Grid Snapping Logic (Magnetic Snapping)
       if (gridConfig.snapEnabled && selectionBoundingBox) {
@@ -2020,7 +2021,7 @@ export default function Whiteboard({
         }
       });
 
-      setLastPointerPos({ x, y });
+      lastPointerPosRef.current = { x, y };
       return;
     }
 
@@ -2045,8 +2046,16 @@ export default function Whiteboard({
     // B. DRAWING PEN / HIGHLIGHTER
     if (activeTool === ToolType.PEN || activeTool === ToolType.HIGHLIGHTER) {
       if (optimisticLineRef.current) {
+        const pts = optimisticLineRef.current.points;
+        // Skip points that are too close together to reduce noise and improve curve smoothness
+        if (pts.length >= 2) {
+          const lastX = pts[pts.length - 2];
+          const lastY = pts[pts.length - 1];
+          const dist = Math.sqrt((x - lastX) ** 2 + (y - lastY) ** 2);
+          if (dist < 3) return; // minimum 3px between points
+        }
         // Efficiently append new point and render optimistically
-        const newPoints = [...optimisticLineRef.current.points, x, y];
+        const newPoints = [...pts, x, y];
         optimisticLineRef.current.points = newPoints;
 
         // Update local React state to draw immediately (optimistic render)
@@ -2118,7 +2127,7 @@ export default function Whiteboard({
     // Task 5.1: Stop Panning when mouse released
     setIsStageDragging(false);
     if (!isDraggingSelection) {
-      setLastPointerPos(null);
+      lastPointerPosRef.current = null;
     }
     setSnapGuides({ x: null, y: null });
     setSnapPointIndicators([]);
@@ -2381,7 +2390,7 @@ export default function Whiteboard({
       }
       if (isDraggingSelection) {
         setIsDraggingSelection(false);
-        setLastPointerPos(null);
+        lastPointerPosRef.current = null;
         setInitialDragState(null);
       }
       return;
@@ -2952,7 +2961,12 @@ export default function Whiteboard({
       <div
         className="absolute inset-0 z-0 pointer-events-none select-none transition-colors duration-300"
         style={{
-          backgroundColor: theme === 'light' ? '#F7F9FC' : (canvasBackgroundColor || '#121212'),
+          backgroundColor: (() => {
+            const yjsDefaults = ['#0B0C10', '#121212'];
+            const isDefaultBg = !canvasBackgroundColor || yjsDefaults.includes(canvasBackgroundColor);
+            if (isDefaultBg) return theme === 'light' ? '#F7F9FC' : (canvasBackgroundColor || '#121212');
+            return canvasBackgroundColor;
+          })(),
         }}
       />
 

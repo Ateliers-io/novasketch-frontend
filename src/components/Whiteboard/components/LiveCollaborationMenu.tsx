@@ -28,50 +28,53 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const createShareableQR = async (svgElement: SVGElement, shareText: string) => {
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        const canvas = document.createElement('canvas');
+        canvas.width = 400;
+        canvas.height = 400;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return false;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 400, 400);
+
+        const img = new Image();
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
+        await new Promise<void>((resolve, reject) => {
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, 400, 400);
+                URL.revokeObjectURL(url);
+                resolve();
+            };
+            img.onerror = reject;
+            img.src = url;
+        });
+
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) return false;
+
+        const file = new File([blob], 'novasketch-invite-qr.png', { type: 'image/png' });
+        await navigator.share({
+            title: 'NovaSketch - Join My Session',
+            text: shareText,
+            files: [file],
+        });
+        return true;
+    };
+
     const handleWhatsApp = async () => {
         const shareText = `Join my live drawing session on NovaSketch: ${inviteLink}`;
 
         // Try Web Share API with QR image for mobile/desktop native sharing
-        if (navigator.share && qrRef.current) {
+        if ('share' in navigator && qrRef.current) {
             try {
                 const svgElement = qrRef.current.querySelector('svg');
                 if (svgElement) {
-                    // Convert SVG to canvas then to PNG blob
-                    const svgData = new XMLSerializer().serializeToString(svgElement);
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 400;
-                    canvas.height = 400;
-                    const ctx = canvas.getContext('2d');
-                    if (ctx) {
-                        // White background
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(0, 0, 400, 400);
-
-                        const img = new Image();
-                        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                        const url = URL.createObjectURL(svgBlob);
-
-                        await new Promise<void>((resolve, reject) => {
-                            img.onload = () => {
-                                ctx.drawImage(img, 0, 0, 400, 400);
-                                URL.revokeObjectURL(url);
-                                resolve();
-                            };
-                            img.onerror = reject;
-                            img.src = url;
-                        });
-
-                        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-                        if (blob) {
-                            const file = new File([blob], 'novasketch-invite-qr.png', { type: 'image/png' });
-                            await navigator.share({
-                                title: 'NovaSketch - Join My Session',
-                                text: shareText,
-                                files: [file],
-                            });
-                            return;
-                        }
-                    }
+                    const shared = await createShareableQR(svgElement, shareText);
+                    if (shared) return;
                 }
             } catch (err) {
                 // User cancelled or share failed — fall through to wa.me link
@@ -102,19 +105,42 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
         );
     }
 
+    let btnBg = isLight ? '#F1F5F9' : '#2A3441';
+    let btnColor = isLight ? '#1A3C40' : '#c5c6c7';
+    let btnBorder = isLight ? '1px solid #E6EAF0' : 'none';
+
+    if (copied) {
+        btnBg = isLight ? '#2A9D8F' : '#45A29E';
+        btnColor = isLight ? '#ffffff' : '#0B0C10';
+        btnBorder = isLight ? '1px solid transparent' : 'none';
+    }
+
+    const sessionLabelColor = isLight ? '#5B7F82' : '#c5c6c7';
+    const linkBg = isLight ? '#ffffff' : 'rgba(0,0,0,0.4)';
+    const linkBorderColor = isLight ? '#E6EAF0' : '#1F2833';
+    const linkTextColor = isLight ? '#1A3C40' : '#c5c6c7';
+    const shareLabelColor = isLight ? '#64748b' : '#94a3b8';
+    const shareIconBorder = isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)';
+    const shareIconBg = isLight ? '#fff' : '#1e293b';
+    const shareLabelText = isLight ? '#475569' : '#94a3b8';
+    const qrLabelColor = isLight ? '#5B7F82' : '#c5c6c7';
+    const stopBg = isLight ? '#fff' : 'transparent';
+    const attrColor = isLight ? '#94a3b8' : '#475569';
+    const attrBorder = isLight ? '#f1f5f9' : '#1e293b';
+
     return (
         <div className="flex flex-col gap-4 px-4 py-3 min-w-[320px]">
             {/* Link input + copy button */}
             <div className="flex flex-col gap-1.5">
-                <div className="text-xs font-medium" style={{ color: isLight ? '#5B7F82' : '#c5c6c7' }}>Session Link</div>
+                <div className="text-xs font-medium" style={{ color: sessionLabelColor }}>Session Link</div>
                 <div className="flex items-stretch gap-2">
                     <div
                         className="flex-grow flex items-center px-3 py-2 rounded border text-sm truncate"
                         title={inviteLink}
                         style={{
-                            backgroundColor: isLight ? '#ffffff' : 'rgba(0,0,0,0.4)',
-                            borderColor: isLight ? '#E6EAF0' : '#1F2833',
-                            color: isLight ? '#1A3C40' : '#c5c6c7'
+                            backgroundColor: linkBg,
+                            borderColor: linkBorderColor,
+                            color: linkTextColor
                         }}
                     >
                         {inviteLink}
@@ -123,13 +149,9 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
                         onClick={handleCopy}
                         className="flex-shrink-0 flex items-center justify-center gap-1.5 px-3 rounded font-medium transition-all duration-200"
                         style={{
-                            backgroundColor: copied
-                                ? (isLight ? '#2A9D8F' : '#45A29E')
-                                : (isLight ? '#F1F5F9' : '#2A3441'),
-                            color: copied
-                                ? (isLight ? '#ffffff' : '#0B0C10')
-                                : (isLight ? '#1A3C40' : '#c5c6c7'),
-                            border: isLight ? (copied ? '1px solid transparent' : '1px solid #E6EAF0') : 'none'
+                            backgroundColor: btnBg,
+                            color: btnColor,
+                            border: btnBorder
                         }}
                     >
                         {copied ? <Check size={16} /> : <Copy size={16} />}
@@ -140,22 +162,22 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
 
             {/* Share via WhatsApp */}
             <div className="flex flex-col items-center gap-1 mt-2 mb-1 w-full">
-                <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: isLight ? '#64748b' : '#94a3b8' }}>
+                <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: shareLabelColor }}>
                     Share via :
                 </div>
                 <div className="flex items-center justify-center w-full">
                     <button onClick={handleWhatsApp} className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-1 active:scale-95 group">
-                        <div className="w-11 h-11 bg-white rounded-[14px] shadow-sm flex items-center justify-center p-1.5 border" style={{ borderColor: isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)', background: isLight ? '#fff' : '#1e293b' }}>
+                        <div className="w-11 h-11 bg-white rounded-[14px] shadow-sm flex items-center justify-center p-1.5 border" style={{ borderColor: shareIconBorder, background: shareIconBg }}>
                             <img src="/share-icons/whatsapp.webp" alt="WhatsApp" className="w-full h-full object-contain transition-all group-hover:scale-105" />
                         </div>
-                        <span className="text-[10px] font-medium" style={{ color: isLight ? '#475569' : '#94a3b8' }}>WhatsApp</span>
+                        <span className="text-[10px] font-medium" style={{ color: shareLabelText }}>WhatsApp</span>
                     </button>
                 </div>
             </div>
 
             {/* Real QR Code */}
             <div className="flex flex-col items-center gap-1.5 mt-2">
-                <div className="text-xs font-medium" style={{ color: isLight ? '#5B7F82' : '#c5c6c7' }}>Scan to join</div>
+                <div className="text-xs font-medium" style={{ color: qrLabelColor }}>Scan to join</div>
                 <div className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center" ref={qrRef}>
                     <QRCode
                         value={inviteLink}
@@ -174,14 +196,14 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
                 style={{
                     borderColor: 'rgba(239, 68, 68, 0.4)',
                     color: '#ef4444',
-                    background: isLight ? '#fff' : 'transparent',
+                    background: stopBg,
                 }}
                 onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
                     e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.6)';
                 }}
                 onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = isLight ? '#fff' : 'transparent';
+                    e.currentTarget.style.backgroundColor = stopBg;
                     e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
                 }}
             >
@@ -190,7 +212,7 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
             </button>
 
             {/* Attributions */}
-            <div className="text-[9px] text-center mt-1 pt-2 border-t flex flex-col gap-0.5" style={{ color: isLight ? '#94a3b8' : '#475569', borderColor: isLight ? '#f1f5f9' : '#1e293b' }}>
+            <div className="text-[9px] text-center mt-1 pt-2 border-t flex flex-col gap-0.5" style={{ color: attrColor, borderColor: attrBorder }}>
                 <a href="https://www.flaticon.com/free-icons/whatsapp" title="whatsapp icons" target="_blank" rel="noreferrer" className="hover:underline">Whatsapp icons created by cobynecz - Flaticon</a>
             </div>
         </div>

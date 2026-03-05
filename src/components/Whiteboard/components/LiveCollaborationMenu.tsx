@@ -7,6 +7,64 @@ interface LiveCollaborationMenuProps {
     theme?: string;
 }
 
+const createShareableQR = async (svgElement: SVGElement, shareText: string) => {
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 400;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return false;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 400, 400);
+
+    const img = new Image();
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, 400, 400);
+            URL.revokeObjectURL(url);
+            resolve();
+        };
+        img.onerror = reject;
+        img.src = url;
+    });
+
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) return false;
+
+    const file = new File([blob], 'novasketch-invite-qr.png', { type: 'image/png' });
+    await navigator.share({
+        title: 'NovaSketch - Join My Session',
+        text: shareText,
+        files: [file],
+    });
+    return true;
+};
+
+const handleWhatsAppShare = async (inviteLink: string, qrRef: React.RefObject<HTMLDivElement | null>) => {
+    const shareText = `Join my live drawing session on NovaSketch: ${inviteLink}`;
+
+    // Try Web Share API with QR image for mobile/desktop native sharing
+    if ('share' in navigator && qrRef.current) {
+        try {
+            const svgElement = qrRef.current.querySelector('svg');
+            if (svgElement) {
+                const shared = await createShareableQR(svgElement, shareText);
+                if (shared) return;
+            }
+        } catch (err) {
+            // User cancelled or share failed — fall through to wa.me link
+            console.log('Web Share cancelled or failed, falling back to wa.me', err);
+        }
+    }
+
+    // Fallback: open WhatsApp with text only
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+};
+
 const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, theme = 'dark' }) => {
     const [isSessionActive, setIsSessionActive] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -27,64 +85,7 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
-
-    const createShareableQR = async (svgElement: SVGElement, shareText: string) => {
-        const svgData = new XMLSerializer().serializeToString(svgElement);
-        const canvas = document.createElement('canvas');
-        canvas.width = 400;
-        canvas.height = 400;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return false;
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 400, 400);
-
-        const img = new Image();
-        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(svgBlob);
-
-        await new Promise<void>((resolve, reject) => {
-            img.onload = () => {
-                ctx.drawImage(img, 0, 0, 400, 400);
-                URL.revokeObjectURL(url);
-                resolve();
-            };
-            img.onerror = reject;
-            img.src = url;
-        });
-
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-        if (!blob) return false;
-
-        const file = new File([blob], 'novasketch-invite-qr.png', { type: 'image/png' });
-        await navigator.share({
-            title: 'NovaSketch - Join My Session',
-            text: shareText,
-            files: [file],
-        });
-        return true;
-    };
-
-    const handleWhatsApp = async () => {
-        const shareText = `Join my live drawing session on NovaSketch: ${inviteLink}`;
-
-        // Try Web Share API with QR image for mobile/desktop native sharing
-        if ('share' in navigator && qrRef.current) {
-            try {
-                const svgElement = qrRef.current.querySelector('svg');
-                if (svgElement) {
-                    const shared = await createShareableQR(svgElement, shareText);
-                    if (shared) return;
-                }
-            } catch (err) {
-                // User cancelled or share failed — fall through to wa.me link
-                console.log('Web Share cancelled or failed, falling back to wa.me', err);
-            }
-        }
-
-        // Fallback: open WhatsApp with text only
-        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-    };
+    const handleWhatsApp = () => handleWhatsAppShare(inviteLink, qrRef);
 
     if (!isSessionActive) {
         return (

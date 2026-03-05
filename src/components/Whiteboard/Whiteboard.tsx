@@ -2597,18 +2597,24 @@ export default function Whiteboard({
     return renderSvgToBlob(svg, bg, w, h);
   };
 
+  const getCursorClass = () => {
+    if (isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning || activeTool === ToolType.HAND) {
+      if (isPanning || isStageDragging || activeTool === ToolType.HAND) {
+        return 'cursor-grab active:cursor-grabbing';
+      }
+      return 'cursor-move';
+    }
+    if (activeTool === 'select') return 'cursor-default';
+    if (activeTool === ToolType.FILL_BUCKET) return 'cursor-cell';
+    if (activeTool === 'eraser') return 'cursor-none';
+    return 'cursor-crosshair';
+  };
+
   return (
     <div
       ref={containerRef}
       data-ns-theme={theme}
-      className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning || activeTool === ToolType.HAND
-        ? isPanning || isStageDragging || activeTool === ToolType.HAND ? 'cursor-grab active:cursor-grabbing' : 'cursor-move'
-        : activeTool === 'select'
-          ? 'cursor-default'
-          : activeTool === ToolType.FILL_BUCKET
-            ? 'cursor-pointer'
-            : 'cursor-crosshair'
-        }`}
+      className={`relative w-screen h-screen overflow-hidden select-none ${getCursorClass()}`}
       style={{
         backgroundColor: canvasBackgroundColor,
         touchAction: 'none',

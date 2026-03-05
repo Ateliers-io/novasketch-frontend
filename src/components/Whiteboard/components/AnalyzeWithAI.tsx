@@ -75,7 +75,6 @@ const StatusToast: React.FC<{ status: string; isLight: boolean }> = ({ status, i
 
 /* ── AI Button sub-component ── */
 const AIButton: React.FC<{
-    service: 'chatgpt' | 'gemini';
     label: string;
     imgSrc: string;
     isLight: boolean;

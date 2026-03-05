@@ -418,6 +418,7 @@ export default function Whiteboard({
   const [isDraggingSelection, setIsDraggingSelection] = useState(false);
   const lastPointerPosRef = useRef<Position | null>(null);
   const [isHoveringSelection, setIsHoveringSelection] = useState(false); // Task 4.2.4: Track hover for cursor
+  const dragStartRef = useRef<Position | null>(null);
 
   // Resizing State
   const [isResizing, setIsResizing] = useState(false);
@@ -447,6 +448,7 @@ export default function Whiteboard({
 
   // Dragging State Snapshot (for History)
   const [initialDragState, setInitialDragState] = useState<{
+    box?: BoundingBox;
     shapes: Map<string, Shape>;
     lines: Map<string, StrokeLine>;
     texts: Map<string, TextAnnotation>;
@@ -768,7 +770,6 @@ export default function Whiteboard({
     shapes,
     lines,
     textAnnotations,
-    isDragging: isDraggingSelection,
   });
 
   // Synchronize Toolbar with Text Selection
@@ -1279,8 +1280,10 @@ export default function Whiteboard({
       if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
         setIsDraggingSelection(true);
         lastPointerPosRef.current = { x, y };
+        dragStartRef.current = { x, y };
         // Snapshot for Undo
         setInitialDragState({
+          box: selectionBoundingBox,
           shapes: new Map(shapes.filter(s => selectedShapeIds.has(s.id)).map(s => [s.id, s])),
           lines: new Map(lines.filter(l => selectedLineIds.has(l.id)).map(l => [l.id, l])),
           texts: new Map(textAnnotations.filter(t => selectedTextIds.has(t.id)).map(t => [t.id, t]))
@@ -1863,51 +1866,47 @@ export default function Whiteboard({
       return;
     }
 
-    // Task 4.2.1: Calculate Delta during drag
-    if (isDraggingSelection && lastPointerPosRef.current) {
-      // standard delta calculation. using simple difference since last frame.
-      // heavily relying on consistent pointer move event firing.
-      // heavily relying on consistent pointer move event firing.
-      let dx = x - lastPointerPosRef.current.x;
-      let dy = y - lastPointerPosRef.current.y;
+    // Task 4.2.1: Calculate Delta during drag using absolute positions to prevent drift
+    if (isDraggingSelection && dragStartRef.current && initialDragState) {
+      let totalDx = x - dragStartRef.current.x;
+      let totalDy = y - dragStartRef.current.y;
 
       // Task 5.5.2: Grid Snapping Logic (Magnetic Snapping)
       if (gridConfig.snapEnabled && selectionBoundingBox) {
         const size = gridConfig.size;
         const snapType = gridConfig.snapType || 'all';
-        // User requested smoothness ("not smooth") AND alignment ("not in middle").
-        // Solution: Magnetic Snap during drag (Smooth), Hard Snap on Release (Alignment).
         const threshold = 10 / stageScale;
 
-        // Task 5.5.2 Refinement: Snap to Geometry Anchor (Center/Path) instead of Bounding Box (Stroke Edge)
-        // This ensures the visual line passes THROUGH the grid dots.
-        let anchorX = selectionBoundingBox.minX;
-        let anchorY = selectionBoundingBox.minY;
+        // Try to snap based on the ORIGINAL bounding box + totalDx/totalDy
+        // To do this simply, we use the original bounding box stored in initialDragState
+        let anchorX = initialDragState.box ? initialDragState.box.minX : selectionBoundingBox.minX;
+        let anchorY = initialDragState.box ? initialDragState.box.minY : selectionBoundingBox.minY;
 
-        // Attempt to find a concrete geometry anchor from selection
+        // If we want the snap anchor to be based on geometry, we find one from initial state
         if (selectedShapeIds.size > 0) {
-          const s = shapes.find(s => selectedShapeIds.has(s.id));
+          const sId = Array.from(selectedShapeIds)[0];
+          const s = initialDragState.shapes.get(sId);
           if (s) {
             if (s.type === 'line' || s.type === 'arrow') {
-              const ls = s as any; // Cast for access
-              anchorX = ls.startPoint.x; anchorY = ls.startPoint.y;
+              anchorX = (s as any).startPoint.x; anchorY = (s as any).startPoint.y;
             } else if (s.type === 'triangle') {
-              const ts = s as any;
-              anchorX = ts.points[0].x; anchorY = ts.points[0].y;
+              anchorX = (s as any).points[0].x; anchorY = (s as any).points[0].y;
             } else {
               anchorX = s.position.x; anchorY = s.position.y;
             }
           }
         } else if (selectedTextIds.size > 0) {
-          const t = textAnnotations.find(t => selectedTextIds.has(t.id));
+          const tId = Array.from(selectedTextIds)[0];
+          const t = initialDragState.texts.get(tId);
           if (t) { anchorX = t.x; anchorY = t.y; }
         } else if (selectedLineIds.size > 0) {
-          const l = lines.find(l => selectedLineIds.has(l.id));
+          const lId = Array.from(selectedLineIds)[0];
+          const l = initialDragState.lines.get(lId);
           if (l && l.points.length >= 2) { anchorX = l.points[0]; anchorY = l.points[1]; }
         }
 
-        const proposedX = anchorX + dx;
-        const proposedY = anchorY + dy;
+        const proposedX = anchorX + totalDx;
+        const proposedY = anchorY + totalDy;
 
         const snapX = Math.round(proposedX / size) * size;
         const snapY = Math.round(proposedY / size) * size;
@@ -1919,13 +1918,11 @@ export default function Whiteboard({
         let activeGuideY = null;
 
         if (snapType === 'points') {
-          // Points mode: snap to grid intersections (dots).
-          // When EITHER axis is near a grid line, snap BOTH axes to the nearest dot.
           const nearX = Math.abs(proposedX - snapX) < threshold;
           const nearY = Math.abs(proposedY - snapY) < threshold;
           if (nearX || nearY) {
-            dx = snapX - anchorX;
-            dy = snapY - anchorY;
+            totalDx = snapX - anchorX;
+            totalDy = snapY - anchorY;
             activeGuideX = snapX;
             activeGuideY = snapY;
           }
@@ -1942,16 +1939,14 @@ export default function Whiteboard({
           }
           setSnapPointIndicators(pts);
         } else {
-          // Lines / Horizontal / Vertical modes: snap each axis independently
           if (canSnapX && Math.abs(proposedX - snapX) < threshold) {
-            dx = snapX - anchorX;
+            totalDx = snapX - anchorX;
             activeGuideX = snapX;
           }
           if (canSnapY && Math.abs(proposedY - snapY) < threshold) {
-            dy = snapY - anchorY;
+            totalDy = snapY - anchorY;
             activeGuideY = snapY;
           }
-          setSnapPointIndicators([]);
         }
         setSnapGuides({ x: activeGuideX, y: activeGuideY });
       } else {
@@ -1960,33 +1955,30 @@ export default function Whiteboard({
       }
 
       // Task 4.2.2: Update object coordinates locally in real-time
-
-      // Task 3.4.2-B: Batch local movement updates to compress Yjs packet 
+      // Task 3.4.2-B: Batch local movement updates
       batch(() => {
         // 1. Move Shapes
         if (selectedShapeIds.size > 0) {
           setShapes(prev => prev.map(s => {
             if (selectedShapeIds.has(s.id)) {
+              const initS = initialDragState.shapes.get(s.id);
+              if (!initS) return s;
+
               let updated = {
                 ...s,
-                position: { x: s.position.x + dx, y: s.position.y + dy }
+                position: { x: initS.position.x + totalDx, y: initS.position.y + totalDy }
               };
-              // Lines and Arrows store geometry in startPoint/endPoint, not position
-              // ugly polymorphic check, but better than normalizing the data structure right now.
-              if (isLine(s) || isArrow(s)) {
-                const ls = s as LineShape;
+              if (isLine(initS) || isArrow(initS)) {
                 updated = {
                   ...updated,
-                  startPoint: { x: ls.startPoint.x + dx, y: ls.startPoint.y + dy },
-                  endPoint: { x: ls.endPoint.x + dx, y: ls.endPoint.y + dy },
+                  startPoint: { x: (initS as LineShape).startPoint.x + totalDx, y: (initS as LineShape).startPoint.y + totalDy },
+                  endPoint: { x: (initS as LineShape).endPoint.x + totalDx, y: (initS as LineShape).endPoint.y + totalDy },
                 } as typeof updated;
               }
-              // Triangles store geometry in points array
-              if (isTriangle(s)) {
-                const ts = s as TriangleShape;
+              if (isTriangle(initS)) {
                 updated = {
                   ...updated,
-                  points: ts.points.map((p: Position) => ({ x: p.x + dx, y: p.y + dy })),
+                  points: (initS as TriangleShape).points.map((p: Position) => ({ x: p.x + totalDx, y: p.y + totalDy })),
                 } as typeof updated;
               }
               return updated as Shape;
@@ -1995,14 +1987,15 @@ export default function Whiteboard({
           }));
         }
 
-        // 2. Move Lines (all points must shift)
+        // 2. Move Lines
         if (selectedLineIds.size > 0) {
           setLines(prev => prev.map(l => {
             if (selectedLineIds.has(l.id)) {
-              const newPoints = l.points.map((val, i) => {
-                // konva lines are flat arrays [x1, y1, x2, y2...].
-                // moving every single point. expensive for complex paths, but necessary.
-                return i % 2 === 0 ? val + dx : val + dy;
+              const initL = initialDragState.lines.get(l.id);
+              if (!initL) return l;
+
+              const newPoints = initL.points.map((val, i) => {
+                return i % 2 === 0 ? val + totalDx : val + totalDy;
               });
               return { ...l, points: newPoints };
             }
@@ -2014,7 +2007,10 @@ export default function Whiteboard({
         if (selectedTextIds.size > 0) {
           setTextAnnotations(prev => prev.map(t => {
             if (selectedTextIds.has(t.id)) {
-              return { ...t, x: t.x + dx, y: t.y + dy };
+              const initT = initialDragState.texts.get(t.id);
+              if (!initT) return t;
+
+              return { ...t, x: initT.x + totalDx, y: initT.y + totalDy };
             }
             return t;
           }));
@@ -2391,6 +2387,7 @@ export default function Whiteboard({
       if (isDraggingSelection) {
         setIsDraggingSelection(false);
         lastPointerPosRef.current = null;
+        dragStartRef.current = null;
         setInitialDragState(null);
       }
       return;

@@ -169,7 +169,7 @@
 }
 
 /* ── Dropdown menus (brush picker, stroke style, grid, floating toolbar) ── */
-[data-ns-theme="light"] [data-component="toolbar"] .absolute,
+[data-ns-theme="light"] [data-component="toolbar"] .toolbar-dropdown,
 [data-ns-theme="light"] .animate-fadeIn {
   background: #ffffff !important;
   border-color: #E6EAF0 !important;

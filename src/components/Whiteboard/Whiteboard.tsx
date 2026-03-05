@@ -461,9 +461,12 @@ export default function Whiteboard({
   // selectionBoundingBox computed by useSelectionBounds hook
   const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  // Reset selection rotation when selection changes
+  // Reset selection rotation and initial states when selection changes
   useEffect(() => {
     setSelectionRotation(0);
+    setInitialShapeRotations(new Map());
+    setInitialShapePositions(new Map());
+    setInitialShapePoints(new Map());
   }, [selectedShapeIds, selectedLineIds, selectedTextIds]);
 
   // UI State
@@ -1504,7 +1507,7 @@ export default function Whiteboard({
     }
 
     // Task 4.3: Handle Rotation Logic
-    if (isRotating && selectionCenter && initialShapeRotations.size > 0) {
+    if (isRotating && selectionCenter && (initialShapeRotations.size > 0 || initialShapePoints.size > 0)) {
       const { x: centerX, y: centerY } = selectionCenter;
 
       const currentAngle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
@@ -2188,24 +2191,62 @@ export default function Whiteboard({
     // Task 3.1: Handle Rotation End
     if (isRotating) {
       const affectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
-      if (affectedShapes.length > 0) {
+      const affectedLines = lines.filter(l => selectedLineIds.has(l.id));
+      const affectedTexts = textAnnotations.filter(t => selectedTextIds.has(t.id));
+
+      if (affectedShapes.length > 0 || affectedLines.length > 0 || affectedTexts.length > 0) {
         // broadcast final rotation angle only on mouseup.
         console.log('[Broadcast] Rotation Update:', {
           type: 'rotate',
           shapes: affectedShapes.map(s => ({
             id: s.id,
             rotation: s.transform.rotation
+          })),
+          lines: affectedLines.map(l => ({
+            id: l.id,
+            points: l.points
+          })),
+          texts: affectedTexts.map(t => ({
+            id: t.id,
+            rotation: t.rotation
           }))
         });
+
+        const actions: Action[] = [];
+
         // History for Rotation
         affectedShapes.forEach(s => {
           const initRotation = initialShapeRotations.get(s.id);
           // prevent history spam if user clicked but didn't drag.
           if (initRotation !== undefined && initRotation !== s.transform.rotation) {
             const prevState = { ...s, transform: { ...s.transform, rotation: initRotation } };
-            addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prevState, newState: s, userId: 'local' });
+            actions.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prevState, newState: s, userId: 'local' });
           }
         });
+
+        affectedLines.forEach(l => {
+          const initPts = initialShapePoints.get(l.id);
+          if (initPts) {
+            // Restore flat array for previous state
+            const oldPts = [];
+            for (const pt of initPts) { oldPts.push(pt.x, pt.y); }
+            const prevState = { ...l, points: oldPts };
+            actions.push({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: prevState, newState: l, userId: 'local' });
+          }
+        });
+
+        affectedTexts.forEach(t => {
+          const initRotation = initialShapeRotations.get(t.id);
+          const initPos = initialShapePositions.get(t.id);
+          if (initRotation !== undefined && initPos !== undefined) {
+            const prevState = { ...t, x: initPos.x, y: initPos.y, rotation: initRotation };
+            actions.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: prevState, newState: t, userId: 'local' });
+          }
+        });
+
+        if (actions.length > 0) {
+          addToHistory({ type: 'BATCH', userId: 'local', actions });
+        }
       }
       setSelectionRotation(prev => prev + currentGroupRotation);
       setIsRotating(false);
@@ -3047,11 +3088,11 @@ export default function Whiteboard({
           dimensions={dimensions}
           rotation={
             isRotating
-              ? (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0
+              ? (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
                 ? (initialShapeRotations.get(Array.from(selectedShapeIds)[0]) || 0) + currentGroupRotation
                 : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)
                   ? (initialShapeRotations.get(Array.from(selectedTextIds)[0]) || 0) + currentGroupRotation
-                  : currentGroupRotation)
+                  : currentGroupRotation
               : (selectedShapeIds.size === 1 && selectedTextIds.size === 0 && selectedLineIds.size === 0)
                 ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.transform.rotation || 0)
                 : (selectedTextIds.size === 1 && selectedShapeIds.size === 0 && selectedLineIds.size === 0)

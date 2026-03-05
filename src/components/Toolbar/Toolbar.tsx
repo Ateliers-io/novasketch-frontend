@@ -256,13 +256,32 @@ export default function Toolbar({
         12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72
     ] as const;
 
+    const getActiveBorderColor = (mode: 'stroke' | 'fill') => {
+        if (activeColorMode === mode) return theme === 'light' ? '#E6EAF0' : '#1F2833';
+        return theme === 'light' ? '#cbd5e1' : '#4b5563';
+    };
+
+    const getActiveBoxShadow = (mode: 'stroke' | 'fill') => {
+        if (activeColorMode !== mode) return 'none';
+        const accent = theme === 'light' ? '#20C9C3' : '#2dd4bf';
+        return `0 0 0 2px ${accent}`;
+    };
+
+    const toolbarBorderColor = isSessionLocked ? 'rgba(245,158,11,0.3)' : 'var(--ns-toolbar-border)';
+    const undoColor = canUndo ? 'var(--ns-toolbar-muted)' : 'var(--ns-disabled)';
+    const undoCursor = canUndo ? 'pointer' : 'not-allowed';
+    const redoColor = canRedo ? 'var(--ns-toolbar-muted)' : 'var(--ns-disabled)';
+    const redoCursor = canRedo ? 'pointer' : 'not-allowed';
+    const strokeOpacity = activeColorMode === 'stroke' ? 1 : 0.6;
+    const fillOpacity = activeColorMode === 'fill' ? 1 : 0.6;
+
     return (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50" data-component="toolbar">
             <div
                 className="flex items-stretch gap-0 px-3 py-1.5 backdrop-blur-2xl rounded-2xl transition-all duration-300"
                 style={{
                     background: 'var(--ns-toolbar-bg)',
-                    border: `1px solid ${isSessionLocked ? 'rgba(245,158,11,0.3)' : 'var(--ns-toolbar-border)'}`,
+                    border: `1px solid ${toolbarBorderColor}`,
                     boxShadow: 'var(--ns-toolbar-shadow)',
                     color: 'var(--ns-toolbar-text)',
                     opacity: isSessionLocked ? 0.5 : 1,
@@ -272,18 +291,18 @@ export default function Toolbar({
 
                 {/* ═══ HISTORY ═══ */}
                 <ToolSection label="History">
-                    <button onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)"
+                    <button onClick={onUndo} disabled={canUndo === false} title="Undo (Ctrl+Z)"
                         className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 active:scale-95"
-                        style={{ color: !canUndo ? 'var(--ns-disabled)' : 'var(--ns-toolbar-muted)', cursor: !canUndo ? 'not-allowed' : 'pointer' }}
+                        style={{ color: undoColor, cursor: undoCursor }}
                         onMouseEnter={(e) => { if (canUndo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = !canUndo ? 'var(--ns-disabled)' : 'var(--ns-toolbar-muted)'; }}>
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = undoColor; }}>
                         <Undo2 size={15} />
                     </button>
-                    <button onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Y)"
+                    <button onClick={onRedo} disabled={canRedo === false} title="Redo (Ctrl+Y)"
                         className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 active:scale-95"
-                        style={{ color: !canRedo ? 'var(--ns-disabled)' : 'var(--ns-toolbar-muted)', cursor: !canRedo ? 'not-allowed' : 'pointer' }}
+                        style={{ color: redoColor, cursor: redoCursor }}
                         onMouseEnter={(e) => { if (canRedo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = !canRedo ? 'var(--ns-disabled)' : 'var(--ns-toolbar-muted)'; }}>
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = redoColor; }}>
                         <Redo2 size={15} />
                     </button>
                 </ToolSection>
@@ -472,9 +491,9 @@ export default function Toolbar({
                                         <div
                                             className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 z-10`}
                                             style={{
-                                                borderColor: activeColorMode === 'stroke' ? (theme === 'light' ? '#E6EAF0' : '#1F2833') : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
-                                                opacity: activeColorMode === 'stroke' ? 1 : 0.6,
-                                                boxShadow: activeColorMode === 'stroke' ? `0 0 0 2px ${theme === 'light' ? '#20C9C3' : '#2dd4bf'}` : 'none'
+                                                borderColor: getActiveBorderColor('stroke'),
+                                                opacity: strokeOpacity,
+                                                boxShadow: getActiveBoxShadow('stroke')
                                             }}
                                             onClick={() => setActiveColorMode('stroke')}
                                             title="Stroke Color"
@@ -491,9 +510,9 @@ export default function Toolbar({
                                         <div
                                             className={`w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 z-10`}
                                             style={{
-                                                borderColor: activeColorMode === 'fill' ? (theme === 'light' ? '#E6EAF0' : '#1F2833') : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
-                                                opacity: activeColorMode === 'fill' ? 1 : 0.6,
-                                                boxShadow: activeColorMode === 'fill' ? `0 0 0 2px ${theme === 'light' ? '#20C9C3' : '#2dd4bf'}` : 'none'
+                                                borderColor: getActiveBorderColor('fill'),
+                                                opacity: fillOpacity,
+                                                boxShadow: getActiveBoxShadow('fill')
                                             }}
                                             onClick={() => setActiveColorMode('fill')}
                                             title="Fill Color"
@@ -535,7 +554,7 @@ export default function Toolbar({
                                                 key={c}
                                                 // simplistic toggle: click to apply to currently active mode (stroke or fill).
                                                 onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
-                                                className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : `border-gray-700/50 hover:scale-110 ${theme === 'light' ? 'hover:border-gray-400' : 'hover:border-white'}`}`}
+                                                className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : ['border-gray-700/50 hover:scale-110', theme === 'light' ? 'hover:border-gray-400' : 'hover:border-white'].join(' ')}`}
                                                 style={{ background: c }}
                                                 title={c}
                                             >
@@ -558,65 +577,70 @@ export default function Toolbar({
                             </div>
                         </div>
                     </ToolSection>
-                )}
+                )
+                }
 
                 {/* ═══ WIDTH & RADIUS ═══ */}
-                {(isDrawMode || isFillBucket || (hasSelection && cornerRadius !== undefined)) && (
-                    <>
-                        <Separator />
-                        <ToolSection label="Properties">
-                            <div className="flex gap-4 px-1">
-                                {/* Size Slider */}
-                                <div className="flex flex-col gap-0.5 w-[72px]">
-                                    <div className="flex justify-between text-[8px] font-mono" style={{ color: 'var(--ns-section-label)' }}>
-                                        <span>SIZE</span>
-                                        <span className="font-bold" style={{ color: 'var(--ns-accent)' }}>{brushSize}px</span>
-                                    </div>
-                                    <input type="range" min={1} max={50} value={brushSize}
-                                        onChange={(e) => onBrushSizeChange(Number(e.target.value))}
-                                        className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
-                                </div>
-
-                                {/* Corner Radius Slider (Contextual) */}
-                                {(activeTool === ToolType.RECTANGLE || (hasSelection && cornerRadius !== undefined)) && (
-                                    <div className="flex flex-col gap-0.5 w-[72px] animate-fadeIn">
+                {
+                    (isDrawMode || isFillBucket || (hasSelection && cornerRadius !== undefined)) && (
+                        <>
+                            <Separator />
+                            <ToolSection label="Properties">
+                                <div className="flex gap-4 px-1">
+                                    {/* Size Slider */}
+                                    <div className="flex flex-col gap-0.5 w-[72px]">
                                         <div className="flex justify-between text-[8px] font-mono" style={{ color: 'var(--ns-section-label)' }}>
-                                            <span>ROUNDNESS</span>
-                                            <span className="font-bold text-[#a855f7]">{Math.round(cornerRadius || 0)}</span>
+                                            <span>SIZE</span>
+                                            <span className="font-bold" style={{ color: 'var(--ns-accent)' }}>{brushSize}px</span>
                                         </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="50"
-                                            value={cornerRadius || 0}
-                                            onChange={(e) => onCornerRadiusChange?.(Number(e.target.value))}
-                                            className="w-full cursor-pointer" style={{ accentColor: '#a855f7' }}
-                                        />
+                                        <input type="range" min={1} max={50} value={brushSize}
+                                            onChange={(e) => onBrushSizeChange(Number(e.target.value))}
+                                            className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
                                     </div>
-                                )}
-                            </div>
-                        </ToolSection>
-                    </>
-                )}
+
+                                    {/* Corner Radius Slider (Contextual) */}
+                                    {(activeTool === ToolType.RECTANGLE || (hasSelection && cornerRadius !== undefined)) && (
+                                        <div className="flex flex-col gap-0.5 w-[72px] animate-fadeIn">
+                                            <div className="flex justify-between text-[8px] font-mono" style={{ color: 'var(--ns-section-label)' }}>
+                                                <span>ROUNDNESS</span>
+                                                <span className="font-bold text-[#a855f7]">{Math.round(cornerRadius || 0)}</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="50"
+                                                value={cornerRadius || 0}
+                                                onChange={(e) => onCornerRadiusChange?.(Number(e.target.value))}
+                                                className="w-full cursor-pointer" style={{ accentColor: '#a855f7' }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </ToolSection>
+                        </>
+                    )
+                }
 
 
 
                 {/* ═══ LAYERS ═══ */}
-                {hasSelection && (
-                    <>
-                        <Separator />
-                        <ToolSection label="Layers">
-                            <ToolButton icon={ArrowUp} label="Bring Forward" isActive={false} onClick={onBringForward} />
-                            <ToolButton icon={ArrowDown} label="Send Backward" isActive={false} onClick={onSendBackward} />
-                            {onDeleteSelected && (
-                                <button onClick={onDeleteSelected} title="Delete (Del)"
-                                    className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 text-[#f87171] hover:bg-[#f87171]/10">
-                                    <Trash2 size={15} />
-                                </button>
-                            )}
-                        </ToolSection>
-                    </>
-                )}
+                {
+                    hasSelection && (
+                        <>
+                            <Separator />
+                            <ToolSection label="Layers">
+                                <ToolButton icon={ArrowUp} label="Bring Forward" isActive={false} onClick={onBringForward} />
+                                <ToolButton icon={ArrowDown} label="Send Backward" isActive={false} onClick={onSendBackward} />
+                                {onDeleteSelected && (
+                                    <button onClick={onDeleteSelected} title="Delete (Del)"
+                                        className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 text-[#f87171] hover:bg-[#f87171]/10">
+                                        <Trash2 size={15} />
+                                    </button>
+                                )}
+                            </ToolSection>
+                        </>
+                    )
+                }
 
                 <Separator />
 
@@ -747,95 +771,97 @@ export default function Toolbar({
                         )}
                     </div>
                 </ToolSection>
-            </div>
+            </div >
 
             {/* Floating Text Formatting Toolbar */}
-            {(isTextMode || (activeTool === 'select' && isTextSelected)) && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 flex items-center gap-1.5 px-2 py-1.5 rounded-lg shadow-xl animate-fadeIn z-[100] whitespace-nowrap border"
-                    style={{ background: 'var(--ns-panel-bg, #151a1f)', borderColor: 'var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
-                    {/* Font Family */}
-                    <div className="relative group">
-                        <select value={fontFamily} onChange={(e) => onFontFamilyChange(e.target.value)}
-                            className="appearance-none text-[11px] font-medium rounded h-7 pl-2 pr-6 outline-none cursor-pointer min-w-[120px] transition-colors border"
-                            style={{ background: 'var(--ns-toolbar-bg, #0d1117)', color: 'var(--ns-toolbar-text, #fff)', borderColor: 'var(--ns-separator, #2a333b)' }}
-                        >
-                            <option value="Arial">Arial</option>
-                            <option value="Times New Roman">Times New Roman</option>
-                            <option value="Courier New">Courier New</option>
-                        </select>
-                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--ns-toolbar-muted)' }} />
-                    </div>
+            {
+                (isTextMode || (activeTool === 'select' && isTextSelected)) && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 flex items-center gap-1.5 px-2 py-1.5 rounded-lg shadow-xl animate-fadeIn z-[100] whitespace-nowrap border"
+                        style={{ background: 'var(--ns-panel-bg, #151a1f)', borderColor: 'var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
+                        {/* Font Family */}
+                        <div className="relative group">
+                            <select value={fontFamily} onChange={(e) => onFontFamilyChange(e.target.value)}
+                                className="appearance-none text-[11px] font-medium rounded h-7 pl-2 pr-6 outline-none cursor-pointer min-w-[120px] transition-colors border"
+                                style={{ background: 'var(--ns-toolbar-bg, #0d1117)', color: 'var(--ns-toolbar-text, #fff)', borderColor: 'var(--ns-separator, #2a333b)' }}
+                            >
+                                <option value="Arial">Arial</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                            </select>
+                            <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--ns-toolbar-muted)' }} />
+                        </div>
 
-                    <div className="w-px h-4" style={{ background: 'var(--ns-separator)' }} />
-
-                    {/* Font Size */}
-                    <div className="relative group">
-                        <select value={fontSize} onChange={(e) => onFontSizeChange(Number(e.target.value))}
-                            className="appearance-none text-[11px] font-medium rounded h-7 pl-2 pr-6 outline-none cursor-pointer min-w-[60px] transition-colors border"
-                            style={{ background: 'var(--ns-toolbar-bg, #0d1117)', color: 'var(--ns-toolbar-text, #fff)', borderColor: 'var(--ns-separator, #2a333b)' }}
-                        >
-                            {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--ns-toolbar-muted)' }} />
-                    </div>
-
-                    <div className="w-px h-4" style={{ background: 'var(--ns-separator)' }} />
-
-                    {/* Bold/Italic/Underline */}
-                    <div className="flex rounded p-0.5 gap-0.5 border" style={{ background: 'var(--ns-toolbar-bg, #0d1117)', borderColor: 'var(--ns-separator, #2a333b)' }}>
-                        <button
-                            onClick={() => onBoldChange(!isBold)}
-                            className="p-1 rounded transition-colors"
-                            style={{ background: isBold ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isBold ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
-                            onMouseEnter={(e) => { if (!isBold) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                            onMouseLeave={(e) => { if (!isBold) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
-                        ><Bold size={13} /></button>
-                        <button
-                            onClick={() => onItalicChange(!isItalic)}
-                            className="p-1 rounded transition-colors"
-                            style={{ background: isItalic ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isItalic ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
-                            onMouseEnter={(e) => { if (!isItalic) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                            onMouseLeave={(e) => { if (!isItalic) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
-                        ><Italic size={13} /></button>
-                        <button
-                            onClick={() => onUnderlineChange(!isUnderline)}
-                            className="p-1 rounded transition-colors"
-                            style={{ background: isUnderline ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isUnderline ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
-                            onMouseEnter={(e) => { if (!isUnderline) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                            onMouseLeave={(e) => { if (!isUnderline) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
-                        ><Underline size={13} /></button>
-                    </div>
-
-                    {/* Align */}
-                    <>
                         <div className="w-px h-4" style={{ background: 'var(--ns-separator)' }} />
 
+                        {/* Font Size */}
+                        <div className="relative group">
+                            <select value={fontSize} onChange={(e) => onFontSizeChange(Number(e.target.value))}
+                                className="appearance-none text-[11px] font-medium rounded h-7 pl-2 pr-6 outline-none cursor-pointer min-w-[60px] transition-colors border"
+                                style={{ background: 'var(--ns-toolbar-bg, #0d1117)', color: 'var(--ns-toolbar-text, #fff)', borderColor: 'var(--ns-separator, #2a333b)' }}
+                            >
+                                {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--ns-toolbar-muted)' }} />
+                        </div>
+
+                        <div className="w-px h-4" style={{ background: 'var(--ns-separator)' }} />
+
+                        {/* Bold/Italic/Underline */}
                         <div className="flex rounded p-0.5 gap-0.5 border" style={{ background: 'var(--ns-toolbar-bg, #0d1117)', borderColor: 'var(--ns-separator, #2a333b)' }}>
                             <button
-                                onClick={() => onTextAlignChange('left')}
+                                onClick={() => onBoldChange(!isBold)}
                                 className="p-1 rounded transition-colors"
-                                style={{ background: textAlign === 'left' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'left' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
-                                onMouseEnter={(e) => { if (textAlign !== 'left') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                                onMouseLeave={(e) => { if (textAlign !== 'left') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
-                            ><AlignLeft size={13} /></button>
+                                style={{ background: isBold ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isBold ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                onMouseEnter={(e) => { if (!isBold) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                onMouseLeave={(e) => { if (!isBold) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                            ><Bold size={13} /></button>
                             <button
-                                onClick={() => onTextAlignChange('center')}
+                                onClick={() => onItalicChange(!isItalic)}
                                 className="p-1 rounded transition-colors"
-                                style={{ background: textAlign === 'center' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'center' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
-                                onMouseEnter={(e) => { if (textAlign !== 'center') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                                onMouseLeave={(e) => { if (textAlign !== 'center') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
-                            ><AlignCenter size={13} /></button>
+                                style={{ background: isItalic ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isItalic ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                onMouseEnter={(e) => { if (!isItalic) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                onMouseLeave={(e) => { if (!isItalic) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                            ><Italic size={13} /></button>
                             <button
-                                onClick={() => onTextAlignChange('right')}
+                                onClick={() => onUnderlineChange(!isUnderline)}
                                 className="p-1 rounded transition-colors"
-                                style={{ background: textAlign === 'right' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'right' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
-                                onMouseEnter={(e) => { if (textAlign !== 'right') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                                onMouseLeave={(e) => { if (textAlign !== 'right') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
-                            ><AlignRight size={13} /></button>
+                                style={{ background: isUnderline ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isUnderline ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                onMouseEnter={(e) => { if (!isUnderline) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                onMouseLeave={(e) => { if (!isUnderline) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                            ><Underline size={13} /></button>
                         </div>
-                    </>
-                </div>
-            )}
+
+                        {/* Align */}
+                        <>
+                            <div className="w-px h-4" style={{ background: 'var(--ns-separator)' }} />
+
+                            <div className="flex rounded p-0.5 gap-0.5 border" style={{ background: 'var(--ns-toolbar-bg, #0d1117)', borderColor: 'var(--ns-separator, #2a333b)' }}>
+                                <button
+                                    onClick={() => onTextAlignChange('left')}
+                                    className="p-1 rounded transition-colors"
+                                    style={{ background: textAlign === 'left' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'left' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                    onMouseEnter={(e) => { if (textAlign !== 'left') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                    onMouseLeave={(e) => { if (textAlign !== 'left') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                                ><AlignLeft size={13} /></button>
+                                <button
+                                    onClick={() => onTextAlignChange('center')}
+                                    className="p-1 rounded transition-colors"
+                                    style={{ background: textAlign === 'center' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'center' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                    onMouseEnter={(e) => { if (textAlign !== 'center') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                    onMouseLeave={(e) => { if (textAlign !== 'center') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                                ><AlignCenter size={13} /></button>
+                                <button
+                                    onClick={() => onTextAlignChange('right')}
+                                    className="p-1 rounded transition-colors"
+                                    style={{ background: textAlign === 'right' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'right' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                    onMouseEnter={(e) => { if (textAlign !== 'right') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                    onMouseLeave={(e) => { if (textAlign !== 'right') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
+                                ><AlignRight size={13} /></button>
+                            </div>
+                        </>
+                    </div>
+                )
+            }
 
             {/* Dropdown animation */}
             <style>{`
@@ -844,6 +870,6 @@ export default function Toolbar({
                     to { opacity: 1; transform: translateY(0) scale(1); }
                 }
             `}</style>
-        </div>
+        </div >
     );
 }

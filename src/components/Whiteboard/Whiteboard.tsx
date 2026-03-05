@@ -2593,18 +2593,20 @@ export default function Whiteboard({
     });
   };
 
+  let cursorClass = 'cursor-crosshair';
+  if (isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning || activeTool === ToolType.HAND) {
+    cursorClass = (isPanning || isStageDragging || activeTool === ToolType.HAND) ? 'cursor-grab active:cursor-grabbing' : 'cursor-move';
+  } else if (activeTool === 'select') {
+    cursorClass = 'cursor-default';
+  } else if (activeTool === ToolType.FILL_BUCKET) {
+    cursorClass = 'cursor-pointer';
+  }
+
   return (
     <div
       ref={containerRef}
       data-ns-theme={theme}
-      className={`relative w-screen h-screen overflow-hidden select-none ${isDraggingSelection || (activeTool === 'select' && isHoveringSelection) || isStageDragging || isPanning || activeTool === ToolType.HAND
-        ? isPanning || isStageDragging || activeTool === ToolType.HAND ? 'cursor-grab active:cursor-grabbing' : 'cursor-move'
-        : activeTool === 'select'
-          ? 'cursor-default'
-          : activeTool === ToolType.FILL_BUCKET
-            ? 'cursor-pointer'
-            : 'cursor-crosshair'
-        }`}
+      className={`relative w-screen h-screen overflow-hidden select-none ${cursorClass}`}
       style={{
         backgroundColor: canvasBackgroundColor,
         touchAction: 'none',

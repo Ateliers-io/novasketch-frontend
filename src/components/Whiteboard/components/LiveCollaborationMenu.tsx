@@ -213,8 +213,8 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
             </button>
 
             {/* Attributions */}
-            <div className="text-[9px] text-center mt-1 pt-2 border-t flex flex-col gap-0.5" style={{ color: attrColor, borderColor: attrBorder }}>
-                <a href="https://www.flaticon.com/free-icons/whatsapp" title="whatsapp icons" target="_blank" rel="noreferrer" className="hover:underline">Whatsapp icons created by cobynecz - Flaticon</a>
+            <div className="text-[10px] text-center mt-1 pt-2 border-t flex flex-col" style={{ color: attrColor, borderColor: attrBorder }}>
+                <a href="https://www.flaticon.com/free-icons/whatsapp" title="whatsapp icons" target="_blank" rel="noreferrer" className="hover:underline"></a>
             </div>
         </div>
     );

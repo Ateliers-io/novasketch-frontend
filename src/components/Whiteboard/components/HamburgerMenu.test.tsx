@@ -44,7 +44,7 @@ describe('HamburgerMenu Component', () => {
         // Open
         fireEvent.click(button);
         expect(screen.getByText('Theme')).toBeInTheDocument();
-        expect(screen.getByText('Live collaboration...')).toBeInTheDocument();
+        expect(screen.getByText('Live collaboration')).toBeInTheDocument();
         expect(screen.getByText('Analyze with AI')).toBeInTheDocument();
         expect(screen.getByText('Clear Canvas')).toBeInTheDocument();
 

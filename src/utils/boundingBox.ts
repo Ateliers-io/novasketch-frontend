@@ -178,6 +178,60 @@ export function getShapeBoundingBox(shape: Shape): BoundingBox {
 }
 
 /**
+ * Calculates the bounding box for a shape using GEOMETRY ONLY (no strokeWidth padding).
+ * Used for selection overlay display so bounding box doesn't grow with stroke width.
+ */
+export function getShapeGeometryBoundingBox(shape: Shape): BoundingBox {
+    switch (shape.type) {
+        case ShapeType.RECTANGLE: {
+            const s = shape as RectangleShape;
+            return createBoundingBox(s.position.x, s.position.y, s.position.x + s.width, s.position.y + s.height);
+        }
+        case ShapeType.CIRCLE: {
+            const s = shape as CircleShape;
+            return createBoundingBox(s.position.x - s.radius, s.position.y - s.radius, s.position.x + s.radius, s.position.y + s.radius);
+        }
+        case ShapeType.ELLIPSE: {
+            const s = shape as EllipseShape;
+            return createBoundingBox(s.position.x - s.radiusX, s.position.y - s.radiusY, s.position.x + s.radiusX, s.position.y + s.radiusY);
+        }
+        case ShapeType.LINE: {
+            const s = shape as LineShape;
+            return createBoundingBox(Math.min(s.startPoint.x, s.endPoint.x), Math.min(s.startPoint.y, s.endPoint.y), Math.max(s.startPoint.x, s.endPoint.x), Math.max(s.startPoint.y, s.endPoint.y));
+        }
+        case ShapeType.ARROW: {
+            const s = shape as ArrowShape;
+            const pad = s.arrowSize || 10;
+            return createBoundingBox(Math.min(s.startPoint.x, s.endPoint.x) - pad, Math.min(s.startPoint.y, s.endPoint.y) - pad, Math.max(s.startPoint.x, s.endPoint.x) + pad, Math.max(s.startPoint.y, s.endPoint.y) + pad);
+        }
+        case ShapeType.TRIANGLE: {
+            const s = shape as TriangleShape;
+            const xCoords = s.points.map(p => p.x);
+            const yCoords = s.points.map(p => p.y);
+            return createBoundingBox(Math.min(...xCoords), Math.min(...yCoords), Math.max(...xCoords), Math.max(...yCoords));
+        }
+        default:
+            return getShapeBoundingBox(shape);
+    }
+}
+
+/**
+ * Calculates a combined geometry-only bounding box for multiple shapes.
+ * Used by SelectionOverlay so it doesn't grow when strokeWidth changes.
+ */
+export function getCombinedGeometryBoundingBox(shapes: Shape[]): BoundingBox | null {
+    if (shapes.length === 0) return null;
+    if (shapes.length === 1) return getShapeGeometryBoundingBox(shapes[0]);
+    const boxes = shapes.map(s => getShapeGeometryBoundingBox(s));
+    return createBoundingBox(
+        Math.min(...boxes.map(b => b.minX)),
+        Math.min(...boxes.map(b => b.minY)),
+        Math.max(...boxes.map(b => b.maxX)),
+        Math.max(...boxes.map(b => b.maxY)),
+    );
+}
+
+/**
  * Calculates a combined bounding box for multiple shapes (multi-selection)
  * @param shapes - Array of shapes to calculate the combined bounding box for
  * @returns The combined bounding box enclosing all shapes, or null if empty
@@ -328,8 +382,10 @@ export function getTransformedBoundingBox(shape: Shape): BoundingBox {
 
 export default {
     getShapeBoundingBox,
+    getShapeGeometryBoundingBox,
     getTransformedBoundingBox,
     getCombinedBoundingBox,
+    getCombinedGeometryBoundingBox,
     isPointInBoundingBox,
     doBoundingBoxesIntersect,
     expandBoundingBox,

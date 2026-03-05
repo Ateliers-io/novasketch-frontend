@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Shape, Position } from '../../../types/shapes';
 import { StrokeLine } from '../../../services/sync.service';
 import { TextAnnotation } from '../types';
-import { getShapeBoundingBox, BoundingBox } from '../../../utils/boundingBox';
+import { getShapeGeometryBoundingBox, BoundingBox } from '../../../utils/boundingBox';
 
 interface UseSelectionBoundsOptions {
     selectedShapeIds: Set<string>;
@@ -11,11 +11,13 @@ interface UseSelectionBoundsOptions {
     shapes: Shape[];
     lines: StrokeLine[];
     textAnnotations: TextAnnotation[];
+    isDragging?: boolean;
 }
 
 /**
  * Computes a combined bounding box for all selected shapes, lines, and text.
  * Returns null when nothing is selected.
+ * When isDragging is true, the bounding box is frozen to prevent jitter.
  */
 export function useSelectionBounds({
     selectedShapeIds,
@@ -24,10 +26,14 @@ export function useSelectionBounds({
     shapes,
     lines,
     textAnnotations,
+    isDragging = false,
 }: UseSelectionBoundsOptions) {
     const [selectionBoundingBox, setSelectionBoundingBox] = useState<BoundingBox | null>(null);
 
     useEffect(() => {
+        // Freeze bounding box during drag to prevent jitter
+        if (isDragging) return;
+
         const hasSelection = selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0;
 
         if (!hasSelection) {
@@ -40,7 +46,7 @@ export function useSelectionBounds({
         // Include shapes
         const selectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
         selectedShapes.forEach(shape => {
-            const bbox = getShapeBoundingBox(shape);
+            const bbox = getShapeGeometryBoundingBox(shape);
             minX = Math.min(minX, bbox.minX);
             minY = Math.min(minY, bbox.minY);
             maxX = Math.max(maxX, bbox.maxX);
@@ -83,7 +89,7 @@ export function useSelectionBounds({
                 centerY: (minY + maxY) / 2,
             });
         }
-    }, [selectedShapeIds, selectedLineIds, selectedTextIds, shapes, lines, textAnnotations]);
+    }, [selectedShapeIds, selectedLineIds, selectedTextIds, shapes, lines, textAnnotations, isDragging]);
 
     return selectionBoundingBox;
 }

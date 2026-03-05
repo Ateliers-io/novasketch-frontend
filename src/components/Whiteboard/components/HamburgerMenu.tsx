@@ -587,7 +587,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
             },
             {
                 id: 'collaboration',
-                label: 'Live collaboration...',
+                label: 'Live collaboration',
                 icon: <Users size={16} />,
                 customContent: <LiveCollaborationMenu roomId="c8589ed6-mock" theme={theme} />
             },
@@ -597,21 +597,6 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 icon: <Sparkles size={16} />,
                 customContent: <AnalyzeWithAI theme={theme} onCaptureCanvas={onCaptureCanvas} />
             },
-            // Include Lock Session only if user is owner
-            ...(isOwner ? [{
-                id: 'lock-session',
-                label: isLocked ? 'Unlock Session' : 'Lock Session',
-                icon: isLocked ? <Unlock size={16} /> : <Lock size={16} />,
-                onClick: async () => {
-                    if (onToggleLock) {
-                        try {
-                            await onToggleLock();
-                        } catch (err) {
-                            console.error(err);
-                        }
-                    }
-                }
-            }] : []),
             {
                 id: 'clear-canvas',
                 label: 'Clear Canvas',
@@ -681,12 +666,11 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                             height: 2,
                             left: 0,
                             backgroundColor: palette(theme).accent,
-                            top: isOpen ? 6 : 1,
+                            top: isOpen ? 5 : 1,
                             transform: isOpen ? 'rotate(45deg)' : 'none',
                             transformOrigin: 'center',
                         }}
                     />
-                    {/* Middle bar */}
                     <span
                         className="absolute block rounded-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                         style={{
@@ -694,7 +678,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                             height: 2,
                             left: 0,
                             backgroundColor: palette(theme).accent,
-                            top: 6,
+                            top: 5.5,
                             opacity: isOpen ? 0 : 1,
                         }}
                     />
@@ -732,7 +716,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                     >
                         {/* Header with NovaSketch branding */}
                         <div
-                            className="px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-2.5"
+                            className="px-4 py-3 text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2.5"
                             style={{
                                 color: palette(theme).accent,
                                 borderBottom: `1px solid ${palette(theme).borderSub}`,
@@ -752,7 +736,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                 <div key={section.id}>
                                     {/* Section header */}
                                     <div
-                                        className="px-4 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.18em]"
+                                        className="px-4 pt-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.18em]"
                                         style={{ color: palette(theme).textSection }}
                                     >
                                         {section.title}

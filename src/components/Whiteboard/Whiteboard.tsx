@@ -2678,7 +2678,7 @@ export default function Whiteboard({
                 <div className="w-2 h-2 rounded-full bg-red-400" />
                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-red-400 animate-ping opacity-75" />
               </div>
-              <span className="text-red-300">Offline — Working Locally</span>
+              <span className="text-red-300">Offline</span>
             </>
           ) : hasPendingChanges ? (
             <>
@@ -2709,6 +2709,7 @@ export default function Whiteboard({
       <Toolbar
         theme={theme}
         isSessionLocked={isEffectivelyLocked}
+        isLockActive={isLocked}
         activeTool={activeTool}
         onToolChange={setActiveTool}
         isToolLocked={isToolLocked}
@@ -2931,6 +2932,18 @@ export default function Whiteboard({
         onRedo={performRedo}
         gridConfig={gridConfig}
         onGridConfigChange={setGridConfig}
+        isOwner={isOwner}
+        onToggleLock={async () => {
+          const newLocked = !isLocked;
+          // Update local Yjs state immediately so lock takes effect right away
+          setSessionLocked(newLocked);
+          // Best-effort sync to backend
+          try {
+            await toggleSessionLock(roomId, newLocked);
+          } catch (err) {
+            console.warn('Backend lock sync failed (local lock still applied):', err);
+          }
+        }}
       />
 
       {/* --- CANVAS LAYERS --- */}

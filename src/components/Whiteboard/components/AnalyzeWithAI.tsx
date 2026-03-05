@@ -95,7 +95,7 @@ const AIButton: React.FC<{
             >
                 <img src={imgSrc} alt={label} className="w-full h-full object-contain transition-all group-hover:scale-110" />
             </div>
-            <span className="text-[10px] font-semibold" style={{ color: labelColor }}>{label}</span>
+            <span className="text-[11px] font-semibold" style={{ color: labelColor }}>{label}</span>
         </button>
     );
 };
@@ -137,12 +137,7 @@ const AnalyzeWithAI: React.FC<AnalyzeWithAIProps> = ({ theme = 'dark', onCapture
     };
 
     return (
-        <div className="flex flex-col gap-3 px-4 py-3">
-            {/* Description */}
-            <div className="text-[11px] leading-relaxed" style={{ color: descColor }}>
-                Capture your whiteboard and send it to AI for analysis. The drawing is copied to your clipboard — just <strong>Ctrl+V</strong> to paste it in the chat.
-            </div>
-
+        <div className="flex flex-col px-4 py-3">
             {/* AI Buttons */}
             <div className="flex items-center justify-center gap-6 w-full py-1">
                 <AIButton label="ChatGPT" imgSrc="/share-icons/chatgpt.webp" isLight={isLight} onClick={() => captureAndOpen('chatgpt')} />
@@ -153,8 +148,8 @@ const AnalyzeWithAI: React.FC<AnalyzeWithAIProps> = ({ theme = 'dark', onCapture
             {status && <StatusToast status={status} isLight={isLight} />}
 
             {/* Attributions */}
-            <div className="text-[9px] text-center pt-2 border-t flex flex-col gap-0.5" style={{ color: attrColor, borderColor: attrBorder }}>
-                <a href="https://www.flaticon.com/free-icons/chatgpt" title="chatgpt icons" target="_blank" rel="noreferrer" className="hover:underline">Chatgpt icons created by Freepik - Flaticon</a>
+            <div className="text-[10px] text-center pt-2 border-t flex flex-col gap-0.5" style={{ color: attrColor, borderColor: attrBorder }}>
+                <a href="https://www.flaticon.com/free-icons/chatgpt" title="chatgpt icons" target="_blank" rel="noreferrer" className="hover:underline"></a>
             </div>
         </div>
     );

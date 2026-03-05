@@ -99,6 +99,9 @@ interface ToolbarProps {
     gridConfig: GridConfig;
     onGridConfigChange: (config: GridConfig) => void;
     isSessionLocked?: boolean;
+    isOwner?: boolean;
+    isLockActive?: boolean;
+    onToggleLock?: () => Promise<void>;
     theme?: 'light' | 'dark';
 }
 
@@ -177,7 +180,7 @@ const ToolButton = ({
 );
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-    <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-center select-none leading-none" style={{ color: 'var(--ns-section-label)' }}>
+    <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-center select-none leading-none" style={{ color: 'var(--ns-section-label)' }}>
         {children}
     </div>
 );
@@ -218,12 +221,16 @@ export default function Toolbar({
     onDeleteSelected,
     gridConfig, onGridConfigChange,
     isSessionLocked = false,
+    isOwner = false,
+    isLockActive = false,
+    onToggleLock,
     theme = 'dark',
 }: ToolbarProps) {
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const [showBrushMenu, setShowBrushMenu] = useState(false);
     const [showStrokeStyleMenu, setShowStrokeStyleMenu] = useState(false);
     const [showGridMenu, setShowGridMenu] = useState(false);
+    const gridColorRef = useRef<HTMLInputElement>(null);
 
     const ACTIVE_COLORS = theme === 'light' ? PRO_COLORS_LIGHT : PRO_COLORS_DARK;
 
@@ -755,13 +762,21 @@ export default function Toolbar({
 
                                     {/* Color Picker */}
                                     <div className="space-y-1.5">
-                                        <div className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Color</div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="relative w-full h-6 rounded border overflow-hidden" style={{ borderColor: 'var(--ns-separator, #2a333b)' }}>
-                                                <div className="absolute inset-0" style={{ background: gridConfig.color }} />
-                                                <input type="color" value={gridConfig.color}
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Color</span>
+                                            <div className="relative">
+                                                <div
+                                                    className="w-6 h-6 rounded-full border-2 cursor-pointer transition-shadow hover:shadow-md"
+                                                    style={{ backgroundColor: gridConfig.color, borderColor: 'var(--ns-separator, #2a333b)' }}
+                                                    onClick={() => gridColorRef.current?.click()}
+                                                />
+                                                <input
+                                                    ref={gridColorRef}
+                                                    type="color"
+                                                    value={gridConfig.color}
                                                     onChange={(e) => onGridConfigChange({ ...gridConfig, color: e.target.value })}
-                                                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                                                    className="absolute inset-0 opacity-0 w-0 h-0 pointer-events-none"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -771,6 +786,35 @@ export default function Toolbar({
                         )}
                     </div>
                 </ToolSection>
+
+                {/* Lock Session Button — only visible if user owns the board */}
+                {isOwner && onToggleLock && (
+                    <>
+                        <Separator />
+                        <ToolSection label={isLockActive ? 'LOCKED' : 'UNLOCKED'}>
+                            <button
+                                onClick={() => onToggleLock()}
+                                className="p-1.5 rounded-lg transition-all duration-200 border group"
+                                style={{
+                                    background: isLockActive
+                                        ? 'rgba(239,68,68,0.1)'
+                                        : 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.1))',
+                                    borderColor: isLockActive
+                                        ? 'rgba(239,68,68,0.3)'
+                                        : 'var(--ns-toolbar-active-ring, rgba(45,212,191,0.3))',
+                                    color: isLockActive
+                                        ? '#ef4444'
+                                        : 'var(--ns-toolbar-active-text, #2dd4bf)',
+                                }}
+                                title={isLockActive ? 'Unlock Session' : 'Lock Session'}
+                            >
+                                <span key={isLockActive ? 'locked' : 'unlocked'} className="inline-flex" style={{ animation: 'lockBounce 0.35s ease-out' }}>
+                                    {isLockActive ? <Lock size={18} /> : <Unlock size={18} />}
+                                </span>
+                            </button>
+                        </ToolSection>
+                    </>
+                )}
             </div >
 
             {/* Floating Text Formatting Toolbar */}
@@ -868,6 +912,11 @@ export default function Toolbar({
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateY(-4px) scale(0.97); }
                     to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @keyframes lockBounce {
+                    0% { transform: scale(0.5) rotate(-15deg); opacity: 0.3; }
+                    50% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+                    100% { transform: scale(1) rotate(0deg); opacity: 1; }
                 }
             `}</style>
         </div >

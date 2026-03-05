@@ -252,6 +252,15 @@ export default function Toolbar({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Auto-switch color context depending on tool selected
+    useEffect(() => {
+        if (activeTool === ToolType.FILL_BUCKET) {
+            setActiveColorMode('fill');
+        } else if ([ToolType.PEN, ToolType.HIGHLIGHTER, ToolType.LINE, ToolType.ARROW].includes(activeTool as ToolType)) {
+            setActiveColorMode('stroke');
+        }
+    }, [activeTool]);
+
     const isShapeTool = [ToolType.RECTANGLE, ToolType.CIRCLE, ToolType.ELLIPSE, ToolType.LINE, ToolType.ARROW, ToolType.TRIANGLE].includes(activeTool as ToolType);
     const isBrushTool = [ToolType.PEN, ToolType.HIGHLIGHTER].includes(activeTool as ToolType);
     const isDrawMode = isShapeTool || isBrushTool;
@@ -346,7 +355,7 @@ export default function Toolbar({
 
                         {/* Brush Dropdown Panel */}
                         {showBrushMenu && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[280px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden z-[200]"
+                            <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 w-[280px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden z-[200]"
                                 style={{ animation: 'fadeIn 150ms ease-out' }}>
                                 <div className="px-2 pt-2 pb-1">
                                     <div className="text-[10px] font-semibold uppercase text-[#4a5b6a] tracking-wider px-2 mb-1">Brush Type</div>
@@ -393,7 +402,7 @@ export default function Toolbar({
                             onClick={() => { onToolChange('eraser'); setShowEraserMenu(!showEraserMenu); }} />
 
                         {showEraserMenu && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 p-2.5 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-2.5 z-[200]"
+                            <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 w-44 p-2.5 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-2.5 z-[200]"
                                 style={{ animation: 'fadeIn 150ms ease-out' }}>
                                 <div className="flex gap-1.5 p-0.5 bg-[#0d1117] rounded-lg">
                                     <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'partial' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
@@ -457,7 +466,7 @@ export default function Toolbar({
                             </ToolSection>
 
                             {showStrokeStyleMenu && (
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-40 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-1.5 z-[200]"
+                                <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 w-40 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-1.5 z-[200]"
                                     style={{ animation: 'fadeIn 150ms ease-out' }}>
                                     {([
                                         { style: 'solid' as StrokeStyle, label: 'Solid', dash: undefined },
@@ -525,8 +534,8 @@ export default function Toolbar({
                                             title="Fill Color"
                                         >
                                             {fillColor === 'transparent' ? (
-                                                <div className="absolute inset-0 flex items-center justify-center text-red-500 bg-[#1e262d] rounded-full">
-                                                    <Slash size={14} strokeWidth={2.5} />
+                                                <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
+                                                    <Slash className={theme === 'light' ? 'opacity-80' : ''} size={14} strokeWidth={2.5} />
                                                 </div>
                                             ) : (
                                                 <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
@@ -538,48 +547,48 @@ export default function Toolbar({
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <Separator />
+                        <Separator />
 
-                            {/* 2. Pro Palette Strip */}
-                            <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center gap-2 overflow-x-auto max-w-[260px] pb-3 px-1" style={{ scrollbarWidth: 'none' }}>
-                                    {/* No Fill Button */}
-                                    <button
-                                        onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); }}
-                                        className={`shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#2dd4bf] border-transparent bg-gray-700' : 'border-gray-600 bg-[#1a2025] hover:bg-gray-700'}`}
-                                        title="No Fill"
-                                    >
-                                        <Slash size={12} className="text-red-400" />
-                                    </button>
+                        {/* 2. Pro Palette Strip */}
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2 overflow-x-auto max-w-[260px] pb-3 px-1" style={{ scrollbarWidth: 'none' }}>
+                                {/* No Fill Button */}
+                                <button
+                                    onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); }}
+                                    className={`shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#2dd4bf] border-transparent bg-gray-700' : 'border-gray-600 bg-[#1a2025] hover:bg-gray-700'}`}
+                                    title="No Fill"
+                                >
+                                    <Slash size={12} className="text-red-400" />
+                                </button>
 
-                                    {/* Colors */}
-                                    {ACTIVE_COLORS.map(c => {
-                                        const isSelected = (activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c);
-                                        return (
-                                            <button
-                                                key={c}
-                                                // simplistic toggle: click to apply to currently active mode (stroke or fill).
-                                                onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
-                                                className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : ['border-gray-700/50 hover:scale-110', theme === 'light' ? 'hover:border-gray-400' : 'hover:border-white'].join(' ')}`}
-                                                style={{ background: c }}
-                                                title={c}
-                                            >
-                                            </button>
-                                        );
-                                    })}
+                                {/* Colors */}
+                                {ACTIVE_COLORS.map(c => {
+                                    const isSelected = (activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c);
+                                    return (
+                                        <button
+                                            key={c}
+                                            // simplistic toggle: click to apply to currently active mode (stroke or fill).
+                                            onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
+                                            className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : ['border-gray-700/50 hover:scale-110', theme === 'light' ? 'hover:border-gray-400' : 'hover:border-white'].join(' ')}`}
+                                            style={{ background: c }}
+                                            title={c}
+                                        >
+                                        </button>
+                                    );
+                                })}
 
-                                    {/* Custom Picker Placeholder */}
-                                    <div className="relative shrink-0 w-6 h-6 rounded-full border border-gray-600 overflow-hidden hover:scale-110 transition-transform cursor-pointer" title="Custom Color">
-                                        <div className="absolute inset-0 bg-[conic-gradient(at_center,_red,_orange,_yellow,_green,_blue,_purple,_red)] opacity-80 hover:opacity-100" />
-                                        <Plus size={12} className="absolute inset-0 m-auto text-white drop-shadow-md" />
-                                        {/* duplicate input logic here for redundancy if users miss clicking the main bubble. */}
-                                        <input type="color"
-                                            value={activeColorMode === 'stroke' ? strokeColor : (fillColor === 'transparent' ? '#ffffff' : fillColor)}
-                                            onChange={(e) => activeColorMode === 'stroke' ? onColorChange(e.target.value) : onFillColorChange(e.target.value)}
-                                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                                        />
-                                    </div>
+                                {/* Custom Picker Placeholder */}
+                                <div className="relative shrink-0 w-6 h-6 rounded-full border border-gray-600 overflow-hidden hover:scale-110 transition-transform cursor-pointer" title="Custom Color">
+                                    <div className="absolute inset-0 bg-[conic-gradient(at_center,_red,_orange,_yellow,_green,_blue,_purple,_red)] opacity-80 hover:opacity-100" />
+                                    <Plus size={12} className="absolute inset-0 m-auto text-white drop-shadow-md" />
+                                    {/* duplicate input logic here for redundancy if users miss clicking the main bubble. */}
+                                    <input type="color"
+                                        value={activeColorMode === 'stroke' ? strokeColor : (fillColor === 'transparent' ? '#ffffff' : fillColor)}
+                                        onChange={(e) => activeColorMode === 'stroke' ? onColorChange(e.target.value) : onFillColorChange(e.target.value)}
+                                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -667,7 +676,7 @@ export default function Toolbar({
                         </button>
 
                         {showGridMenu && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[200] overflow-hidden transition-colors"
+                            <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-3 w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[200] overflow-hidden transition-colors"
                                 style={{ animation: 'fadeIn 150ms ease-out', background: 'var(--ns-panel-bg, #151a1f)', border: '1px solid var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
 
                                 <div className="px-3 py-2 flex justify-between items-center transition-colors border-b" style={{ background: 'var(--ns-toolbar-hover, #1e262d)', borderColor: 'var(--ns-separator, #2a333b)' }}>

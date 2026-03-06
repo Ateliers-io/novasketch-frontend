@@ -2,15 +2,13 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom';
 import { Stage, Layer, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import DOMPurify from 'dompurify';
-import { Trash2, Lock, Unlock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import Toolbar, { ActiveTool, EraserMode } from '../Toolbar/Toolbar';
 import {
   ToolType,
   BrushType,
   StrokeStyle,
   Shape,
-  ShapeType,
   createRectangle,
   createCircle,
   createEllipse,
@@ -35,7 +33,6 @@ import SVGShapeRenderer from './SVGShapeRenderer';
 import {
   getShapeBoundingBox,
   getTransformedBoundingBox,
-  getCombinedBoundingBox,
   isPointInBoundingBox,
   BoundingBox,
 } from '../../utils/boundingBox';
@@ -48,7 +45,6 @@ import { TextAnnotation, Action } from './types';
 import {
   distSq,
   eraseAtPosition,
-  removeStrokesAt,
   isPointInShape,
   moveForward,
   moveBackward,
@@ -77,7 +73,6 @@ import { useAuth } from '../../contexts';
 import { SessionInfo, toggleSessionLock } from '../../services/session.service';
 
 // magical constants.
-const GRID_DOT_COLOR = '#45A29E';
 const DEFAULT_STROKE_COLOR = '#66FCF1';
 
 // Helper functions for capturing the canvas to SVG/PNG
@@ -285,16 +280,8 @@ export default function Whiteboard({
     isConnected,
     isLoading: isLoadingCanvas,
     addLine,
-    updateLine: syncUpdateLine,
-    deleteLine: syncDeleteLine,
     setLines: syncSetLines,
-    addShape,
-    updateShape: syncUpdateShape,
-    deleteShape: syncDeleteShape,
     setShapes: syncSetShapes,
-    addText,
-    updateText: syncUpdateText,
-    deleteText: syncDeleteText,
     setTexts: syncSetTexts,
     undo: performUndo,
     redo: performRedo,
@@ -388,6 +375,7 @@ export default function Whiteboard({
   // yjs handles history internally via UndoManager.
   // keeping this no-op signature to avoid breaking legacy calls scattered in event handlers.
   // TODO: refactor all callsites to use syncService directly and remove this shim.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addToHistory = useCallback((_action: Action) => {
     // no-op.
   }, []);
@@ -407,11 +395,11 @@ export default function Whiteboard({
   // Task 1.5.2: If the session locks AND this user is a guest, fall back to Hand tool.
   useEffect(() => {
     if (isEffectivelyLocked) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTool(ToolType.HAND);
     }
   }, [isEffectivelyLocked]);
 
-  const [activeColorMode, setActiveColorMode] = useState<'stroke' | 'fill'>('stroke'); // 'stroke' or 'fill'
   const [isDrawing, setIsDrawing] = useState(false);
   const [isToolLocked, setIsToolLocked] = useState(false); // Lock tool for multiple drawings
   // Task 4.2.1: State for calculating drag delta
@@ -463,6 +451,7 @@ export default function Whiteboard({
 
   // Reset selection rotation and initial states when selection changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectionRotation(0);
     setInitialShapeRotations(new Map());
     setInitialShapePositions(new Map());
@@ -781,6 +770,7 @@ export default function Whiteboard({
       const textId = Array.from(selectedTextIds)[0];
       const text = textAnnotations.find(t => t.id === textId);
       if (text) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setFontStyles(prev => ({
           ...prev,
           family: text.fontFamily,
@@ -801,6 +791,7 @@ export default function Whiteboard({
       const shapeId = Array.from(selectedShapeIds)[0];
       const shape = shapes.find(s => s.id === shapeId);
       if (shape) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setStrokeColor(shape.style.stroke);
         setFillColor(shape.style.hasFill ? shape.style.fill : '#45A29E');
         setBrushSize(shape.style.strokeWidth);
@@ -814,6 +805,7 @@ export default function Whiteboard({
       const lineId = Array.from(selectedLineIds)[0];
       const line = lines.find(l => l.id === lineId);
       if (line) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setStrokeColor(line.color);
         setBrushSize(line.strokeWidth);
       }
@@ -1555,7 +1547,7 @@ export default function Whiteboard({
           const newRot = initRot + deltaAngle;
 
           // Convert back to Top-Left if necessary
-          let newPos = { x: newCenter.x, y: newCenter.y };
+          const newPos = { x: newCenter.x, y: newCenter.y };
 
           if (isRectangle(s)) {
             newPos.x -= (s as RectangleShape).width / 2;
@@ -1780,7 +1772,7 @@ export default function Whiteboard({
               if (isRectangle(initS)) {
                 return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY } as Shape;
               } else if (isCircle(initS)) {
-                let scale = 1;
+                let scale: number;
                 if (['n', 's'].includes(resizeHandle)) scale = scaleY;
                 else if (['e', 'w'].includes(resizeHandle)) scale = scaleX;
                 else scale = Math.max(scaleX, scaleY);

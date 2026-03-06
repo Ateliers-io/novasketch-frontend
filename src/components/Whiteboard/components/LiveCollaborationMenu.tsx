@@ -74,6 +74,7 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
     useEffect(() => {
         // Enforce the vercel production URL over window.location.origin so mobile 
         // phones don't accidentally scan a captive localhost URL
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCurrentOrigin('https://novasketch.vercel.app');
     }, []);
 

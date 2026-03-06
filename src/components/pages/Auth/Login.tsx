@@ -92,7 +92,7 @@ export const Login = () => {
     // The code is exchanged for a refresh token on the backend to maintain security.
     const googleLogin = useGoogleLogin({
         flow: 'auth-code',
-        onSuccess: async (r) => { setLdg('g'); clearError(); try { await loginWithGoogle(r.code); } catch { } finally { setLdg(null); } },
+        onSuccess: async (r) => { setLdg('g'); clearError(); try { await loginWithGoogle(r.code); } catch { /* ignore */ } finally { setLdg(null); } },
         onError: () => setLdg(null),
     });
 
@@ -103,8 +103,8 @@ export const Login = () => {
     const isSignInValid = validate('email', form.email) && form.password.length >= 1;
     const fs = (f: string, v: string) => !touched[f] || !v ? 'border-white/[.07]' : validate(f, v) ? 'border-[#66FCF1]/40' : 'border-red-500/40';
 
-    const handleSignUp = async (e: React.FormEvent) => { e.preventDefault(); if (!isSignUpValid || ldg) return; setLdg('register'); clearError(); try { await register(form.name.trim(), form.email.trim().toLowerCase(), form.password); } catch { } finally { setLdg(null); } };
-    const handleSignIn = async (e: React.FormEvent) => { e.preventDefault(); if (!isSignInValid || ldg) return; setLdg('login'); clearError(); try { await loginWithEmail(form.email.trim().toLowerCase(), form.password); } catch { } finally { setLdg(null); } };
+    const handleSignUp = async (e: React.FormEvent) => { e.preventDefault(); if (!isSignUpValid || ldg) return; setLdg('register'); clearError(); try { await register(form.name.trim(), form.email.trim().toLowerCase(), form.password); } catch { /* ignore */ } finally { setLdg(null); } };
+    const handleSignIn = async (e: React.FormEvent) => { e.preventDefault(); if (!isSignInValid || ldg) return; setLdg('login'); clearError(); try { await loginWithEmail(form.email.trim().toLowerCase(), form.password); } catch { /* ignore */ } finally { setLdg(null); } };
 
     const VIcon = ({ f, v }: { f: string; v: string }) => { if (!touched[f] || !v) return null; return validate(f, v) ? <Check className="w-3.5 h-3.5 text-[#66FCF1]/70" /> : <X className="w-3.5 h-3.5 text-red-400/70" />; };
     const Hint = ({ f, v }: { f: string; v: string }) => { if (!touched[f] || !v || validate(f, v)) return null; return <p className="mt-1 text-[10px] text-red-400/60 font-mono">{RULES[f as keyof typeof RULES]}</p>; };

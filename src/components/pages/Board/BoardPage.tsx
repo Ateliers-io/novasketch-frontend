@@ -30,6 +30,7 @@ export const BoardPage = () => {
 
     useEffect(() => {
         if (!id) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setStatus('not-found');
             return;
         }

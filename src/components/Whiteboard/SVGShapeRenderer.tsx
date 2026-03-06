@@ -38,13 +38,12 @@ const NEON_TURQUOISE = '#66FCF1';
 interface ShapeWrapperProps {
     shape: Shape;
     children: React.ReactNode;
-    dimensions: { width: number; height: number };
     centerOffset: { x: number; y: number };
     isSelected?: boolean;
     onClick?: (e: React.MouseEvent) => void;
 }
 
-const ShapeWrapper: React.FC<ShapeWrapperProps> = ({ shape, children, dimensions, centerOffset, isSelected, onClick }) => {
+const ShapeWrapper: React.FC<ShapeWrapperProps> = ({ shape, children, centerOffset, isSelected, onClick }) => {
     const { position, transform, opacity } = shape;
 
     const centerX = position.x + centerOffset.x;
@@ -72,7 +71,6 @@ const ShapeWrapper: React.FC<ShapeWrapperProps> = ({ shape, children, dimensions
 const SVGRectangle = ({ shape, isSelected, onClick }: { shape: RectangleShape; isSelected?: boolean; onClick?: (e: React.MouseEvent) => void }) => (
     <ShapeWrapper
         shape={shape}
-        dimensions={{ width: shape.width, height: shape.height }}
         centerOffset={{ x: shape.width / 2, y: shape.height / 2 }}
         isSelected={isSelected}
         onClick={onClick}
@@ -93,7 +91,6 @@ const SVGRectangle = ({ shape, isSelected, onClick }: { shape: RectangleShape; i
 const SVGCircle = ({ shape, isSelected, onClick }: { shape: CircleShape; isSelected?: boolean; onClick?: (e: React.MouseEvent) => void }) => (
     <ShapeWrapper
         shape={shape}
-        dimensions={{ width: shape.radius * 2, height: shape.radius * 2 }}
         centerOffset={{ x: 0, y: 0 }}
         isSelected={isSelected}
         onClick={onClick}
@@ -113,7 +110,6 @@ const SVGCircle = ({ shape, isSelected, onClick }: { shape: CircleShape; isSelec
 const SVGEllipse = ({ shape, isSelected, onClick }: { shape: EllipseShape; isSelected?: boolean; onClick?: (e: React.MouseEvent) => void }) => (
     <ShapeWrapper
         shape={shape}
-        dimensions={{ width: shape.radiusX * 2, height: shape.radiusY * 2 }}
         centerOffset={{ x: 0, y: 0 }}
         isSelected={isSelected}
         onClick={onClick}

@@ -255,8 +255,10 @@ export default function Toolbar({
     // Auto-switch color context depending on tool selected
     useEffect(() => {
         if (activeTool === ToolType.FILL_BUCKET) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setActiveColorMode('fill');
         } else if ([ToolType.PEN, ToolType.HIGHLIGHTER, ToolType.LINE, ToolType.ARROW].includes(activeTool as ToolType)) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setActiveColorMode('stroke');
         }
     }, [activeTool]);
@@ -518,7 +520,7 @@ export default function Toolbar({
                                             {/* hidden native input overlay. allows opening system picker by clicking the bubble. */}
                                             <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                         </div>
-                                        <span className={`text-[8px] font-bold uppercase tracking-wider ${activeColorMode === 'stroke' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Stroke</span>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${activeColorMode === 'stroke' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Stroke</span>
                                     </div>
 
                                     {/* Fill Bubble */}
@@ -535,7 +537,7 @@ export default function Toolbar({
                                         >
                                             {fillColor === 'transparent' ? (
                                                 <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
-                                                    <Slash className={theme === 'light' ? 'opacity-80' : ''} size={14} strokeWidth={2.5} />
+                                                    <Slash className={theme === 'light' ? 'opacity-80' : ''} size={12} strokeWidth={2} />
                                                 </div>
                                             ) : (
                                                 <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
@@ -543,7 +545,7 @@ export default function Toolbar({
                                             {/* forcing white hex if transparent, otherwise input[type=color] defaults to black and confuses users. */}
                                             <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                         </div>
-                                        <span className={`text-[8px] font-bold uppercase tracking-wider ${activeColorMode === 'fill' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Fill</span>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${activeColorMode === 'fill' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Fill</span>
                                     </div>
                                 </div>
                             </div>
@@ -605,7 +607,7 @@ export default function Toolbar({
                                 <div className="flex gap-4 px-1">
                                     {/* Size Slider */}
                                     <div className="flex flex-col gap-0.5 w-[72px]">
-                                        <div className="flex justify-between text-[8px] font-mono" style={{ color: 'var(--ns-section-label)' }}>
+                                        <div className="flex justify-between text-[10px] font-mono mb-1" style={{ color: 'var(--ns-section-label)' }}>
                                             <span>SIZE</span>
                                             <span className="font-bold" style={{ color: 'var(--ns-accent)' }}>{brushSize}px</span>
                                         </div>
@@ -617,7 +619,7 @@ export default function Toolbar({
                                     {/* Corner Radius Slider (Contextual) */}
                                     {(activeTool === ToolType.RECTANGLE || (hasSelection && cornerRadius !== undefined)) && (
                                         <div className="flex flex-col gap-0.5 w-[72px] animate-fadeIn">
-                                            <div className="flex justify-between text-[8px] font-mono" style={{ color: 'var(--ns-section-label)' }}>
+                                            <div className="flex justify-between text-[10px] font-mono mb-1" style={{ color: 'var(--ns-section-label)' }}>
                                                 <span>ROUNDNESS</span>
                                                 <span className="font-bold text-[#a855f7]">{Math.round(cornerRadius || 0)}</span>
                                             </div>

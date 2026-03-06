@@ -107,7 +107,7 @@
 
 /* ── Hardcoded dark background classes → light ── */
 [data-ns-theme="light"] .bg-\[\#151a1f\]\/97,
-[data-ns-theme="light"] .bg-\[\#0B0C10\],
+[data-ns-theme="light"] .bg-\[\#0B0C10\]:not(.canvas-container),
 [data-ns-theme="light"] .bg-\[\#1F2833\],
 [data-ns-theme="light"] .bg-\[\#151a1f\],
 [data-ns-theme="light"] .bg-\[\#1e262d\],

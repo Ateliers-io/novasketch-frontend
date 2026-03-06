@@ -17,7 +17,7 @@ export function getSegmentCircleIntersections(p1: Position, p2: Position, c: Pos
     const a = dx * dx + dy * dy;
     const b = 2 * (fx * dx + fy * dy);
     const C = fx * fx + fy * fy - r * r;
-    let discriminant = b * b - 4 * a * C;
+    const discriminant = b * b - 4 * a * C;
     const intersections: Position[] = [];
 
     if (discriminant >= 0 && a !== 0) {

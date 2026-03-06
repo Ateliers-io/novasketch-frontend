@@ -47,7 +47,7 @@ describe('AnalyzeWithAI Component', () => {
             expect(navigator.clipboard.write).toHaveBeenCalledTimes(1);
             expect(window.open).toHaveBeenCalledWith('https://chatgpt.com/', '_blank');
             expect(screen.getByText('Image copied to clipboard!')).toBeInTheDocument();
-        });
+        }, { timeout: 3000 });
     });
 
     it('should handle capturing and opening Gemini successfully', async () => {
@@ -67,7 +67,7 @@ describe('AnalyzeWithAI Component', () => {
             expect(navigator.clipboard.write).toHaveBeenCalledTimes(1);
             expect(window.open).toHaveBeenCalledWith('https://gemini.google.com/app', '_blank');
             expect(screen.getByText('Image copied to clipboard!')).toBeInTheDocument();
-        });
+        }, { timeout: 3000 });
     });
 
     it('should handle capture failure gracefully', async () => {

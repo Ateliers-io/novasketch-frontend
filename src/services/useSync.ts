@@ -42,6 +42,8 @@ interface UseSyncResult {
     updateShape: (id: string, updates: Partial<Shape>) => void;
     deleteShape: (id: string) => void;
     setShapes: (shapes: Shape[]) => void;
+    groupIntoFrame: (shapeIds: string[]) => void;
+    ungroupFrame: (frameId: string) => void;
 
     // Text operations
     addText: (text: TextAnnotation) => void;
@@ -217,6 +219,16 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         updateUndoRedoState();
     }, [updateUndoRedoState]);
 
+    const groupIntoFrame = useCallback((shapeIds: string[]) => {
+        serviceRef.current?.groupIntoFrame(shapeIds);
+        updateUndoRedoState();
+    }, [updateUndoRedoState]);
+
+    const ungroupFrame = useCallback((frameId: string) => {
+        serviceRef.current?.ungroupFrame(frameId);
+        updateUndoRedoState();
+    }, [updateUndoRedoState]);
+
     // Text operations
     const addText = useCallback((text: TextAnnotation) => {
         serviceRef.current?.addText(text);
@@ -299,6 +311,8 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         updateShape,
         deleteShape,
         setShapes,
+        groupIntoFrame,
+        ungroupFrame,
         addText,
         updateText,
         deleteText,

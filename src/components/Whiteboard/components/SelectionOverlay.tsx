@@ -11,6 +11,11 @@ interface SelectionOverlayProps {
     rotation?: number;
     showRotationHandle: boolean;
     transform?: { x: number; y: number; scale: number };
+    // Grouping support (Epic 7.5.2)
+    onGroup?: () => void;
+    onUngroup?: () => void;
+    canGroup?: boolean;
+    canUngroup?: boolean;
 }
 
 const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
@@ -19,6 +24,10 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
     rotation,
     showRotationHandle,
     transform = { x: 0, y: 0, scale: 1 },
+    onGroup,
+    onUngroup,
+    canGroup,
+    canUngroup,
 }) => {
     return (
         <svg
@@ -168,6 +177,32 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                  l 2 -2 l 0 4 z`}
                                 fill="#2dd4bf"
                             />
+                        </g>
+                    )}
+
+                    {/* Group/Ungroup Action Buttons (Floating near the selection) */}
+                    {(canGroup || canUngroup) && (
+                        <g transform={`translate(${selectionBoundingBox.centerX}, ${selectionBoundingBox.maxY + 30})`}>
+                            {canGroup && (
+                                <g
+                                    className="action-button group-button"
+                                    style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                                    onClick={(e) => { e.stopPropagation(); onGroup?.(); }}
+                                >
+                                    <rect x="-45" y="0" width="40" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
+                                    <text x="-25" y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>GROUP</text>
+                                </g>
+                            )}
+                            {canUngroup && (
+                                <g
+                                    className="action-button ungroup-button"
+                                    style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                                    onClick={(e) => { e.stopPropagation(); onUngroup?.(); }}
+                                >
+                                    <rect x={canGroup ? "5" : "-45"} y="0" width="55" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
+                                    <text x={canGroup ? "32.5" : "-17.5"} y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>UNGROUP</text>
+                                </g>
+                            )}
                         </g>
                     )}
                 </g>

@@ -298,6 +298,8 @@ export default function Whiteboard({
     setSessionLocked,
     batch,
     hasPendingChanges,
+    groupIntoFrame,
+    ungroupFrame,
   } = useSync({ roomId, wsUrl: WS_URL, initialLocked });
 
   // Task 1.5 fix: Owner should NEVER be locked. Only guests see the lock.
@@ -3093,6 +3095,17 @@ export default function Whiteboard({
           }
           showRotationHandle={true} // Always allow rotation because we support group rotation now!
           transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
+          onGroup={() => {
+            groupIntoFrame(Array.from(selectedShapeIds));
+            setSelectedShapeIds(new Set());
+          }}
+          onUngroup={() => {
+            const frameId = Array.from(selectedShapeIds)[0];
+            ungroupFrame(frameId);
+            setSelectedShapeIds(new Set());
+          }}
+          canGroup={selectedShapeIds.size > 1 && !Array.from(selectedShapeIds).some(id => shapes.find(s => s.id === id)?.parentId)}
+          canUngroup={selectedShapeIds.size === 1 && shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.type === 'frame'}
         />
       )}
 

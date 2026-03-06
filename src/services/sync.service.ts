@@ -66,6 +66,7 @@ export interface Shape {
         scaleX: number;
         scaleY: number;
     };
+    zIndex: number;
     // Rectangle specific
     width?: number;
     height?: number;
@@ -75,6 +76,11 @@ export interface Shape {
     // Ellipse specific
     radiusX?: number;
     radiusY?: number;
+    // Hierarchical/Frame support (Epic 7.5)
+    parentId?: string;
+    childrenIds?: string[];
+    backgroundVisible?: boolean;
+    padding?: number;
 }
 
 export interface TextAnnotation {
@@ -504,6 +510,122 @@ class SyncService {
      */
     batch(callback: () => void): void {
         this.doc.transact(callback, 'local');
+    }
+
+    // --- EPIC 7.5: FRAME/GROUP MANAGEMENT ---
+
+    /**
+     * Group a set of shape IDs into a new Frame.
+     */
+    groupIntoFrame(shapeIds: string[]): void {
+        if (shapeIds.length === 0) return;
+
+        this.doc.transact(() => {
+            const shapes = this.yShapes.toArray();
+            const selectedShapes = shapes.filter(s => shapeIds.includes(s.id));
+            if (selectedShapes.length === 0) return;
+
+            // 1. Calculate bounding box
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            selectedShapes.forEach(s => {
+                const x = s.position.x;
+                const y = s.position.y;
+                const w = (s as any).width || ((s as any).radius ? (s as any).radius * 2 : 0) || ((s as any).radiusX ? (s as any).radiusX * 2 : 0) || 50;
+                const h = (s as any).height || ((s as any).radius ? (s as any).radius * 2 : 0) || ((s as any).radiusY ? (s as any).radiusY * 2 : 0) || 50;
+
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x + w);
+                maxY = Math.max(maxY, y + h);
+            });
+
+            const padding = 20;
+            const frameX = minX - padding;
+            const frameY = minY - padding;
+            const frameW = (maxX - minX) + padding * 2;
+            const frameH = (maxY - minY) + padding * 2;
+
+            // 2. Create the Frame
+            const frameId = `frame-${Date.now()}`;
+            const frame: Shape = {
+                id: frameId,
+                type: 'frame',
+                position: { x: frameX, y: frameY },
+                width: frameW,
+                height: frameH,
+                childrenIds: shapeIds,
+                backgroundVisible: true,
+                padding: padding,
+                style: {
+                    stroke: '#66FCF1',
+                    strokeWidth: 1,
+                    fill: 'rgba(102, 252, 241, 0.05)',
+                    hasFill: true,
+                },
+                transform: { rotation: 0, scaleX: 1, scaleY: 1 },
+                zIndex: Math.max(...shapes.map(s => s.zIndex), 0) + 1,
+            };
+
+            // 3. Update children to be relative
+            selectedShapes.forEach(s => {
+                const idx = shapes.findIndex(sh => sh.id === s.id);
+                if (idx !== -1) {
+                    const updatedShape = {
+                        ...s,
+                        parentId: frameId,
+                        position: {
+                            x: s.position.x - frameX,
+                            y: s.position.y - frameY
+                        }
+                    };
+                    this.yShapes.delete(idx);
+                    this.yShapes.insert(idx, [updatedShape]);
+                }
+            });
+
+            // 4. Add the Frame to the shared collection
+            this.yShapes.push([frame]);
+        }, 'local');
+    }
+
+    /**
+     * Disband a frame and return its children to the root level.
+     */
+    ungroupFrame(frameId: string): void {
+        this.doc.transact(() => {
+            const shapes = this.yShapes.toArray();
+            const frameIdx = shapes.findIndex(s => s.id === frameId);
+            if (frameIdx === -1) return;
+
+            const frame = shapes[frameIdx];
+            if (frame.type !== 'frame') return;
+
+            const frameX = frame.position.x;
+            const frameY = frame.position.y;
+
+            // 1. Revert children to global coordinates
+            shapes.forEach((s, idx) => {
+                if (s.parentId === frameId) {
+                    const updatedShape = {
+                        ...s,
+                        parentId: undefined,
+                        position: {
+                            x: s.position.x + frameX,
+                            y: s.position.y + frameY
+                        }
+                    };
+                    this.yShapes.delete(idx);
+                    this.yShapes.insert(idx, [updatedShape]);
+                }
+            });
+
+            // 2. Delete the frame itself
+            // Re-find index as it might have shifted
+            const currentIdx = this.yShapes.toArray().findIndex(s => s.id === frameId);
+            if (currentIdx !== -1) {
+                this.yShapes.delete(currentIdx);
+            }
+        }, 'local');
     }
 
     // --- UNDO/REDO ---

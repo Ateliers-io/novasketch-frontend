@@ -23,6 +23,36 @@
     transition: opacity 0.2s ease;
 }
 
+.svg-frame-group {
+    /* Frames are interactive containers */
+    pointer-events: all;
+    cursor: default;
+}
+
+.svg-frame-bg {
+    pointer-events: fill;
+}
+
+.svg-frame-label {
+    user-select: none;
+    pointer-events: none;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.05em;
+}
+
+/* --- ACTION BUTTONS --- */
+.action-button rect {
+    transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.action-button:hover rect {
+    fill: #2dd4bf;
+}
+
+.action-button:hover text {
+    fill: #0B0C10;
+}
+
 
 
 /* --- PRIMITIVE ELEMENTS (The actual rect/circle/etc) --- */

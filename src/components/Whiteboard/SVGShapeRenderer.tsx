@@ -7,12 +7,14 @@ import {
     LineShape,
     ArrowShape,
     TriangleShape,
+    FrameShape,
     isRectangle,
     isCircle,
     isEllipse,
     isLine,
     isArrow,
     isTriangle,
+    isFrame,
 } from '../../types/shapes';
 import './SVGShapeRenderer.css';
 
@@ -236,6 +238,54 @@ const SVGTriangle = ({ shape, isSelected, onClick }: { shape: TriangleShape; isS
     );
 };
 
+const SVGFrame = ({
+    shape,
+    isSelected,
+    onClick,
+    children
+}: {
+    shape: FrameShape;
+    isSelected?: boolean;
+    onClick?: (e: React.MouseEvent) => void;
+    children?: React.ReactNode;
+}) => (
+    <g
+        transform={`translate(${shape.position.x}, ${shape.position.y}) rotate(${shape.transform.rotation}) scale(${shape.transform.scaleX}, ${shape.transform.scaleY})`}
+        opacity={shape.opacity}
+        className="svg-shape-group svg-frame-group"
+        onClick={onClick}
+        style={onClick ? { pointerEvents: 'all', cursor: 'pointer' } : undefined}
+        filter={isSelected ? 'url(#selection-highlight)' : undefined}
+    >
+        {shape.backgroundVisible && (
+            <rect
+                width={shape.width}
+                height={shape.height}
+                fill={shape.style.fill}
+                stroke={shape.style.stroke}
+                strokeWidth={shape.style.strokeWidth}
+                strokeDasharray="5,5"
+                className="svg-primitive svg-frame-bg"
+            />
+        )}
+        <text
+            x={5}
+            y={-5}
+            fill={shape.style.stroke}
+            fontSize="10"
+            fontWeight="bold"
+            className="svg-frame-label"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+            FRAME
+        </text>
+        {/* Render children inside the group - they use relative coordinates */}
+        <g className="frame-children">
+            {children}
+        </g>
+    </g>
+);
+
 // --- MAIN RENDERER ---
 
 export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
@@ -296,9 +346,8 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
 
             {/* Viewport transform: pan + zoom applied to all shapes */}
             <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
-                {sortedShapes
-                    .filter((shape) => shape.visible)
-                    .map((shape) => {
+                {useMemo(() => {
+                    const renderShape = (shape: Shape): React.ReactNode => {
                         const isSelected = selectedShapeIds?.has(shape.id) || false;
                         const clickHandler = onShapeClick ? handleClick(shape.id) : undefined;
 
@@ -309,8 +358,23 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                         if (isArrow(shape)) return <SVGArrow key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
                         if (isTriangle(shape)) return <SVGTriangle key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
 
+                        if (isFrame(shape)) {
+                            const children = sortedShapes.filter(s => s.parentId === shape.id);
+                            return (
+                                <SVGFrame key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler}>
+                                    {children.map(child => renderShape(child))}
+                                </SVGFrame>
+                            );
+                        }
+
                         return null;
-                    })}
+                    };
+
+                    // Only start rendering from root-level shapes (no parent)
+                    return sortedShapes
+                        .filter(s => !s.parentId && s.visible)
+                        .map(s => renderShape(s));
+                }, [sortedShapes, selectedShapeIds, onShapeClick])}
             </g>
         </svg>
     );

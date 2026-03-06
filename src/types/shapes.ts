@@ -5,6 +5,7 @@ export enum ShapeType {
     LINE = 'line',
     ARROW = 'arrow',
     TRIANGLE = 'triangle',
+    FRAME = 'frame',
 }
 
 export enum ToolType {
@@ -47,6 +48,7 @@ export interface BaseCanvasObject {
     isLocked?: boolean;
     opacity: number;
     visible: boolean;
+    parentId?: string;
 }
 
 export interface Position {
@@ -122,13 +124,23 @@ export interface TriangleShape extends BaseShape {
     points: [Position, Position, Position];
 }
 
+export interface FrameShape extends BaseShape {
+    type: ShapeType.FRAME;
+    width: number;
+    height: number;
+    childrenIds: string[];
+    backgroundVisible: boolean;
+    padding: number;
+}
+
 export type Shape =
     | RectangleShape
     | CircleShape
     | EllipseShape
     | LineShape
     | ArrowShape
-    | TriangleShape;
+    | TriangleShape
+    | FrameShape;
 
 export const DEFAULT_SHAPE_STYLE: ShapeStyle = {
     fill: '#3B82F6',
@@ -312,6 +324,40 @@ export function createTriangle(
     };
 }
 
+export function createFrame(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    options?: Partial<FrameShape>
+): FrameShape {
+    const now = getCurrentTimestamp();
+    return {
+        id: generateShapeId(),
+        type: ShapeType.FRAME,
+        position: { x, y },
+        width,
+        height,
+        childrenIds: [],
+        backgroundVisible: true,
+        padding: 10,
+        style: {
+            ...DEFAULT_SHAPE_STYLE,
+            fill: 'rgba(255, 255, 255, 0.1)',
+            stroke: '#66FCF1',
+            strokeWidth: 1,
+            hasFill: true,
+        },
+        transform: { ...DEFAULT_TRANSFORM },
+        zIndex: 0,
+        opacity: 0.5,
+        visible: true,
+        createdAt: now,
+        updatedAt: now,
+        ...options,
+    };
+}
+
 export function isRectangle(shape: Shape): shape is RectangleShape {
     return shape.type === ShapeType.RECTANGLE;
 }
@@ -334,4 +380,8 @@ export function isArrow(shape: Shape): shape is ArrowShape {
 
 export function isTriangle(shape: Shape): shape is TriangleShape {
     return shape.type === ShapeType.TRIANGLE;
+}
+
+export function isFrame(shape: Shape): shape is FrameShape {
+    return shape.type === ShapeType.FRAME;
 }

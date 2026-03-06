@@ -77,11 +77,14 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
         setExpanded(prev => !prev);
     }, []);
 
+    // eslint-disable-next-line react-hooks/refs
+    const cursorStyle = dragRef.current.isDragging ? 'grabbing' : 'grab';
+
     return (
         <div
             ref={containerRef}
             className="fixed z-50 flex flex-col items-start gap-2 select-none"
-            style={{ left: pos.x, top: pos.y, cursor: dragRef.current.isDragging ? 'grabbing' : 'grab' }}
+            style={{ left: pos.x, top: pos.y, cursor: cursorStyle }}
             onMouseDown={handleDragStart}
         >
 

@@ -16,9 +16,6 @@ import {
     createRectangle,
     createCircle,
     createEllipse,
-    RectangleShape,
-    CircleShape,
-    EllipseShape,
 } from './shapes';
 
 describe('ShapeType enum', () => {

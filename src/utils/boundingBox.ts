@@ -165,7 +165,7 @@ export function getShapeBoundingBox(shape: Shape): BoundingBox {
             return getArrowBoundingBox(shape as ArrowShape);
         case ShapeType.TRIANGLE:
             return getTriangleBoundingBox(shape as TriangleShape);
-        default:
+        default: {
             // Fallback for unknown shapes - use position as origin
             const unknownShape = shape as Shape;
             return createBoundingBox(
@@ -174,6 +174,7 @@ export function getShapeBoundingBox(shape: Shape): BoundingBox {
                 unknownShape.position.x + 100,
                 unknownShape.position.y + 100
             );
+        }
     }
 }
 

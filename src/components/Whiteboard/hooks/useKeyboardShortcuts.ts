@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Shape, Position, ToolType } from '../../../types/shapes';
+import { Shape, ToolType } from '../../../types/shapes';
 import { StrokeLine } from '../../../services/sync.service';
 import { TextAnnotation, Action } from '../types';
 import type { ActiveTool } from '../../Toolbar/Toolbar';
@@ -42,7 +42,6 @@ export function useKeyboardShortcuts({
     selectedLineIds,
     selectedTextIds,
     activeTextInput,
-    activeTool,
     setSelectedShapeIds,
     setSelectedLineIds,
     setSelectedTextIds,
@@ -141,5 +140,6 @@ export function useKeyboardShortcuts({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shapes, lines, textAnnotations, selectedShapeIds, selectedLineIds, selectedTextIds, activeTextInput, performUndo, performRedo, isLocked]);
 }

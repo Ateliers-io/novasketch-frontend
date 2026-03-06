@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shape, Position } from '../../../types/shapes';
+import { Shape } from '../../../types/shapes';
 import { StrokeLine } from '../../../services/sync.service';
 import { TextAnnotation } from '../types';
 import { getShapeGeometryBoundingBox, BoundingBox } from '../../../utils/boundingBox';
@@ -37,6 +37,7 @@ export function useSelectionBounds({
         const hasSelection = selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0;
 
         if (!hasSelection) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectionBoundingBox(null);
             return;
         }
@@ -76,6 +77,7 @@ export function useSelectionBounds({
         });
 
         if (minX !== Infinity) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectionBoundingBox({
                 x: minX,
                 y: minY,

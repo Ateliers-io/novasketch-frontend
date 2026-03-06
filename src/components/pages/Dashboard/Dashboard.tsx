@@ -6,9 +6,6 @@ import {
     Search,
     Plus,
     Clock,
-    ChevronRight,
-    Settings,
-    LogOut,
     FolderOpen,
     FileCode,
     CheckCircle2,
@@ -19,7 +16,6 @@ import {
     Terminal,
     Grid3X3,
     List as ListIcon,
-    MoreHorizontal,
     Trash2,
     Copy,
     Edit2,
@@ -27,13 +23,13 @@ import {
     Sparkles,
     Bell,
     X,
-    Check,
     User,
     UserPlus,
     Share2,
     MessageSquare,
     AlertCircle,
-    Loader2
+    Loader2,
+    LogOut
 } from 'lucide-react';
 import { useAuth } from '../../../contexts';
 import { createSession } from '../../../services/session.service';
@@ -407,14 +403,6 @@ export const Dashboard = () => {
     const dismissNotification = (id: number) => {
         setNotifications(notifications.filter(n => n.id !== id));
     };
-
-    // Filter projects
-    const filteredProjects = MOCK_PROJECTS.filter(project => {
-        if (projectFilter === 'all') return true;
-        if (projectFilter === 'collab') return project.isCollab;
-        if (projectFilter === 'personal') return !project.isCollab;
-        return true;
-    });
 
     const collabProjects = MOCK_PROJECTS.filter(p => p.isCollab);
     const personalProjects = MOCK_PROJECTS.filter(p => !p.isCollab);

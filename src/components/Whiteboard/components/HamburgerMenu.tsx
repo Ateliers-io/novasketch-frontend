@@ -131,9 +131,11 @@ function generateSVGString(
     lines: any[],
     shapes: Shape[],
     textAnnotations: any[],
-    backgroundColor: string
+    backgroundColor: string,
+    offsetX: number = 0,
+    offsetY: number = 0
 ): string {
-    let svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+    let svgContent = `<svg width="${width}" height="${height}" viewBox="${offsetX} ${offsetY} ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
 
     svgContent += `
     <defs>
@@ -141,7 +143,7 @@ function generateSVGString(
             <polygon points="0 0, 10 3.5, 0 7" fill="#66FCF1" />
         </marker>
     </defs>
-    <rect width="100%" height="100%" fill="${backgroundColor}"/>`;
+    <rect x="${offsetX}" y="${offsetY}" width="${width}" height="${height}" fill="${backgroundColor}"/>`;
 
     const sortedShapes = [...shapes].sort((a, b) => a.zIndex - b.zIndex);
 
@@ -397,9 +399,6 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     shapes = [],
     textAnnotations = [],
     backgroundColor = '#0b0c10',
-    isOwner = false,
-    isLocked = false,
-    onToggleLock,
     onClearCanvas,
     theme = 'dark',
     onToggleTheme,
@@ -464,11 +463,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
             }
 
             // Generate SVG with a viewBox that encompasses all content
-            const svgString = generateSVGString(exportWidth, exportHeight, lines, shapes, textAnnotations, backgroundColor)
-                .replace(
-                    `viewBox="0 0 ${exportWidth} ${exportHeight}"`,
-                    `viewBox="${offsetX} ${offsetY} ${exportWidth} ${exportHeight}"`
-                );
+            const svgString = generateSVGString(exportWidth, exportHeight, lines, shapes, textAnnotations, backgroundColor, offsetX, offsetY);
 
             const img = new Image();
             const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
@@ -504,13 +499,28 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
             document.body.appendChild(link);
             link.click();
             link.remove();
-        }, format === 'jpeg');
+        }, true); // Always fill background for raster exports
     }, [processCanvasExport]);
 
     const handleExportSVG = useCallback(() => {
-        const size = getCanvasSize();
-        if (!size) return;
-        const svgContent = generateSVGString(size.width, size.height, lines, shapes, textAnnotations, backgroundColor);
+        const bounds = computeContentBounds(lines, shapes, textAnnotations);
+        const viewportSize = getCanvasSize();
+        if (!viewportSize) return;
+
+        let exportWidth = viewportSize.width;
+        let exportHeight = viewportSize.height;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (bounds) {
+            const PADDING = 40;
+            offsetX = bounds.minX - PADDING;
+            offsetY = bounds.minY - PADDING;
+            exportWidth = (bounds.maxX - bounds.minX) + PADDING * 2;
+            exportHeight = (bounds.maxY - bounds.minY) + PADDING * 2;
+        }
+
+        const svgContent = generateSVGString(exportWidth, exportHeight, lines, shapes, textAnnotations, backgroundColor, offsetX, offsetY);
         const blob = new Blob([svgContent], { type: 'image/svg+xml' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -666,7 +676,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                             height: 2,
                             left: 0,
                             backgroundColor: palette(theme).accent,
-                            top: isOpen ? 5 : 1,
+                            top: isOpen ? 6 : 1,
                             transform: isOpen ? 'rotate(45deg)' : 'none',
                             transformOrigin: 'center',
                         }}
@@ -678,7 +688,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                             height: 2,
                             left: 0,
                             backgroundColor: palette(theme).accent,
-                            top: 5.5,
+                            top: 6,
                             opacity: isOpen ? 0 : 1,
                         }}
                     />
@@ -732,6 +742,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                             className="py-1.5 overflow-y-auto"
                             style={{ maxHeight: 'calc(70vh - 48px)' }}
                         >
+                            {/* eslint-disable-next-line react-hooks/refs */}
                             {allSections.map((section, sIdx) => (
                                 <div key={section.id}>
                                     {/* Section header */}
@@ -748,7 +759,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                             key={item.id}
                                             item={item}
                                             theme={theme}
-                                            isLocked={isLocked}
+                                            isLocked={false}
                                             isExpanded={!!expandedSubmenus[item.id]}
                                             onToggle={(i) => setExpandedSubmenus(prev => ({ ...prev, [i.id]: !prev[i.id] }))}
                                             onItemClick={handleItemClick}

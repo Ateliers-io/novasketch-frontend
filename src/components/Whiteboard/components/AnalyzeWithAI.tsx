@@ -104,11 +104,10 @@ const AIButton: React.FC<{
 const AnalyzeWithAI: React.FC<AnalyzeWithAIProps> = ({ theme = 'dark', onCaptureCanvas }) => {
     const [status, setStatus] = useState<string | null>(null);
     const isLight = theme === 'light';
-    const descColor = isLight ? '#64748b' : '#94a3b8';
     const attrColor = isLight ? '#94a3b8' : '#475569';
     const attrBorder = isLight ? '#f1f5f9' : '#1e293b';
 
-    const captureAndOpen = async (service: 'chatgpt' | 'gemini') => {
+    const captureAndOpen = async (service: 'chatgpt' | 'gemini' | 'claude') => {
         if (onCaptureCanvas) {
             try {
                 setStatus('Capturing...');
@@ -130,18 +129,24 @@ const AnalyzeWithAI: React.FC<AnalyzeWithAIProps> = ({ theme = 'dark', onCapture
             }
         }
 
-        const url = service === 'chatgpt'
-            ? 'https://chatgpt.com/'
-            : 'https://gemini.google.com/app';
-        window.open(url, '_blank');
+        // Wait 2 seconds before opening so the user can see the "copied" toast
+        setTimeout(() => {
+            const url = service === 'chatgpt'
+                ? 'https://chatgpt.com/'
+                : service === 'gemini'
+                    ? 'https://gemini.google.com/app'
+                    : 'https://claude.ai/new';
+            window.open(url, '_blank');
+        }, 2000);
     };
 
     return (
         <div className="flex flex-col px-4 py-3">
             {/* AI Buttons */}
-            <div className="flex items-center justify-center gap-6 w-full py-1">
+            <div className="flex items-center justify-center gap-4 w-full py-1">
                 <AIButton label="ChatGPT" imgSrc="/share-icons/chatgpt.webp" isLight={isLight} onClick={() => captureAndOpen('chatgpt')} />
                 <AIButton label="Gemini" imgSrc="/share-icons/gemini.webp" isLight={isLight} onClick={() => captureAndOpen('gemini')} />
+                <AIButton label="Claude" imgSrc="/share-icons/claude.webp" isLight={isLight} onClick={() => captureAndOpen('claude')} />
             </div>
 
             {/* Status toast */}

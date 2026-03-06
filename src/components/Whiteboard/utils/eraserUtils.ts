@@ -87,7 +87,7 @@ export function eraseAtPosition(x: number, y: number, strokes: StrokeLine[], era
     const result: StrokeLine[] = [];
     for (const stroke of strokes) {
         const points = stroke.points;
-        let currentLinePoints: number[] = [];
+        const currentLinePoints: number[] = [];
 
         const finishLine = () => {
             if (currentLinePoints.length >= 4) {

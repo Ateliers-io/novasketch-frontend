@@ -1,5 +1,5 @@
-import React, { useMemo, useEffect } from 'react';
-import { Layer, Rect } from 'react-konva';
+import React, { useMemo } from 'react';
+import { Rect } from 'react-konva';
 import { GridConfig } from '../../types/grid';
 
 interface GridRendererProps {
@@ -55,7 +55,7 @@ export default function GridRenderer({
             case 'vertical_lines':
                 ctx.fillRect(0, 0, thickness, size);
                 break;
-            case 'crosses':
+            case 'crosses': {
                 const arm = Math.min(size / 4, 10);
                 const cx = size / 2;
                 const cy = size / 2;
@@ -65,10 +65,11 @@ export default function GridRenderer({
                 // Vertical arm
                 ctx.fillRect(cx - halfThick, cy - arm, thickness, arm * 2);
                 break;
+            }
         }
 
         return canvas;
-    }, [config.appearance, config.size, config.color, config.thickness]);
+    }, [config.appearance, config.size, config.color, config.thickness, config.snapEnabled]);
 
     if (!patternCanvas) return null;
 

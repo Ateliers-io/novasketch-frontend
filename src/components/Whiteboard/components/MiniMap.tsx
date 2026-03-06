@@ -219,6 +219,9 @@ const MiniMap: React.FC<MiniMapProps> = ({
         onNavigate(worldX, worldY);
     };
 
+    // eslint-disable-next-line react-hooks/refs
+    const svgCursorStyle = isDraggingRef.current ? 'grabbing' : 'pointer';
+
     return (
         <div
             className="fixed bottom-4 right-4 z-50 rounded-lg overflow-hidden shadow-xl"
@@ -236,7 +239,7 @@ const MiniMap: React.FC<MiniMapProps> = ({
             <svg
                 width={MINIMAP_WIDTH}
                 height={MINIMAP_HEIGHT}
-                style={{ cursor: isDraggingRef.current ? 'grabbing' : 'pointer' }}
+                style={{ cursor: svgCursorStyle }}
                 onClick={handleClick}
                 onMouseMove={handleSvgMouseMove}
                 onMouseUp={handleSvgMouseUp}

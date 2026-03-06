@@ -294,7 +294,7 @@ class SyncService {
                             const jsonStr = decoding.readVarString(decoder);
                             this.config.onSystemEvent(JSON.parse(jsonStr));
                         }
-                    } catch (e) {
+                    } catch {
                         // ignore parsing errors for sync messages
                     }
                 });

@@ -12,7 +12,7 @@ vi.mock('./sync.service', () => ({
         }
         canUndo() { return false; }
         canRedo() { return false; }
-        updateCursorPosition(_x: number, _y: number) {
+        updateCursorPosition() {
             // Mock implementation
         }
     }

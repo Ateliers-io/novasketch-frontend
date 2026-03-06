@@ -36,10 +36,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     // 2. Handle Theme Application
     useEffect(() => {
         const root = window.document.documentElement;
-        
+
         // Remove old classes
         root.classList.remove('light', 'dark');
-        
+
         // Determine actual theme
         let targetTheme: 'light' | 'dark';
 
@@ -51,10 +51,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // Update state and DOM
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setResolvedTheme(targetTheme);
         root.classList.add(targetTheme);
         root.setAttribute('data-theme', targetTheme);
-        
+
         // Persist
         localStorage.setItem(STORAGE_KEY, theme);
 
@@ -68,7 +69,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         const handleChange = () => {
             const root = window.document.documentElement;
             const newSystemTheme = mediaQuery.matches ? 'dark' : 'light';
-            
+
             root.classList.remove('light', 'dark');
             root.classList.add(newSystemTheme);
             root.setAttribute('data-theme', newSystemTheme);

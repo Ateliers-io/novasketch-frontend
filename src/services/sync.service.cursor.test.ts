@@ -37,7 +37,7 @@ vi.mock('yjs', () => {
         Doc: class MockDoc {
             getArray = vi.fn(() => makeArray());
             getMap = vi.fn(() => makeMap());
-            transact = vi.fn((fn: Function) => fn());
+            transact = vi.fn((fn: () => void) => fn());
             on = vi.fn();
             destroy = vi.fn();
         },
@@ -63,7 +63,7 @@ vi.mock('y-websocket', () => ({
 
 vi.mock('y-indexeddb', () => ({
     IndexeddbPersistence: class MockIDB {
-        once = vi.fn((_: string, cb: Function) => cb());
+        once = vi.fn((_: string, cb: () => void) => cb());
         destroy = vi.fn();
     },
 }));
@@ -132,7 +132,7 @@ describe('SyncService — Cursor Broadcasting (Task 3.1.1)', () => {
 // ─────────────────────────────────────────────────────────────
 describe('SyncService — Awareness Cursor Extraction (Task 3.1.3)', () => {
     let onAwarenessUpdate: any;
-    let changeHandler: Function;
+    let changeHandler: () => void;
 
     beforeEach(async () => {
         onAwarenessUpdate = vi.fn();

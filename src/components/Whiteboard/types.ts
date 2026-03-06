@@ -17,6 +17,8 @@ export interface TextAnnotation {
 
     textAlign?: 'left' | 'center' | 'right';
     rotation?: number;
+    parentId?: string;
+    zIndex?: number;
 }
 
 export interface Action {

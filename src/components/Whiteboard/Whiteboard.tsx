@@ -21,6 +21,7 @@ import {
   isLine,
   isArrow,
   isTriangle,
+  isFrame,
   RectangleShape,
   CircleShape,
   EllipseShape,
@@ -714,15 +715,29 @@ export default function Whiteboard({
 
   // Hit test for selection: find item (text, line, shape) at clicked point
   function findElementAtPoint(x: number, y: number): { id: string; type: 'shape' | 'line' | 'text' } | null {
+    function getAbsoluteOffset(parentId: string | undefined): { x: number, y: number } {
+      let ox = 0, oy = 0, curr = parentId;
+      for (let depth = 0; depth < 5 && curr; depth++) {
+        const parent = shapes.find(sh => sh.id === curr);
+        if (parent) {
+          ox += parent.position.x;
+          oy += parent.position.y;
+          curr = parent.parentId;
+        } else break;
+      }
+      return { x: ox, y: oy };
+    }
+
     // 1. Text (Top Layer)
     for (let i = textAnnotations.length - 1; i >= 0; i--) {
       const t = textAnnotations[i];
-      // simplified hit test: approximating width since we don't have canvas context measureText here.
-      // 0.6 is a rough average aspect ratio (width/height) for most sans-serif fonts.
-      // FIXME: this effectively assumes monospaced behavior, results will be sloppy for 'iiii' vs 'MMMM'.
       const w = t.text.length * (t.fontSize * 0.6);
       const h = t.fontSize * 1.2;
-      if (x >= t.x && x <= t.x + w && y >= t.y && y <= t.y + h) {
+      const offset = getAbsoluteOffset(t.parentId);
+      const absX = t.x + offset.x;
+      const absY = t.y + offset.y;
+      if (x >= absX && x <= absX + w && y >= absY && y <= absY + h) {
+        if (t.parentId) return { id: t.parentId, type: 'shape' }; // Text in frame acts as shape selection
         return { id: t.id, type: 'text' };
       }
     }
@@ -730,7 +745,6 @@ export default function Whiteboard({
     // 2. Lines (Middle Layer)
     for (let i = lines.length - 1; i >= 0; i--) {
       const l = lines[i];
-      // Bounding box check with buffer
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (let j = 0; j < l.points.length; j += 2) {
         minX = Math.min(minX, l.points[j]);
@@ -739,17 +753,38 @@ export default function Whiteboard({
         maxY = Math.max(maxY, l.points[j + 1]);
       }
       const buf = (l.strokeWidth || 5) / 2 + 5;
-      if (x >= minX - buf && x <= maxX + buf && y >= minY - buf && y <= maxY + buf) {
+      const offset = getAbsoluteOffset(l.parentId);
+      if (x >= minX + offset.x - buf && x <= maxX + offset.x + buf && y >= minY + offset.y - buf && y <= maxY + offset.y + buf) {
+        if (l.parentId) return { id: l.parentId, type: 'shape' }; // Lines in frame select the frame
         return { id: l.id, type: 'line' };
       }
     }
 
     // 3. Shapes
-    // Opting for a bounding box check here as it's significantly more performant (O(1)) 
-    // than a precise point-in-polygon algorithm for hit testing.
     for (let i = shapes.length - 1; i >= 0; i--) {
       const s = shapes[i];
-      if (isPointInBoundingBox({ x, y }, getShapeBoundingBox(s), 5)) {
+      const bb = getShapeBoundingBox(s);
+      const offset = getAbsoluteOffset(s.parentId);
+      const globalBB = {
+        ...bb,
+        minX: bb.minX + offset.x,
+        maxX: bb.maxX + offset.x,
+        minY: bb.minY + offset.y,
+        maxY: bb.maxY + offset.y,
+      };
+
+      if (isPointInBoundingBox({ x, y }, globalBB, 5)) {
+        // Epic 7.5.3: Selection logic - clicking a child selects the Frame
+        if (s.parentId) {
+          // Find the top-level parent (Frame)
+          let currentParentId = s.parentId;
+          for (let depth = 0; depth < 5; depth++) {
+            const parent = shapes.find(sh => sh.id === currentParentId);
+            if (!parent?.parentId) break;
+            currentParentId = parent.parentId;
+          }
+          return { id: currentParentId, type: 'shape' };
+        }
         return { id: s.id, type: 'shape' };
       }
     }
@@ -1254,11 +1289,23 @@ export default function Whiteboard({
       if (handleId) {
         setIsResizing(true);
         setResizeHandle(handleId);
+        const selectedFrames = shapes.filter(s => selectedShapeIds.has(s.id) && isFrame(s));
+        const frameChildrenIds = new Set(selectedFrames.flatMap(f => (f as any).childrenIds || []));
+
         setInitialResizeState({
           box: { ...selectionBoundingBox },
-          shapes: new Map(shapes.filter(s => selectedShapeIds.has(s.id)).map(s => [s.id, s])),
-          lines: new Map(lines.filter(l => selectedLineIds.has(l.id)).map(l => [l.id, l])),
-          texts: new Map(textAnnotations.filter(t => selectedTextIds.has(t.id)).map(t => [t.id, t]))
+          shapes: new Map([
+            ...shapes.filter(s => selectedShapeIds.has(s.id)).map(s => [s.id, s] as [string, Shape]),
+            ...shapes.filter(s => s.parentId && selectedShapeIds.has(s.parentId)).map(s => [s.id, s] as [string, Shape])
+          ]),
+          lines: new Map([
+            ...lines.filter(l => selectedLineIds.has(l.id)).map(l => [l.id, l]),
+            ...lines.filter(l => l.parentId && selectedShapeIds.has(l.parentId)).map(l => [l.id, l])
+          ] as [string, StrokeLine][]),
+          texts: new Map([
+            ...textAnnotations.filter(t => selectedTextIds.has(t.id)).map(t => [t.id, t] as [string, TextAnnotation]),
+            ...textAnnotations.filter(t => t.parentId && selectedShapeIds.has(t.parentId)).map(t => [t.id, t] as [string, TextAnnotation])
+          ])
         });
         return;
       }
@@ -1763,13 +1810,21 @@ export default function Whiteboard({
           setShapes(prev => prev.map(s => {
             const initS = initialResizeState.shapes.get(s.id);
             if (initS) {
-              // Calculate relative position
-              const relX = initS.position.x - box.x;
-              const relY = initS.position.y - box.y;
-
               // New pos
-              const finalX = newX + relX * scaleX;
-              const finalY = newY + relY * scaleY;
+              let finalX: number, finalY: number;
+
+              if (initS.parentId) {
+                // If it's a child, position is relative to parent.
+                // We scale it proportionally within the parent's coordinate space.
+                finalX = initS.position.x * scaleX;
+                finalY = initS.position.y * scaleY;
+              } else {
+                // Global object logic
+                const relX = initS.position.x - box.x;
+                const relY = initS.position.y - box.y;
+                finalX = newX + relX * scaleX;
+                finalY = newY + relY * scaleY;
+              }
 
               if (isRectangle(initS)) {
                 return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY } as Shape;
@@ -1794,6 +1849,8 @@ export default function Whiteboard({
                     y: newY + (ls.endPoint.y - box.y) * scaleY,
                   },
                 } as Shape;
+              } else if (isFrame(initS)) {
+                return { ...s, position: { x: finalX, y: finalY }, width: (initS as any).width * scaleX, height: (initS as any).height * scaleY } as Shape;
               } else if (isEllipse(initS)) {
                 const es = initS as EllipseShape;
                 // Proper Ellipse Resize
@@ -1829,11 +1886,20 @@ export default function Whiteboard({
             const initL = initialResizeState.lines.get(l.id);
             if (initL) {
               const newPoints = [];
+              const isRelative = !!initL.parentId;
+
               for (let i = 0; i < initL.points.length; i += 2) {
                 const px = initL.points[i];
                 const py = initL.points[i + 1];
-                const nx = newX + (px - box.x) * scaleX;
-                const ny = newY + (py - box.y) * scaleY;
+                let nx: number, ny: number;
+
+                if (isRelative) {
+                  nx = px * scaleX;
+                  ny = py * scaleY;
+                } else {
+                  nx = newX + (px - box.x) * scaleX;
+                  ny = newY + (py - box.y) * scaleY;
+                }
                 newPoints.push(nx, ny);
               }
               return { ...l, points: newPoints };
@@ -1847,8 +1913,14 @@ export default function Whiteboard({
           setTextAnnotations(prev => prev.map(t => {
             const initT = initialResizeState.texts.get(t.id);
             if (initT) {
-              const nx = newX + (initT.x - box.x) * scaleX;
-              const ny = newY + (initT.y - box.y) * scaleY;
+              let nx: number, ny: number;
+              if (initT.parentId) {
+                nx = initT.x * scaleX;
+                ny = initT.y * scaleY;
+              } else {
+                nx = newX + (initT.x - box.x) * scaleX;
+                ny = newY + (initT.y - box.y) * scaleY;
+              }
 
               let fontScale = scaleY;
               if (['e', 'w'].includes(resizeHandle)) fontScale = scaleX;
@@ -2461,7 +2533,18 @@ export default function Whiteboard({
           shapeBbox.minY > marqueeBox.maxY
         );
         if (intersects) {
-          selectedShapeIdsNew.add(shape.id);
+          if (shape.parentId) {
+            // Find root frame
+            let rootId = shape.parentId;
+            for (let d = 0; d < 5; d++) {
+              const p = shapes.find(sh => sh.id === rootId);
+              if (!p?.parentId) break;
+              rootId = p.parentId;
+            }
+            selectedShapeIdsNew.add(rootId);
+          } else {
+            selectedShapeIdsNew.add(shape.id);
+          }
         }
       });
 
@@ -2484,7 +2567,17 @@ export default function Whiteboard({
           lineMinY > marqueeBox.maxY
         );
         if (intersects) {
-          selectedLineIdsNew.add(line.id);
+          if (line.parentId) {
+            let rootId = line.parentId;
+            for (let d = 0; d < 5; d++) {
+              const p = shapes.find(sh => sh.id === rootId);
+              if (!p?.parentId) break;
+              rootId = p.parentId;
+            }
+            selectedShapeIdsNew.add(rootId);
+          } else {
+            selectedLineIdsNew.add(line.id);
+          }
         }
       });
 
@@ -2499,7 +2592,17 @@ export default function Whiteboard({
           text.y > marqueeBox.maxY
         );
         if (intersects) {
-          selectedTextIdsNew.add(text.id);
+          if (text.parentId) {
+            let rootId = text.parentId;
+            for (let d = 0; d < 5; d++) {
+              const p = shapes.find(sh => sh.id === rootId);
+              if (!p?.parentId) break;
+              rootId = p.parentId;
+            }
+            selectedShapeIdsNew.add(rootId);
+          } else {
+            selectedTextIdsNew.add(text.id);
+          }
         }
       });
 
@@ -3096,8 +3199,13 @@ export default function Whiteboard({
           showRotationHandle={true} // Always allow rotation because we support group rotation now!
           transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
           onGroup={() => {
-            groupIntoFrame(Array.from(selectedShapeIds));
+            const arr = Array.from(selectedShapeIds);
+            const lArr = Array.from(selectedLineIds);
+            const tArr = Array.from(selectedTextIds);
+            groupIntoFrame(arr, lArr, tArr);
             setSelectedShapeIds(new Set());
+            setSelectedLineIds(new Set());
+            setSelectedTextIds(new Set());
           }}
           onUngroup={() => {
             const frameId = Array.from(selectedShapeIds)[0];

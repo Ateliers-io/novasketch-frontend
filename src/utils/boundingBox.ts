@@ -15,6 +15,7 @@ import {
     LineShape,
     ArrowShape,
     TriangleShape,
+    FrameShape,
     Position,
 } from '../types/shapes';
 
@@ -147,6 +148,20 @@ function getTriangleBoundingBox(shape: TriangleShape): BoundingBox {
 }
 
 /**
+ * Calculates the bounding box for a Frame shape
+ */
+function getFrameBoundingBox(shape: FrameShape): BoundingBox {
+    const { position, width, height, style } = shape;
+    const padding = (style?.strokeWidth || 0) / 2;
+    return createBoundingBox(
+        position.x - padding,
+        position.y - padding,
+        position.x + width + padding,
+        position.y + height + padding
+    );
+}
+
+/**
  * Calculates the bounding box for any single shape
  * @param shape - The shape to calculate the bounding box for
  * @returns The bounding box of the shape
@@ -165,6 +180,8 @@ export function getShapeBoundingBox(shape: Shape): BoundingBox {
             return getArrowBoundingBox(shape as ArrowShape);
         case ShapeType.TRIANGLE:
             return getTriangleBoundingBox(shape as TriangleShape);
+        case ShapeType.FRAME:
+            return getFrameBoundingBox(shape as FrameShape);
         default: {
             // Fallback for unknown shapes - use position as origin
             const unknownShape = shape as Shape;
@@ -210,6 +227,10 @@ export function getShapeGeometryBoundingBox(shape: Shape): BoundingBox {
             const xCoords = s.points.map(p => p.x);
             const yCoords = s.points.map(p => p.y);
             return createBoundingBox(Math.min(...xCoords), Math.min(...yCoords), Math.max(...xCoords), Math.max(...yCoords));
+        }
+        case ShapeType.FRAME: {
+            const s = shape as FrameShape;
+            return createBoundingBox(s.position.x, s.position.y, s.position.x + s.width, s.position.y + s.height);
         }
         default:
             return getShapeBoundingBox(shape);

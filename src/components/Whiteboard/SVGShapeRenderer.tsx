@@ -372,7 +372,7 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
 
                     // Only start rendering from root-level shapes (no parent)
                     return sortedShapes
-                        .filter(s => !s.parentId && s.visible)
+                        .filter(s => !s.parentId && s.visible !== false)
                         .map(s => renderShape(s));
                 }, [sortedShapes, selectedShapeIds, onShapeClick])}
             </g>

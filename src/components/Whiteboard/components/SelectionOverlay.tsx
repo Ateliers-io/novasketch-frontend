@@ -187,7 +187,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                 <g
                                     className="action-button group-button"
                                     style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-                                    onClick={(e) => { e.stopPropagation(); onGroup?.(); }}
+                                    onPointerDown={(e) => { e.stopPropagation(); onGroup?.(); }}
                                 >
                                     <rect x="-45" y="0" width="40" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
                                     <text x="-25" y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>GROUP</text>
@@ -197,7 +197,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                 <g
                                     className="action-button ungroup-button"
                                     style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-                                    onClick={(e) => { e.stopPropagation(); onUngroup?.(); }}
+                                    onPointerDown={(e) => { e.stopPropagation(); onUngroup?.(); }}
                                 >
                                     <rect x={canGroup ? "5" : "-45"} y="0" width="55" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
                                     <text x={canGroup ? "32.5" : "-17.5"} y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>UNGROUP</text>

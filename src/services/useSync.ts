@@ -42,7 +42,7 @@ interface UseSyncResult {
     updateShape: (id: string, updates: Partial<Shape>) => void;
     deleteShape: (id: string) => void;
     setShapes: (shapes: Shape[]) => void;
-    groupIntoFrame: (shapeIds: string[]) => void;
+    groupIntoFrame: (shapeIds: string[], lineIds?: string[], textIds?: string[]) => void;
     ungroupFrame: (frameId: string) => void;
 
     // Text operations
@@ -219,8 +219,8 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         updateUndoRedoState();
     }, [updateUndoRedoState]);
 
-    const groupIntoFrame = useCallback((shapeIds: string[]) => {
-        serviceRef.current?.groupIntoFrame(shapeIds);
+    const groupIntoFrame = useCallback((shapeIds: string[], lineIds: string[] = [], textIds: string[] = []) => {
+        serviceRef.current?.groupIntoFrame(shapeIds, lineIds, textIds);
         updateUndoRedoState();
     }, [updateUndoRedoState]);
 

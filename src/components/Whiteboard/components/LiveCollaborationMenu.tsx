@@ -197,6 +197,37 @@ const StopSessionButton: React.FC<{
     );
 };
 
+const StartSessionButton: React.FC<{
+    isLight: boolean;
+    onStart: () => void;
+}> = ({ isLight, onStart }) => (
+    <div className="flex flex-col gap-3 px-4 py-3">
+        <button
+            onClick={onStart}
+            className="w-full py-2.5 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+            style={{
+                backgroundColor: isLight ? '#2A9D8F' : '#66FCF1',
+                color: isLight ? '#ffffff' : '#0B0C10',
+                boxShadow: isLight ? '0 4px 12px rgba(42,157,143,0.3)' : '0 0 10px rgba(102,252,241,0.2)'
+            }}
+        >
+            <Users size={16} />
+            <span>Start Live Session</span>
+        </button>
+    </div>
+);
+
+const AttributionFooter: React.FC<{ isLight: boolean }> = ({ isLight }) => {
+    const attrColor = isLight ? '#94a3b8' : '#475569';
+    const attrBorder = isLight ? '#f1f5f9' : '#1e293b';
+
+    return (
+        <div className="text-[10px] text-center mt-1 pt-2 border-t flex flex-col" style={{ color: attrColor, borderColor: attrBorder }}>
+            <a href="https://www.flaticon.com/free-icons/whatsapp" title="whatsapp icons" target="_blank" rel="noreferrer" className="hover:underline"></a>
+        </div>
+    );
+};
+
 const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, theme = 'dark' }) => {
     const [isSessionActive, setIsSessionActive] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -221,26 +252,10 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
     const handleWhatsApp = () => handleWhatsAppShare(inviteLink, qrRef);
 
     if (!isSessionActive) {
-        return (
-            <div className="flex flex-col gap-3 px-4 py-3">
-                <button
-                    onClick={() => setIsSessionActive(true)}
-                    className="w-full py-2.5 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-                    style={{
-                        backgroundColor: isLight ? '#2A9D8F' : '#66FCF1',
-                        color: isLight ? '#ffffff' : '#0B0C10',
-                        boxShadow: isLight ? '0 4px 12px rgba(42,157,143,0.3)' : '0 0 10px rgba(102,252,241,0.2)'
-                    }}
-                >
-                    <Users size={16} />
-                    <span>Start Live Session</span>
-                </button>
-            </div>
-        );
+        return <StartSessionButton isLight={isLight} onStart={() => setIsSessionActive(true)} />;
     }
 
-    const attrColor = isLight ? '#94a3b8' : '#475569';
-    const attrBorder = isLight ? '#f1f5f9' : '#1e293b';
+
 
     return (
         <div className="flex flex-col gap-4 px-4 py-3 min-w-[320px]">
@@ -267,10 +282,7 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
                 onStop={() => setIsSessionActive(false)}
             />
 
-            {/* Attributions */}
-            <div className="text-[10px] text-center mt-1 pt-2 border-t flex flex-col" style={{ color: attrColor, borderColor: attrBorder }}>
-                <a href="https://www.flaticon.com/free-icons/whatsapp" title="whatsapp icons" target="_blank" rel="noreferrer" className="hover:underline"></a>
-            </div>
+            <AttributionFooter isLight={isLight} />
         </div>
     );
 };

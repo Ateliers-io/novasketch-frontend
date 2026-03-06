@@ -131,6 +131,9 @@ export interface FrameShape extends BaseShape {
     childrenIds: string[];
     backgroundVisible: boolean;
     padding: number;
+    ownerId: string;
+    assignedUserIds: string[];
+    name: string;
 }
 
 export type Shape =
@@ -341,6 +344,9 @@ export function createFrame(
         childrenIds: [],
         backgroundVisible: true,
         padding: 10,
+        ownerId: "unknown",
+        assignedUserIds: [],
+        name: "Frame",
         style: {
             ...DEFAULT_SHAPE_STYLE,
             fill: 'rgba(255, 255, 255, 0.1)',

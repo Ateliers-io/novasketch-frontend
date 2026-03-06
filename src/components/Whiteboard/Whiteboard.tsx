@@ -311,9 +311,9 @@ export default function Whiteboard({
   // Task 1.3.3-B: Broadcast our identity to collaborators as soon as we connect
   useEffect(() => {
     if (isConnected && userName) {
-      updateUserMetadata(userMetadata);
+      updateUserMetadata({ ...userMetadata, id: user?.id || 'anonymous' });
     }
-  }, [isConnected, userName, userMetadata, updateUserMetadata]);
+  }, [isConnected, userName, userMetadata, updateUserMetadata, user?.id]);
 
   // local ref to avoid staleness in event handlers.
   // local ref to avoid staleness in event handlers.
@@ -3202,7 +3202,7 @@ export default function Whiteboard({
             const arr = Array.from(selectedShapeIds);
             const lArr = Array.from(selectedLineIds);
             const tArr = Array.from(selectedTextIds);
-            groupIntoFrame(arr, lArr, tArr);
+            groupIntoFrame(arr, lArr, tArr, user?.id || 'anonymous');
             setSelectedShapeIds(new Set());
             setSelectedLineIds(new Set());
             setSelectedTextIds(new Set());

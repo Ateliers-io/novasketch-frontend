@@ -12,6 +12,7 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import { getShapeBoundingBox } from '../utils/boundingBox';
+import { ShapeType } from '../types/shapes';
 // Inline varint decoding helpers (replaces lib0/decoding import).
 // lib0 is only a transitive dep of yjs and breaks production builds.
 const decoding = {
@@ -86,6 +87,9 @@ export interface Shape {
     visible?: boolean;
     locked?: boolean;
     opacity?: number;
+    ownerId?: string;
+    assignedUserIds?: string[];
+    name?: string;
 }
 
 export interface TextAnnotation {
@@ -121,7 +125,7 @@ export interface SyncServiceConfig {
     onConnectionChange?: (connected: boolean) => void;
     onSyncStatusChange?: (synced: boolean) => void;
     // Task 1.3.3-B / 3.1.3: notifies React when collaborators or their cursor positions change
-    onAwarenessUpdate?: (users: { name: string; color: string; cursor?: { x: number; y: number } }[]) => void;
+    onAwarenessUpdate?: (users: { id: string; name: string; color: string; cursor?: { x: number; y: number } }[]) => void;
     // Task 1.5.1: Notifies React for system events like session_locked
     onSystemEvent?: (event: any) => void;
     // Task 1.5 fix: Dedicated callback for lock state changes via Yjs yMeta
@@ -321,7 +325,7 @@ class SyncService {
             const awareness = this.wsProvider!.awareness;
             const localClientID = awareness.clientID;
             const seen = new Set<string>();
-            const users: { name: string; color: string; cursor?: { x: number; y: number } }[] = [];
+            const users: { id: string; name: string; color: string; cursor?: { x: number; y: number } }[] = [];
 
             awareness.getStates().forEach((state: any, clientID: number) => {
                 const u = state.user;
@@ -334,7 +338,7 @@ class SyncService {
                     ? { x: state.cursor.x, y: state.cursor.y }
                     : undefined;
 
-                users.push({ name: u.name, color: u.color, cursor });
+                users.push({ id: u.id, name: u.name, color: u.color, cursor });
             });
 
             this.config.onAwarenessUpdate(users);
@@ -380,10 +384,10 @@ class SyncService {
     // --- USER AWARENESS ---
 
     /**
-     * Task 1.3.3-B: Publish this user's name + color to all collaborators
+     * Broadcasts the current user's metadata (name, color, id) to other clients
      * via the Yjs Awareness protocol.
      */
-    updateUserMetadata(metadata: { name: string; color: string }): void {
+    updateUserMetadata(metadata: { id: string; name: string; color: string }): void {
         this.wsProvider?.awareness.setLocalStateField('user', metadata);
     }
 
@@ -523,8 +527,8 @@ class SyncService {
     /**
      * Group a set of shape IDs into a new Frame.
      */
-    groupIntoFrame(shapeIds: string[], lineIds: string[] = [], textIds: string[] = []): void {
-        console.log('[SyncService] groupIntoFrame called with IDs:', shapeIds, lineIds, textIds);
+    groupIntoFrame(shapeIds: string[], lineIds: string[] = [], textIds: string[] = [], ownerId: string = "unknown"): void {
+        console.log('[SyncService] groupIntoFrame called with IDs:', shapeIds, lineIds, textIds, 'owner:', ownerId);
         if (shapeIds.length === 0) {
             console.log('[SyncService] Group failed: No shapes provided');
             return;
@@ -581,7 +585,7 @@ class SyncService {
                 const frameId = `frame-${Date.now()}`;
                 const frame: Shape = {
                     id: frameId,
-                    type: 'frame',
+                    type: ShapeType.FRAME,
                     position: { x: frameX, y: frameY },
                     width: frameW,
                     height: frameH,
@@ -599,6 +603,9 @@ class SyncService {
                     visible: true,
                     locked: false,
                     opacity: 1,
+                    ownerId,
+                    assignedUserIds: [],
+                    name: "Frame",
                 };
 
                 // 3. Update children to be relative

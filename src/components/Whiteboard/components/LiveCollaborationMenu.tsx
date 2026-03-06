@@ -65,6 +65,138 @@ const handleWhatsAppShare = async (inviteLink: string, qrRef: React.RefObject<HT
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
 };
 
+const ShareLinkSection: React.FC<{
+    inviteLink: string;
+    copied: boolean;
+    isLight: boolean;
+    handleCopy: () => void;
+}> = ({ inviteLink, copied, isLight, handleCopy }) => {
+    let btnBg = isLight ? '#F1F5F9' : '#2A3441';
+    let btnColor = isLight ? '#1A3C40' : '#c5c6c7';
+    let btnBorder = isLight ? '1px solid #E6EAF0' : 'none';
+
+    if (copied) {
+        btnBg = isLight ? '#2A9D8F' : '#45A29E';
+        btnColor = isLight ? '#ffffff' : '#0B0C10';
+        btnBorder = isLight ? '1px solid transparent' : 'none';
+    }
+
+    const sessionLabelColor = isLight ? '#5B7F82' : '#c5c6c7';
+    const linkBg = isLight ? '#ffffff' : 'rgba(0,0,0,0.4)';
+    const linkBorderColor = isLight ? '#E6EAF0' : '#1F2833';
+    const linkTextColor = isLight ? '#1A3C40' : '#c5c6c7';
+
+    return (
+        <div className="flex flex-col gap-1.5">
+            <div className="text-xs font-medium" style={{ color: sessionLabelColor }}>Session Link</div>
+            <div className="flex items-stretch gap-2">
+                <div
+                    className="flex-grow flex items-center px-3 py-2 rounded border text-sm truncate"
+                    title={inviteLink}
+                    style={{
+                        backgroundColor: linkBg,
+                        borderColor: linkBorderColor,
+                        color: linkTextColor
+                    }}
+                >
+                    {inviteLink}
+                </div>
+                <button
+                    onClick={handleCopy}
+                    className="flex-shrink-0 flex items-center justify-center gap-1.5 px-3 rounded font-medium transition-all duration-200"
+                    style={{
+                        backgroundColor: btnBg,
+                        color: btnColor,
+                        border: btnBorder
+                    }}
+                >
+                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                    {copied ? 'Copied' : 'Copy'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const WhatsAppShareSection: React.FC<{
+    isLight: boolean;
+    handleWhatsApp: () => void;
+}> = ({ isLight, handleWhatsApp }) => {
+    const shareLabelColor = isLight ? '#64748b' : '#94a3b8';
+    const shareIconBorder = isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)';
+    const shareIconBg = isLight ? '#fff' : '#1e293b';
+    const shareLabelText = isLight ? '#475569' : '#94a3b8';
+
+    return (
+        <div className="flex flex-col items-center gap-1 mt-2 mb-1 w-full">
+            <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: shareLabelColor }}>
+                Share via :
+            </div>
+            <div className="flex items-center justify-center w-full">
+                <button onClick={handleWhatsApp} className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-1 active:scale-95 group">
+                    <div className="w-11 h-11 bg-white rounded-[14px] shadow-sm flex items-center justify-center p-1.5 border" style={{ borderColor: shareIconBorder, background: shareIconBg }}>
+                        <img src="/share-icons/whatsapp.webp" alt="WhatsApp" className="w-full h-full object-contain transition-all group-hover:scale-105" />
+                    </div>
+                    <span className="text-[10px] font-medium" style={{ color: shareLabelText }}>WhatsApp</span>
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const QRCodeSection: React.FC<{
+    inviteLink: string;
+    isLight: boolean;
+    qrRef: React.RefObject<HTMLDivElement | null>;
+}> = ({ inviteLink, isLight, qrRef }) => {
+    const qrLabelColor = isLight ? '#5B7F82' : '#c5c6c7';
+
+    return (
+        <div className="flex flex-col items-center gap-1.5 mt-2">
+            <div className="text-xs font-medium" style={{ color: qrLabelColor }}>Scan to join</div>
+            <div className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center" ref={qrRef as any}>
+                <QRCode
+                    value={inviteLink}
+                    size={140}
+                    bgColor="#ffffff"
+                    fgColor="#000000"
+                    level="Q"
+                />
+            </div>
+        </div>
+    );
+};
+
+const StopSessionButton: React.FC<{
+    isLight: boolean;
+    onStop: () => void;
+}> = ({ isLight, onStop }) => {
+    const stopBg = isLight ? '#fff' : 'transparent';
+
+    return (
+        <button
+            onClick={onStop}
+            className="w-full mt-2 py-2.5 rounded-lg border flex items-center justify-center gap-2 transition-all duration-200"
+            style={{
+                borderColor: 'rgba(239, 68, 68, 0.4)',
+                color: '#ef4444',
+                background: stopBg,
+            }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.6)';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = stopBg;
+                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            }}
+        >
+            <div className="w-3 h-3 rounded-sm bg-[#ef4444]" />
+            <span className="font-medium">Stop session</span>
+        </button>
+    );
+};
+
 const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, theme = 'dark' }) => {
     const [isSessionActive, setIsSessionActive] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -107,111 +239,33 @@ const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, t
         );
     }
 
-    let btnBg = isLight ? '#F1F5F9' : '#2A3441';
-    let btnColor = isLight ? '#1A3C40' : '#c5c6c7';
-    let btnBorder = isLight ? '1px solid #E6EAF0' : 'none';
-
-    if (copied) {
-        btnBg = isLight ? '#2A9D8F' : '#45A29E';
-        btnColor = isLight ? '#ffffff' : '#0B0C10';
-        btnBorder = isLight ? '1px solid transparent' : 'none';
-    }
-
-    const sessionLabelColor = isLight ? '#5B7F82' : '#c5c6c7';
-    const linkBg = isLight ? '#ffffff' : 'rgba(0,0,0,0.4)';
-    const linkBorderColor = isLight ? '#E6EAF0' : '#1F2833';
-    const linkTextColor = isLight ? '#1A3C40' : '#c5c6c7';
-    const shareLabelColor = isLight ? '#64748b' : '#94a3b8';
-    const shareIconBorder = isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)';
-    const shareIconBg = isLight ? '#fff' : '#1e293b';
-    const shareLabelText = isLight ? '#475569' : '#94a3b8';
-    const qrLabelColor = isLight ? '#5B7F82' : '#c5c6c7';
-    const stopBg = isLight ? '#fff' : 'transparent';
     const attrColor = isLight ? '#94a3b8' : '#475569';
     const attrBorder = isLight ? '#f1f5f9' : '#1e293b';
 
     return (
         <div className="flex flex-col gap-4 px-4 py-3 min-w-[320px]">
-            {/* Link input + copy button */}
-            <div className="flex flex-col gap-1.5">
-                <div className="text-xs font-medium" style={{ color: sessionLabelColor }}>Session Link</div>
-                <div className="flex items-stretch gap-2">
-                    <div
-                        className="flex-grow flex items-center px-3 py-2 rounded border text-sm truncate"
-                        title={inviteLink}
-                        style={{
-                            backgroundColor: linkBg,
-                            borderColor: linkBorderColor,
-                            color: linkTextColor
-                        }}
-                    >
-                        {inviteLink}
-                    </div>
-                    <button
-                        onClick={handleCopy}
-                        className="flex-shrink-0 flex items-center justify-center gap-1.5 px-3 rounded font-medium transition-all duration-200"
-                        style={{
-                            backgroundColor: btnBg,
-                            color: btnColor,
-                            border: btnBorder
-                        }}
-                    >
-                        {copied ? <Check size={16} /> : <Copy size={16} />}
-                        {copied ? 'Copied' : 'Copy'}
-                    </button>
-                </div>
-            </div>
+            <ShareLinkSection
+                inviteLink={inviteLink}
+                copied={copied}
+                isLight={isLight}
+                handleCopy={handleCopy}
+            />
 
-            {/* Share via WhatsApp */}
-            <div className="flex flex-col items-center gap-1 mt-2 mb-1 w-full">
-                <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: shareLabelColor }}>
-                    Share via :
-                </div>
-                <div className="flex items-center justify-center w-full">
-                    <button onClick={handleWhatsApp} className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-1 active:scale-95 group">
-                        <div className="w-11 h-11 bg-white rounded-[14px] shadow-sm flex items-center justify-center p-1.5 border" style={{ borderColor: shareIconBorder, background: shareIconBg }}>
-                            <img src="/share-icons/whatsapp.webp" alt="WhatsApp" className="w-full h-full object-contain transition-all group-hover:scale-105" />
-                        </div>
-                        <span className="text-[10px] font-medium" style={{ color: shareLabelText }}>WhatsApp</span>
-                    </button>
-                </div>
-            </div>
+            <WhatsAppShareSection
+                isLight={isLight}
+                handleWhatsApp={handleWhatsApp}
+            />
 
-            {/* Real QR Code */}
-            <div className="flex flex-col items-center gap-1.5 mt-2">
-                <div className="text-xs font-medium" style={{ color: qrLabelColor }}>Scan to join</div>
-                <div className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center" ref={qrRef}>
-                    <QRCode
-                        value={inviteLink}
-                        size={140}
-                        bgColor="#ffffff"
-                        fgColor="#000000"
-                        level="Q"
-                    />
-                </div>
-            </div>
+            <QRCodeSection
+                inviteLink={inviteLink}
+                isLight={isLight}
+                qrRef={qrRef}
+            />
 
-            {/* Stop Session Button */}
-            <button
-                onClick={() => setIsSessionActive(false)}
-                className="w-full mt-2 py-2.5 rounded-lg border flex items-center justify-center gap-2 transition-all duration-200"
-                style={{
-                    borderColor: 'rgba(239, 68, 68, 0.4)',
-                    color: '#ef4444',
-                    background: stopBg,
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.6)';
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = stopBg;
-                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                }}
-            >
-                <div className="w-3 h-3 rounded-sm bg-[#ef4444]" />
-                <span className="font-medium">Stop session</span>
-            </button>
+            <StopSessionButton
+                isLight={isLight}
+                onStop={() => setIsSessionActive(false)}
+            />
 
             {/* Attributions */}
             <div className="text-[10px] text-center mt-1 pt-2 border-t flex flex-col" style={{ color: attrColor, borderColor: attrBorder }}>

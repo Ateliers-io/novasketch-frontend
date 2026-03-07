@@ -1,5 +1,5 @@
-﻿/**
- * Epic 7: Offline Editing & Sync ΓÇö SyncService Unit Tests
+/**
+ * Epic 7: Offline Editing & Sync — SyncService Unit Tests
  *
  * Story 7.2: Offline Editing Queue (IndexedDB persistence + local Yjs edits)
  * Story 7.3: Auto-Reconnect & Sync (pending flag cleared on reconnect)
@@ -111,7 +111,7 @@ describe('Epic 7: Offline Editing & Sync (SyncService)', () => {
         emitWs('status', { status: 'disconnected' });
         expect((service as any).wsConnected).toBe(false);
 
-        // Perform an offline edit ΓÇö should NOT throw
+        // Perform an offline edit — should NOT throw
         service.addLine({
             id: 'line1', points: [0, 0, 10, 10], color: 'black', strokeWidth: 2
         });

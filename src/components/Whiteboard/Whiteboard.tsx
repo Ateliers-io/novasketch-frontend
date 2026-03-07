@@ -803,7 +803,7 @@ export default function Whiteboard({
   // Hit test for selection: find item (text, line, shape) at clicked point
   function findElementAtPoint(x: number, y: number): { id: string; type: 'shape' | 'line' | 'text' } | null {
     function getGlobalTransform(parentId: string | undefined): { x: number, y: number, sx: number, sy: number } {
-      let m = { x: 0, y: 0, sx: 1, sy: 1 };
+      const m = { x: 0, y: 0, sx: 1, sy: 1 };
       let curr = parentId;
       const path: Shape[] = [];
       for (let depth = 0; depth < 5 && curr; depth++) {

@@ -354,7 +354,7 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
 
             {/* Viewport transform: pan + zoom applied to all shapes */}
             <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
-                {useMemo(() => {
+                {(() => {
                     const renderShape = (shape: Shape): React.ReactNode => {
                         const isSelected = selectedShapeIds?.has(shape.id) || false;
                         const clickHandler = onShapeClick ? handleClick(shape.id) : undefined;
@@ -382,7 +382,7 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                     return sortedShapes
                         .filter(s => !s.parentId && s.visible !== false)
                         .map(s => renderShape(s));
-                }, [sortedShapes, selectedShapeIds, onShapeClick])}
+                })()}
             </g>
         </svg>
     );

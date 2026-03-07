@@ -17,7 +17,7 @@ vi.mock('y-indexeddb', () => {
             constructor(name: string, doc: any) {
                 idbConstructorCalls.push({ name, doc });
             }
-            once(event: string, cb: Function) {
+            once(event: string, cb: (...args: any[]) => void) {
                 if (event === 'synced') {
                     setTimeout(cb, 10);
                 }
@@ -34,10 +34,12 @@ let lastWsProvider: any = null;
 vi.mock('y-websocket', () => {
     return {
         WebsocketProvider: class {
-            _listeners: Record<string, Function[]>;
+            _listeners: Record<string, ((...args: any[]) => void)[]>;
             awareness: any;
+            messageHandlers: Record<number, (...args: any[]) => void>;
             constructor(url: string, room: string, doc: any, opts: any) {
                 this._listeners = {};
+                this.messageHandlers = {};
                 this.awareness = {
                     on: vi.fn(),
                     off: vi.fn(),
@@ -45,9 +47,10 @@ vi.mock('y-websocket', () => {
                     getLocalState: vi.fn(() => ({})),
                     setLocalStateField: vi.fn(),
                 };
+                // eslint-disable-next-line @typescript-eslint/no-this-alias
                 lastWsProvider = this;
             }
-            on(event: string, cb: Function) {
+            on(event: string, cb: (...args: any[]) => void) {
                 if (!this._listeners[event]) this._listeners[event] = [];
                 this._listeners[event].push(cb);
             }
@@ -59,7 +62,7 @@ vi.mock('y-websocket', () => {
 // Helper to emit events on the last created wsProvider
 function emitWs(event: string, ...args: any[]) {
     if (lastWsProvider && lastWsProvider._listeners[event]) {
-        lastWsProvider._listeners[event].forEach((cb: Function) => cb(...args));
+        lastWsProvider._listeners[event].forEach((cb: (...args: any[]) => void) => cb(...args));
     }
 }
 
@@ -138,6 +141,7 @@ describe('Epic 7: Offline Editing & Sync (SyncService)', () => {
         service.addShape({
             id: 'shape1', type: 'rect',
             position: { x: 0, y: 0 },
+            zIndex: 0,
             style: { stroke: 'red', strokeWidth: 2, fill: '', hasFill: false },
             transform: { rotation: 0, scaleX: 1, scaleY: 1 }
         });

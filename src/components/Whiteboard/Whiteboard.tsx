@@ -21,6 +21,7 @@ import {
   isLine,
   isArrow,
   isTriangle,
+  isFrame,
   RectangleShape,
   CircleShape,
   EllipseShape,
@@ -235,6 +236,13 @@ export default function Whiteboard({
     () => localStorage.getItem('novasketch_userName')
   );
 
+  // Epic 7.6.3: Guest Assignment Toast State
+  const [guestToastMessage, setGuestToastMessage] = useState<string | null>(null);
+
+  // Epic 7.6.2: Assign Guests Modal State
+  const [isAssignGuestsModalOpen, setIsAssignGuestsModalOpen] = useState(false);
+  const [assignGuestsFrameId, setAssignGuestsFrameId] = useState<string | null>(null);
+
   // Task 1.3.3-A / 3.1.3: Assign a unique color based on the username so each
   // collaborator always gets a distinct cursor/avatar color.
   const [userColor] = useState<string>(() => {
@@ -298,6 +306,9 @@ export default function Whiteboard({
     setSessionLocked,
     batch,
     hasPendingChanges,
+    groupIntoFrame,
+    ungroupFrame,
+    updateShape,
   } = useSync({ roomId, wsUrl: WS_URL, initialLocked });
 
   // Task 1.5 fix: Owner should NEVER be locked. Only guests see the lock.
@@ -308,9 +319,9 @@ export default function Whiteboard({
   // Task 1.3.3-B: Broadcast our identity to collaborators as soon as we connect
   useEffect(() => {
     if (isConnected && userName) {
-      updateUserMetadata(userMetadata);
+      updateUserMetadata({ ...userMetadata, id: user?.id || 'anonymous' });
     }
-  }, [isConnected, userName, userMetadata, updateUserMetadata]);
+  }, [isConnected, userName, userMetadata, updateUserMetadata, user?.id]);
 
   // local ref to avoid staleness in event handlers.
   // local ref to avoid staleness in event handlers.
@@ -334,6 +345,32 @@ export default function Whiteboard({
   // Temporarily hold newly drawn lines to render locally before sending via WS
   const [optimisticLine, setOptimisticLine] = useState<StrokeLine | null>(null);
   const optimisticLineRef = useRef<StrokeLine | null>(null);
+
+  // Epic 7.6.3: Monitor incoming shapes to trigger "Assigned as Guest" toasts
+  const previousShapesRef = useRef(shapes);
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Find frames that were updated
+    const newFrames = shapes.filter(s => s.type === 'frame');
+    const oldFrames = previousShapesRef.current.filter(s => s.type === 'frame');
+
+    newFrames.forEach(nFrame => {
+      const oFrame = oldFrames.find(o => o.id === nFrame.id);
+
+      // If I am newly added to the assignedUserIds array AND I am not the owner
+      const wasAssigned = oFrame?.assignedUserIds?.includes(user.id) || false;
+      const isAssigned = nFrame.assignedUserIds?.includes(user.id) || false;
+
+      if (!wasAssigned && isAssigned && nFrame.ownerId !== user.id) {
+        // Trigger toast
+        setGuestToastMessage(`You have been assigned to ${nFrame.name || 'a Frame'}`);
+        setTimeout(() => setGuestToastMessage(null), 4000);
+      }
+    });
+
+    previousShapesRef.current = shapes;
+  }, [shapes, user?.id]);
 
   // Snapshot for Eraser Diffing
   const [initialEraserLines, setInitialEraserLines] = useState<StrokeLine[] | null>(null);
@@ -459,6 +496,59 @@ export default function Whiteboard({
   }, [selectedShapeIds, selectedLineIds, selectedTextIds]);
 
   // UI State
+
+  // Helper to assign newly drawn elements to a frame if drawn inside it
+  const getTargetFrame = useCallback((x: number, y: number) => {
+    const allFrames = shapes.filter(s => s.type === 'frame').sort((a, b) => b.zIndex - a.zIndex);
+    for (const frame of allFrames) {
+      if (isPointInShape(frame, x, y, 0)) {
+        const f = frame as any;
+        if (f.ownerId === user?.id || f.assignedUserIds?.includes(user?.id || '')) {
+          return frame;
+        }
+      }
+    }
+    return null;
+  }, [shapes, user?.id]);
+
+  // Epic 7.6.4: Helper to check if selection can be modified based on frame permissions
+  const canModifySelection = useCallback(() => {
+    const selectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
+    const selectedLines = lines.filter(l => selectedLineIds.has(l.id));
+    const selectedTexts = textAnnotations.filter(t => selectedTextIds.has(t.id));
+
+    if (selectedShapes.length === 0 && selectedLines.length === 0 && selectedTexts.length === 0) return true;
+
+    // Check shapes and frames
+    for (const shape of selectedShapes) {
+      if (shape.type === 'frame') {
+        const frame = shape as any;
+        if (frame.ownerId !== user?.id && !frame.assignedUserIds?.includes(user?.id || '')) return false;
+      }
+      if (shape.parentId) {
+        const parentFrame = shapes.find(s => s.id === shape.parentId) as any;
+        if (parentFrame && parentFrame.ownerId !== user?.id && !parentFrame.assignedUserIds?.includes(user?.id || '')) return false;
+      }
+    }
+
+    // Check lines inside frames
+    for (const line of selectedLines) {
+      if (line.parentId) {
+        const parentFrame = shapes.find(s => s.id === line.parentId) as any;
+        if (parentFrame && parentFrame.ownerId !== user?.id && !parentFrame.assignedUserIds?.includes(user?.id || '')) return false;
+      }
+    }
+
+    // Check texts inside frames
+    for (const text of selectedTexts) {
+      if (text.parentId) {
+        const parentFrame = shapes.find(s => s.id === text.parentId) as any;
+        if (parentFrame && parentFrame.ownerId !== user?.id && !parentFrame.assignedUserIds?.includes(user?.id || '')) return false;
+      }
+    }
+
+    return true;
+  }, [shapes, lines, textAnnotations, selectedShapeIds, selectedLineIds, selectedTextIds, user?.id]);
   const [activeTextInput, setActiveTextInput] = useState<{ x: number, y: number } | null>(null);
   const [textInputValue, setTextInputValue] = useState(''); // Hoisted state
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
@@ -712,15 +802,37 @@ export default function Whiteboard({
 
   // Hit test for selection: find item (text, line, shape) at clicked point
   function findElementAtPoint(x: number, y: number): { id: string; type: 'shape' | 'line' | 'text' } | null {
+    function getGlobalTransform(parentId: string | undefined): { x: number, y: number, sx: number, sy: number } {
+      const m = { x: 0, y: 0, sx: 1, sy: 1 };
+      let curr = parentId;
+      const path: Shape[] = [];
+      for (let depth = 0; depth < 5 && curr; depth++) {
+        const p = shapes.find(sh => sh.id === curr);
+        if (p) {
+          path.unshift(p);
+          curr = p.parentId;
+        } else break;
+      }
+      for (const p of path) {
+        m.x += p.position.x * m.sx;
+        m.y += p.position.y * m.sy;
+        m.sx *= p.transform.scaleX || 1;
+        m.sy *= p.transform.scaleY || 1;
+      }
+      return m;
+    }
+
     // 1. Text (Top Layer)
     for (let i = textAnnotations.length - 1; i >= 0; i--) {
       const t = textAnnotations[i];
-      // simplified hit test: approximating width since we don't have canvas context measureText here.
-      // 0.6 is a rough average aspect ratio (width/height) for most sans-serif fonts.
-      // FIXME: this effectively assumes monospaced behavior, results will be sloppy for 'iiii' vs 'MMMM'.
       const w = t.text.length * (t.fontSize * 0.6);
       const h = t.fontSize * 1.2;
-      if (x >= t.x && x <= t.x + w && y >= t.y && y <= t.y + h) {
+      const m = getGlobalTransform(t.parentId);
+      const tx = (x - m.x) / m.sx;
+      const ty = (y - m.y) / m.sy;
+
+      if (tx >= t.x && tx <= t.x + w && ty >= t.y && ty <= t.y + h) {
+        if (t.parentId) return { id: t.parentId, type: 'shape' };
         return { id: t.id, type: 'text' };
       }
     }
@@ -728,7 +840,6 @@ export default function Whiteboard({
     // 2. Lines (Middle Layer)
     for (let i = lines.length - 1; i >= 0; i--) {
       const l = lines[i];
-      // Bounding box check with buffer
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (let j = 0; j < l.points.length; j += 2) {
         minX = Math.min(minX, l.points[j]);
@@ -737,17 +848,35 @@ export default function Whiteboard({
         maxY = Math.max(maxY, l.points[j + 1]);
       }
       const buf = (l.strokeWidth || 5) / 2 + 5;
-      if (x >= minX - buf && x <= maxX + buf && y >= minY - buf && y <= maxY + buf) {
+      const m = getGlobalTransform(l.parentId);
+      const tx = (x - m.x) / m.sx;
+      const ty = (y - m.y) / m.sy;
+
+      if (tx >= minX - buf && tx <= maxX + buf && ty >= minY - buf && ty <= maxY + buf) {
+        if (l.parentId) return { id: l.parentId, type: 'shape' };
         return { id: l.id, type: 'line' };
       }
     }
 
     // 3. Shapes
-    // Opting for a bounding box check here as it's significantly more performant (O(1)) 
-    // than a precise point-in-polygon algorithm for hit testing.
     for (let i = shapes.length - 1; i >= 0; i--) {
       const s = shapes[i];
-      if (isPointInBoundingBox({ x, y }, getShapeBoundingBox(s), 5)) {
+      const m = getGlobalTransform(s.parentId);
+      const tx = (x - m.x) / m.sx;
+      const ty = (y - m.y) / m.sy;
+
+      if (isPointInShape(s, tx, ty, 5 / Math.max(m.sx, m.sy))) {
+        // Epic 7.5.3: Selection logic - clicking a child selects the Frame
+        if (s.parentId) {
+          // Find the top-level parent (Frame)
+          let currentParentId = s.parentId;
+          for (let depth = 0; depth < 5; depth++) {
+            const parent = shapes.find(sh => sh.id === currentParentId);
+            if (!parent?.parentId) break;
+            currentParentId = parent.parentId;
+          }
+          return { id: currentParentId, type: 'shape' };
+        }
         return { id: s.id, type: 'shape' };
       }
     }
@@ -1031,11 +1160,23 @@ export default function Whiteboard({
           }));
         } else {
           // fresh text node creation.
+          let targetX = activeTextInput.x;
+          let targetY = activeTextInput.y;
+          const targetFrame = getTargetFrame(targetX, targetY);
+          let parentId = undefined;
+
+          if (targetFrame) {
+            parentId = targetFrame.id;
+            targetX -= targetFrame.position.x;
+            targetY -= targetFrame.position.y;
+          }
+
           const newTextId = `text-${Date.now()}`;
           const newText = {
             id: newTextId,
-            x: activeTextInput.x,
-            y: activeTextInput.y,
+            parentId,
+            x: targetX,
+            y: targetY,
             text: textInputValue,
             color: strokeColor,
             fontSize: fontStyles.size,
@@ -1190,6 +1331,13 @@ export default function Whiteboard({
     // Task 4.3: Check if clicking rotation handle
     if (activeTool === 'select' && rotationHandleEl && selectionBoundingBox) {
       if ('stopPropagation' in e) e.stopPropagation();
+
+      // Epic 7.6.4: Guard against unauthorized modification
+      if (!isOwner && !canModifySelection()) {
+        alert("Permission Denied: You do not have access to modify this frame.");
+        return;
+      }
+
       setIsRotating(true);
 
       const centerX = selectionBoundingBox.centerX;
@@ -1248,15 +1396,34 @@ export default function Whiteboard({
 
     if (activeTool === 'select' && resizeHandleEl && selectionBoundingBox) {
       if ('stopPropagation' in e) e.stopPropagation();
+
+      // Epic 7.6.4: Guard against unauthorized modification
+      if (!isOwner && !canModifySelection()) {
+        alert("You do not have permission to modify this selection (Frame Access Restricted).");
+        return;
+      }
+
       const handleId = resizeHandleEl.getAttribute('data-resize-handle');
       if (handleId) {
         setIsResizing(true);
         setResizeHandle(handleId);
+        const selectedFrames = shapes.filter(s => selectedShapeIds.has(s.id) && isFrame(s));
+        const frameChildrenIds = new Set(selectedFrames.flatMap(f => (f as any).childrenIds || []));
+
         setInitialResizeState({
           box: { ...selectionBoundingBox },
-          shapes: new Map(shapes.filter(s => selectedShapeIds.has(s.id)).map(s => [s.id, s])),
-          lines: new Map(lines.filter(l => selectedLineIds.has(l.id)).map(l => [l.id, l])),
-          texts: new Map(textAnnotations.filter(t => selectedTextIds.has(t.id)).map(t => [t.id, t]))
+          shapes: new Map([
+            ...shapes.filter(s => selectedShapeIds.has(s.id)).map(s => [s.id, s] as [string, Shape]),
+            ...shapes.filter(s => s.parentId && selectedShapeIds.has(s.parentId)).map(s => [s.id, s] as [string, Shape])
+          ]),
+          lines: new Map([
+            ...lines.filter(l => selectedLineIds.has(l.id)).map(l => [l.id, l]),
+            ...lines.filter(l => l.parentId && selectedShapeIds.has(l.parentId)).map(l => [l.id, l])
+          ] as [string, StrokeLine][]),
+          texts: new Map([
+            ...textAnnotations.filter(t => selectedTextIds.has(t.id)).map(t => [t.id, t] as [string, TextAnnotation]),
+            ...textAnnotations.filter(t => t.parentId && selectedShapeIds.has(t.parentId)).map(t => [t.id, t] as [string, TextAnnotation])
+          ])
         });
         return;
       }
@@ -1273,6 +1440,12 @@ export default function Whiteboard({
       // Task 4.2.1: Drag Logic - Check bounding box first
       // If we have a selection and click inside its bounding box, start dragging
       if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
+        // Epic 7.6.4: Guard against unauthorized modification
+        if (!isOwner && !canModifySelection()) {
+          alert("You do not have permission to modify this selection (Frame Access Restricted).");
+          return;
+        }
+
         setIsDraggingSelection(true);
         lastPointerPosRef.current = { x, y };
         dragStartRef.current = { x, y };
@@ -1359,10 +1532,24 @@ export default function Whiteboard({
       for (let i = shapes.length - 1; i >= 0; i--) {
         const shape = shapes[i];
         if (isPointInShape(shape, x, y, 5)) {
-          const prevShape = shape;
-          const newShape = { ...shape, style: { ...shape.style, fill: fillColor, hasFill: true } };
-          setShapes(prev => prev.map(s => s.id === shape.id ? newShape : s));
-          addToHistory({ type: 'UPDATE', objectType: 'shape', id: shape.id, previousState: prevShape, newState: newShape, userId: 'local' });
+          // If shape is a frame, fill its background AND its child shapes
+          let shapesToUpdate = [shape];
+          if (shape.type === 'frame') {
+            shapesToUpdate = [shape, ...shapes.filter(s => s.parentId === shape.id)];
+          }
+
+          const updates: any[] = [];
+          setShapes(prev => prev.map(s => {
+            if (shapesToUpdate.some(su => su.id === s.id)) {
+              const prevS = s;
+              const newS = { ...s, style: { ...s.style, fill: fillColor, hasFill: true } };
+              updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prevS, newState: newS, userId: 'local' });
+              return newS;
+            }
+            return s;
+          }));
+
+          if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
           filled = true;
           break;
         }
@@ -1525,19 +1712,21 @@ export default function Whiteboard({
       // Update all selected shapes
       setShapes(prev => prev.map(s => {
         if (!selectedShapeIds.has(s.id)) return s;
+        if (s.parentId && selectedShapeIds.has(s.parentId)) return s; // Child inherits rotation from parent visually
 
-        const initPos = initialShapePositions.get(s.id);
+        const initS = initialShapePositions.get(s.id);
+        const initPos = initS;
         const initRot = initialShapeRotations.get(s.id) || 0;
         if (!initPos) return s;
 
-        if (isRectangle(s) || isCircle(s) || isEllipse(s)) {
-          // Rigid Body Rotation for Centered Shapes (Rect, Circle, Ellipse)
+        if (isRectangle(s) || isCircle(s) || isEllipse(s) || isFrame(s)) {
+          // Rigid Body Rotation for Centered Shapes (Rect, Circle, Ellipse, Frame)
 
           // Calculate Initial Center/Pivot
           let itemCx = initPos.x;
           let itemCy = initPos.y;
 
-          if (isRectangle(s)) {
+          if (isRectangle(s) || isFrame(s)) {
             itemCx += (s as RectangleShape).width / 2;
             itemCy += (s as RectangleShape).height / 2;
           }
@@ -1549,7 +1738,7 @@ export default function Whiteboard({
           // Convert back to Top-Left if necessary
           const newPos = { x: newCenter.x, y: newCenter.y };
 
-          if (isRectangle(s)) {
+          if (isRectangle(s) || isFrame(s)) {
             newPos.x -= (s as RectangleShape).width / 2;
             newPos.y -= (s as RectangleShape).height / 2;
           }
@@ -1761,13 +1950,29 @@ export default function Whiteboard({
           setShapes(prev => prev.map(s => {
             const initS = initialResizeState.shapes.get(s.id);
             if (initS) {
-              // Calculate relative position
-              const relX = initS.position.x - box.x;
-              const relY = initS.position.y - box.y;
+              if (initS.parentId && initialResizeState.shapes.has(initS.parentId)) return s; // Child inherits scale from parent visually
 
               // New pos
-              const finalX = newX + relX * scaleX;
-              const finalY = newY + relY * scaleY;
+              let finalX: number, finalY: number;
+
+              if (initS.parentId && initialResizeState.shapes.has(initS.parentId)) {
+                // The parent is also being resized, the parent's scale transform will handle scaling this child visually.
+                // We don't need to manually update position or size of this child during group resize.
+                return s;
+              }
+
+              if (initS.parentId) {
+                // If it's a child, position is relative to parent.
+                // We scale it proportionally within the parent's coordinate space.
+                finalX = initS.position.x * scaleX;
+                finalY = initS.position.y * scaleY;
+              } else {
+                // Global object logic
+                const relX = initS.position.x - box.x;
+                const relY = initS.position.y - box.y;
+                finalX = newX + relX * scaleX;
+                finalY = newY + relY * scaleY;
+              }
 
               if (isRectangle(initS)) {
                 return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY } as Shape;
@@ -1791,6 +1996,16 @@ export default function Whiteboard({
                     x: newX + (ls.endPoint.x - box.x) * scaleX,
                     y: newY + (ls.endPoint.y - box.y) * scaleY,
                   },
+                } as Shape;
+              } else if (isFrame(initS)) {
+                return {
+                  ...s,
+                  position: { x: finalX, y: finalY },
+                  transform: {
+                    ...initS.transform,
+                    scaleX: initS.transform.scaleX * scaleX,
+                    scaleY: initS.transform.scaleY * scaleY
+                  }
                 } as Shape;
               } else if (isEllipse(initS)) {
                 const es = initS as EllipseShape;
@@ -1827,11 +2042,20 @@ export default function Whiteboard({
             const initL = initialResizeState.lines.get(l.id);
             if (initL) {
               const newPoints = [];
+              const isRelative = !!initL.parentId;
+
               for (let i = 0; i < initL.points.length; i += 2) {
                 const px = initL.points[i];
                 const py = initL.points[i + 1];
-                const nx = newX + (px - box.x) * scaleX;
-                const ny = newY + (py - box.y) * scaleY;
+                let nx: number, ny: number;
+
+                if (isRelative) {
+                  nx = px * scaleX;
+                  ny = py * scaleY;
+                } else {
+                  nx = newX + (px - box.x) * scaleX;
+                  ny = newY + (py - box.y) * scaleY;
+                }
                 newPoints.push(nx, ny);
               }
               return { ...l, points: newPoints };
@@ -1845,8 +2069,15 @@ export default function Whiteboard({
           setTextAnnotations(prev => prev.map(t => {
             const initT = initialResizeState.texts.get(t.id);
             if (initT) {
-              const nx = newX + (initT.x - box.x) * scaleX;
-              const ny = newY + (initT.y - box.y) * scaleY;
+              if (initT.parentId && initialResizeState.shapes.has(initT.parentId)) return t; // Inherit parent scale
+              let nx: number, ny: number;
+              if (initT.parentId) {
+                nx = initT.x * scaleX;
+                ny = initT.y * scaleY;
+              } else {
+                nx = newX + (initT.x - box.x) * scaleX;
+                ny = newY + (initT.y - box.y) * scaleY;
+              }
 
               let fontScale = scaleY;
               if (['e', 'w'].includes(resizeHandle)) fontScale = scaleX;
@@ -1958,6 +2189,7 @@ export default function Whiteboard({
             if (selectedShapeIds.has(s.id)) {
               const initS = initialDragState.shapes.get(s.id);
               if (!initS) return s;
+              if (initS.parentId && selectedShapeIds.has(initS.parentId)) return s; // Inherit parent drag
 
               let updated = {
                 ...s,
@@ -2004,6 +2236,7 @@ export default function Whiteboard({
             if (selectedTextIds.has(t.id)) {
               const initT = initialDragState.texts.get(t.id);
               if (!initT) return t;
+              if (initT.parentId && selectedShapeIds.has(initT.parentId)) return t; // Inherit parent drag
 
               return { ...t, x: initT.x + totalDx, y: initT.y + totalDy };
             }
@@ -2253,18 +2486,35 @@ export default function Whiteboard({
     if (isResizing || isDraggingSelection) {
       // History for Resize
       if (isResizing && initialResizeState) {
-        shapes.filter(s => selectedShapeIds.has(s.id)).forEach(s => {
+        const resizeUpdates: Action[] = [];
+        shapes.filter(s => initialResizeState.shapes.has(s.id)).forEach(s => {
           const prev = initialResizeState.shapes.get(s.id);
-          if (prev) addToHistory({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prev, newState: s, userId: 'local' });
+          if (prev) {
+            const hasMoved = prev.position.x !== s.position.x || prev.position.y !== s.position.y;
+            const hasResized = (s as any).width !== (prev as any).width || (s as any).height !== (prev as any).height || (s as any).radius !== (prev as any).radius || (s as any).radiusX !== (prev as any).radiusX;
+            const hasScaled = s.transform.scaleX !== prev.transform.scaleX || s.transform.scaleY !== prev.transform.scaleY;
+            const hasRotated = s.transform.rotation !== prev.transform.rotation;
+
+            if (hasMoved || hasResized || hasScaled || hasRotated || JSON.stringify((s as any).points) !== JSON.stringify((prev as any).points)) {
+              resizeUpdates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: prev, newState: s, userId: 'local' });
+            }
+          }
         });
-        lines.filter(l => selectedLineIds.has(l.id)).forEach(l => {
+        lines.filter(l => initialResizeState.lines.has(l.id)).forEach(l => {
           const prev = initialResizeState.lines.get(l.id);
-          if (prev) addToHistory({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: prev, newState: l, userId: 'local' });
+          if (prev && JSON.stringify(prev.points) !== JSON.stringify(l.points)) {
+            resizeUpdates.push({ type: 'UPDATE', objectType: 'line', id: l.id, previousState: prev, newState: l, userId: 'local' });
+          }
         });
-        textAnnotations.filter(t => selectedTextIds.has(t.id)).forEach(t => {
+        textAnnotations.filter(t => initialResizeState.texts.has(t.id)).forEach(t => {
           const prev = initialResizeState.texts.get(t.id);
-          if (prev) addToHistory({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: prev, newState: t, userId: 'local' });
+          if (prev && (prev.x !== t.x || prev.y !== t.y || prev.fontSize !== t.fontSize || prev.rotation !== t.rotation)) {
+            resizeUpdates.push({ type: 'UPDATE', objectType: 'text', id: t.id, previousState: prev, newState: t, userId: 'local' });
+          }
         });
+        if (resizeUpdates.length > 0) {
+          addToHistory({ type: 'BATCH', userId: 'local', actions: resizeUpdates });
+        }
       }
 
       // History for Drag
@@ -2459,7 +2709,18 @@ export default function Whiteboard({
           shapeBbox.minY > marqueeBox.maxY
         );
         if (intersects) {
-          selectedShapeIdsNew.add(shape.id);
+          if (shape.parentId) {
+            // Find root frame
+            let rootId = shape.parentId;
+            for (let d = 0; d < 5; d++) {
+              const p = shapes.find(sh => sh.id === rootId);
+              if (!p?.parentId) break;
+              rootId = p.parentId;
+            }
+            selectedShapeIdsNew.add(rootId);
+          } else {
+            selectedShapeIdsNew.add(shape.id);
+          }
         }
       });
 
@@ -2482,7 +2743,17 @@ export default function Whiteboard({
           lineMinY > marqueeBox.maxY
         );
         if (intersects) {
-          selectedLineIdsNew.add(line.id);
+          if (line.parentId) {
+            let rootId = line.parentId;
+            for (let d = 0; d < 5; d++) {
+              const p = shapes.find(sh => sh.id === rootId);
+              if (!p?.parentId) break;
+              rootId = p.parentId;
+            }
+            selectedShapeIdsNew.add(rootId);
+          } else {
+            selectedLineIdsNew.add(line.id);
+          }
         }
       });
 
@@ -2497,7 +2768,17 @@ export default function Whiteboard({
           text.y > marqueeBox.maxY
         );
         if (intersects) {
-          selectedTextIdsNew.add(text.id);
+          if (text.parentId) {
+            let rootId = text.parentId;
+            for (let d = 0; d < 5; d++) {
+              const p = shapes.find(sh => sh.id === rootId);
+              if (!p?.parentId) break;
+              rootId = p.parentId;
+            }
+            selectedShapeIdsNew.add(rootId);
+          } else {
+            selectedTextIdsNew.add(text.id);
+          }
         }
       });
 
@@ -2533,7 +2814,37 @@ export default function Whiteboard({
 
       if (isValidShape) {
         // Task 5.5: Snap shape to grid on creation
-        const newShape = snapShapeToGrid(previewShape);
+        let newShape = snapShapeToGrid(previewShape);
+
+        const bbox = getShapeBoundingBox(newShape);
+        const targetFrame = getTargetFrame(bbox.centerX, bbox.centerY);
+
+        if (targetFrame) {
+          newShape = {
+            ...newShape,
+            parentId: targetFrame.id,
+            position: {
+              x: newShape.position.x - targetFrame.position.x,
+              y: newShape.position.y - targetFrame.position.y
+            }
+          };
+          if (isLine(newShape) || isArrow(newShape)) {
+            (newShape as LineShape).startPoint = {
+              x: (newShape as LineShape).startPoint.x - targetFrame.position.x,
+              y: (newShape as LineShape).startPoint.y - targetFrame.position.y
+            };
+            (newShape as LineShape).endPoint = {
+              x: (newShape as LineShape).endPoint.x - targetFrame.position.x,
+              y: (newShape as LineShape).endPoint.y - targetFrame.position.y
+            };
+          } else if (isTriangle(newShape)) {
+            (newShape as TriangleShape).points = (newShape as TriangleShape).points.map(p => ({
+              x: p.x - targetFrame.position.x,
+              y: p.y - targetFrame.position.y
+            })) as [Position, Position, Position];
+          }
+        }
+
         setShapes(prev => [...prev, newShape]);
         addToHistory({ type: 'ADD', objectType: 'shape', id: newShape.id, previousState: null, newState: newShape, userId: 'local' });
 
@@ -2549,7 +2860,22 @@ export default function Whiteboard({
     // Handle Pen/Highlighter Stroke
     if ((activeTool === ToolType.PEN || activeTool === ToolType.HIGHLIGHTER) && linesRef.current.length > 0) {
       const lastLine = linesRef.current[linesRef.current.length - 1];
-      addToHistory({ type: 'ADD', objectType: 'line', id: lastLine.id, previousState: null, newState: lastLine, userId: 'local' });
+
+      const cx = lastLine.points[0];
+      const cy = lastLine.points[1];
+      const targetFrame = getTargetFrame(cx, cy);
+
+      let finalLine = lastLine;
+      if (targetFrame) {
+        finalLine = {
+          ...lastLine,
+          parentId: targetFrame.id,
+          points: lastLine.points.map((p, i) => i % 2 === 0 ? p - targetFrame.position.x : p - targetFrame.position.y)
+        };
+        setLines(prev => prev.map(l => l.id === lastLine.id ? finalLine : l));
+      }
+
+      addToHistory({ type: 'ADD', objectType: 'line', id: finalLine.id, previousState: null, newState: finalLine, userId: 'local' });
     }
 
     setDragStart(null);
@@ -2570,14 +2896,24 @@ export default function Whiteboard({
     };
   }, [stagePos, stageScale, dimensions]);
 
-  // Filter Shapes
+  // Filter Shapes — Phase 1: find root shapes within viewport
   const visibleShapes = useMemo(() => {
-    return shapes.filter(s => {
-      // Use transformed bounding box to account for rotation
+    // First pass: find top-level shapes (no parent) that are in view
+    const rootVisible = shapes.filter(s => {
+      if (s.parentId) return false; // skip children in first pass
       const bbox = getTransformedBoundingBox(s);
       return !(bbox.maxX < visibleBounds.minX || bbox.minX > visibleBounds.maxX ||
         bbox.maxY < visibleBounds.minY || bbox.minY > visibleBounds.maxY);
     });
+
+    // Collect IDs of all visible root shapes (including frames)
+    const visibleRootIds = new Set(rootVisible.map(s => s.id));
+
+    // Second pass: always include children whose parent is visible
+    // Children have relative coords so viewport culling doesn't apply to them directly
+    const childrenOfVisible = shapes.filter(s => s.parentId && visibleRootIds.has(s.parentId));
+
+    return [...rootVisible, ...childrenOfVisible];
   }, [shapes, visibleBounds]);
 
   // Filter Lines (Performance: Cache bounding boxes if possible, but for now calculate on fly)
@@ -2747,7 +3083,7 @@ export default function Whiteboard({
 
       <Toolbar
         theme={theme}
-        isSessionLocked={isEffectivelyLocked}
+        isSessionLocked={isEffectivelyLocked || !canModifySelection()}
         isLockActive={isLocked}
         activeTool={activeTool}
         onToolChange={setActiveTool}
@@ -3073,7 +3409,7 @@ export default function Whiteboard({
       )}
 
       {/* LAYER 2.5: SELECTION BOUNDING BOX */}
-      {(selectionBoundingBox || (isRotating && initialSelectionBoundingBox)) && activeTool === 'select' && (
+      {(selectionBoundingBox || (isRotating && initialSelectionBoundingBox)) && activeTool === 'select' && !activeTextInput && (
         <SelectionOverlay
           key={[...selectedShapeIds, ...selectedLineIds, ...selectedTextIds].join(',')}
           selectionBoundingBox={isRotating && initialSelectionBoundingBox ? initialSelectionBoundingBox : selectionBoundingBox!}
@@ -3093,6 +3429,57 @@ export default function Whiteboard({
           }
           showRotationHandle={true} // Always allow rotation because we support group rotation now!
           transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
+          isReadOnly={!canModifySelection()}
+          frameName={
+            selectedShapeIds.size === 1 && selectedLineIds.size === 0 && selectedTextIds.size === 0
+              ? shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.type === 'frame'
+                ? (shapes.find(s => s.id === Array.from(selectedShapeIds)[0]) as any)?.name
+                : undefined
+              : undefined
+          }
+          canRenameFrame={
+            selectedShapeIds.size === 1 && selectedLineIds.size === 0 && selectedTextIds.size === 0
+              ? (() => {
+                const s = shapes.find(s => s.id === Array.from(selectedShapeIds)[0]) as any;
+                return s?.type === 'frame' && (s.ownerId === user?.id || s.assignedUserIds?.includes(user?.id || ''));
+              })()
+              : false
+          }
+          canAssignGuests={
+            selectedShapeIds.size === 1 && selectedLineIds.size === 0 && selectedTextIds.size === 0
+              ? (() => {
+                const s = shapes.find(s => s.id === Array.from(selectedShapeIds)[0]) as any;
+                return s?.type === 'frame' && s.ownerId === user?.id;
+              })()
+              : false
+          }
+          onRenameFrame={() => {
+            const newName = prompt("Enter new frame name:");
+            if (newName && newName.trim()) {
+              const sId = Array.from(selectedShapeIds)[0];
+              updateShape(sId, { name: newName.trim() });
+            }
+          }}
+          onAssignGuests={() => {
+            setIsAssignGuestsModalOpen(true);
+            setAssignGuestsFrameId(Array.from(selectedShapeIds)[0]);
+          }}
+          onGroup={() => {
+            const arr = Array.from(selectedShapeIds);
+            const lArr = Array.from(selectedLineIds);
+            const tArr = Array.from(selectedTextIds);
+            groupIntoFrame(arr, lArr, tArr, user?.id || 'anonymous');
+            setSelectedShapeIds(new Set());
+            setSelectedLineIds(new Set());
+            setSelectedTextIds(new Set());
+          }}
+          onUngroup={() => {
+            const frameId = Array.from(selectedShapeIds)[0];
+            ungroupFrame(frameId);
+            setSelectedShapeIds(new Set());
+          }}
+          canGroup={selectedShapeIds.size > 1 && !Array.from(selectedShapeIds).some(id => shapes.find(s => s.id === id)?.parentId)}
+          canUngroup={selectedShapeIds.size === 1 && shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.type === 'frame'}
         />
       )}
 
@@ -3362,6 +3749,75 @@ export default function Whiteboard({
 
       {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}
       <PresenceBadge users={users} />
+
+      {/* Epic 7.6.2: Assign Guests Modal */}
+      {isAssignGuestsModalOpen && assignGuestsFrameId && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center backdrop-blur-sm p-4">
+          <div className="bg-[#12141D] border border-white/10 rounded-xl p-6 shadow-2xl w-full max-w-sm flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold text-white tracking-tight">Assign Guests</h2>
+            <p className="text-sm text-gray-400">Select users who can edit this frame.</p>
+
+            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              {users.filter(u => u.id !== user?.id && u.id).map((u) => (
+                <label key={u.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-white/10">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-600 text-teal-500 focus:ring-teal-500 focus:ring-offset-gray-900 bg-gray-800"
+                    checked={(shapes.find(s => s.id === assignGuestsFrameId) as any)?.assignedUserIds?.includes(u.id) || false}
+                    onChange={(e) => {
+                      const frame = shapes.find(s => s.id === assignGuestsFrameId) as any;
+                      if (frame && frame.type === 'frame') {
+                        const currentAssigned = (frame.assignedUserIds || []) as string[];
+                        const newAssigned = e.target.checked
+                          ? [...currentAssigned, u.id]
+                          : currentAssigned.filter((id: string) => id !== u.id);
+
+                        updateShape(assignGuestsFrameId, { assignedUserIds: newAssigned });
+                      }
+                    }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-inner" style={{ backgroundColor: u.color, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                      {u.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-gray-200 font-medium text-sm">{u.name}</span>
+                  </div>
+                </label>
+              ))}
+              {users.filter(u => u.id !== user?.id && u.id).length === 0 && (
+                <div className="text-sm text-gray-500 text-center py-4">No other guests currently in room.</div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 mt-2 border-t border-white/10">
+              <button
+                className="px-5 py-2 rounded-lg bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 hover:text-teal-300 font-medium transition-all"
+                onClick={() => {
+                  setIsAssignGuestsModalOpen(false);
+                  setAssignGuestsFrameId(null);
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Epic 7.6.3: Guest Assignment Toast Overlay */}
+      {guestToastMessage && (
+        <div className="fixed top-20 right-8 z-[120] animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="bg-[#12141D]/90 backdrop-blur-md border border-teal-500/30 px-4 py-3 rounded-lg shadow-xl shadow-teal-500/10 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><polyline points="16 11 18 13 22 9" /></svg>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-white tracking-tight">Access Granted</span>
+              <span className="text-xs text-teal-100/70">{guestToastMessage}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Task 1.3.1-B: Username Modal — blocks canvas until name is provided */}
       {!userName && (

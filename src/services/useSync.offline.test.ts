@@ -53,7 +53,7 @@ vi.mock('./sync.service', () => {
             deleteText = vi.fn();
             setTexts = vi.fn();
             setCanvasBackgroundColor = vi.fn();
-            batch = vi.fn((cb: Function) => cb());
+            batch = vi.fn((cb: (...args: any[]) => void) => cb());
             undo = vi.fn();
             redo = vi.fn();
             canUndo = mockCanUndo;

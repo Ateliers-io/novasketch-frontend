@@ -42,42 +42,77 @@ export function useSelectionBounds({
             return;
         }
 
+        const getGlobalTransform = (parentId: string | undefined): { x: number, y: number, sx: number, sy: number } => {
+            const m = { x: 0, y: 0, sx: 1, sy: 1 };
+            let curr = parentId;
+            const path: Shape[] = [];
+            for (let depth = 0; depth < 5 && curr; depth++) {
+                const p = shapes.find(sh => sh.id === curr);
+                if (p) {
+                    path.unshift(p);
+                    curr = p.parentId;
+                } else break;
+            }
+            for (const p of path) {
+                m.x += p.position.x * m.sx;
+                m.y += p.position.y * m.sy;
+                m.sx *= p.transform?.scaleX ?? 1;
+                m.sy *= p.transform?.scaleY ?? 1;
+            }
+            return m;
+        };
+
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
         // Include shapes
         const selectedShapes = shapes.filter(s => selectedShapeIds.has(s.id));
         selectedShapes.forEach(shape => {
             const bbox = getShapeGeometryBoundingBox(shape);
-            minX = Math.min(minX, bbox.minX);
-            minY = Math.min(minY, bbox.minY);
-            maxX = Math.max(maxX, bbox.maxX);
-            maxY = Math.max(maxY, bbox.maxY);
+            const m = getGlobalTransform(shape.parentId);
+            const gMinX = m.x + bbox.minX * m.sx;
+            const gMinY = m.y + bbox.minY * m.sy;
+            const gMaxX = m.x + bbox.maxX * m.sx;
+            const gMaxY = m.y + bbox.maxY * m.sy;
+
+            minX = Math.min(minX, gMinX);
+            minY = Math.min(minY, gMinY);
+            maxX = Math.max(maxX, gMaxX);
+            maxY = Math.max(maxY, gMaxY);
         });
 
         // Include lines
         const selectedLines = lines.filter(l => selectedLineIds.has(l.id));
         selectedLines.forEach(line => {
+            const m = getGlobalTransform(line.parentId);
             for (let i = 0; i < line.points.length; i += 2) {
-                minX = Math.min(minX, line.points[i]);
-                minY = Math.min(minY, line.points[i + 1]);
-                maxX = Math.max(maxX, line.points[i]);
-                maxY = Math.max(maxY, line.points[i + 1]);
+                const px = m.x + line.points[i] * m.sx;
+                const py = m.y + line.points[i + 1] * m.sy;
+                minX = Math.min(minX, px);
+                minY = Math.min(minY, py);
+                maxX = Math.max(maxX, px);
+                maxY = Math.max(maxY, py);
             }
         });
 
         // Include text
         const selectedTexts = textAnnotations.filter(t => selectedTextIds.has(t.id));
         selectedTexts.forEach(text => {
+            const m = getGlobalTransform(text.parentId);
             const textWidth = text.text.length * (text.fontSize * 0.6);
             const textHeight = text.fontSize * 1.2;
-            minX = Math.min(minX, text.x);
-            minY = Math.min(minY, text.y);
-            maxX = Math.max(maxX, text.x + textWidth);
-            maxY = Math.max(maxY, text.y + textHeight);
+            const gMinX = m.x + text.x * m.sx;
+            const gMinY = m.y + text.y * m.sy;
+            const gMaxX = m.x + (text.x + textWidth) * m.sx;
+            const gMaxY = m.y + (text.y + textHeight) * m.sy;
+
+            minX = Math.min(minX, gMinX);
+            minY = Math.min(minY, gMinY);
+            maxX = Math.max(maxX, gMaxX);
+            maxY = Math.max(maxY, gMaxY);
         });
 
         if (minX !== Infinity) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setSelectionBoundingBox({
                 x: minX,
                 y: minY,

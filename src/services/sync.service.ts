@@ -11,6 +11,8 @@
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { IndexeddbPersistence } from 'y-indexeddb';
+import { getShapeBoundingBox } from '../utils/boundingBox';
+import { ShapeType } from '../types/shapes';
 // Inline varint decoding helpers (replaces lib0/decoding import).
 // lib0 is only a transitive dep of yjs and breaks production builds.
 const decoding = {
@@ -49,6 +51,7 @@ export interface StrokeLine {
     globalCompositeOperation?: string;
     shadowBlur?: number;
     shadowColor?: string;
+    parentId?: string;
 }
 
 export interface Shape {
@@ -66,6 +69,7 @@ export interface Shape {
         scaleX: number;
         scaleY: number;
     };
+    zIndex: number;
     // Rectangle specific
     width?: number;
     height?: number;
@@ -75,6 +79,17 @@ export interface Shape {
     // Ellipse specific
     radiusX?: number;
     radiusY?: number;
+    // Hierarchical/Frame support (Epic 7.5)
+    parentId?: string;
+    childrenIds?: string[];
+    backgroundVisible?: boolean;
+    padding?: number;
+    visible?: boolean;
+    locked?: boolean;
+    opacity?: number;
+    ownerId?: string;
+    assignedUserIds?: string[];
+    name?: string;
 }
 
 export interface TextAnnotation {
@@ -90,6 +105,7 @@ export interface TextAnnotation {
     textDecoration: string;
     textAlign?: 'left' | 'center' | 'right';
     rotation?: number;
+    parentId?: string;
 }
 
 export interface SyncState {
@@ -109,7 +125,7 @@ export interface SyncServiceConfig {
     onConnectionChange?: (connected: boolean) => void;
     onSyncStatusChange?: (synced: boolean) => void;
     // Task 1.3.3-B / 3.1.3: notifies React when collaborators or their cursor positions change
-    onAwarenessUpdate?: (users: { name: string; color: string; cursor?: { x: number; y: number } }[]) => void;
+    onAwarenessUpdate?: (users: { id: string; name: string; color: string; cursor?: { x: number; y: number } }[]) => void;
     // Task 1.5.1: Notifies React for system events like session_locked
     onSystemEvent?: (event: any) => void;
     // Task 1.5 fix: Dedicated callback for lock state changes via Yjs yMeta
@@ -226,9 +242,22 @@ class SyncService {
         this.undoManager.on('stack-cleared', notifyUndoRedo);
 
         // 3. Set up WebSocket provider for real-time sync
+        // disableBc: prevents cross-tab BroadcastChannel from conflicting with WS sync
+        // resyncInterval: periodically re-sends SyncStep1 so late-joiners catch up reliably
         this.wsProvider = new WebsocketProvider(wsUrl, roomId, this.doc, {
             connect: true,
+            disableBc: true,
+            resyncInterval: 5000,
         });
+
+        // CRITICAL FIX: Register no-op handlers for our custom message types (2-5)
+        // so y-websocket doesn't misinterpret them as Auth (type 2) or
+        // QueryAwareness (type 3), which causes awareness storms with 3+ users.
+        const provider = this.wsProvider as any;
+        provider.messageHandlers[2] = () => { }; // Ephemeral/drag — handled elsewhere
+        provider.messageHandlers[3] = () => { }; // Property updates — handled elsewhere
+        provider.messageHandlers[4] = () => { }; // Presence events — handled by custom WS listener
+        provider.messageHandlers[5] = () => { }; // Redis cached state — handled by custom WS listener
 
         // Task 3.4.3-A: Track local doc mutations for pending-change detection.
         // When origin === 'local', show "Syncing..." briefly. If connected, Yjs sends
@@ -309,7 +338,7 @@ class SyncService {
             const awareness = this.wsProvider!.awareness;
             const localClientID = awareness.clientID;
             const seen = new Set<string>();
-            const users: { name: string; color: string; cursor?: { x: number; y: number } }[] = [];
+            const users: { id: string; name: string; color: string; cursor?: { x: number; y: number } }[] = [];
 
             awareness.getStates().forEach((state: any, clientID: number) => {
                 const u = state.user;
@@ -322,7 +351,7 @@ class SyncService {
                     ? { x: state.cursor.x, y: state.cursor.y }
                     : undefined;
 
-                users.push({ name: u.name, color: u.color, cursor });
+                users.push({ id: u.id, name: u.name, color: u.color, cursor });
             });
 
             this.config.onAwarenessUpdate(users);
@@ -368,10 +397,10 @@ class SyncService {
     // --- USER AWARENESS ---
 
     /**
-     * Task 1.3.3-B: Publish this user's name + color to all collaborators
+     * Broadcasts the current user's metadata (name, color, id) to other clients
      * via the Yjs Awareness protocol.
      */
-    updateUserMetadata(metadata: { name: string; color: string }): void {
+    updateUserMetadata(metadata: { id: string; name: string; color: string }): void {
         this.wsProvider?.awareness.setLocalStateField('user', metadata);
     }
 
@@ -505,6 +534,239 @@ class SyncService {
     batch(callback: () => void): void {
         this.doc.transact(callback, 'local');
     }
+
+    // --- EPIC 7.5: FRAME/GROUP MANAGEMENT ---
+
+    /**
+     * Group a set of shape IDs into a new Frame.
+     */
+    groupIntoFrame(shapeIds: string[], lineIds: string[] = [], textIds: string[] = [], ownerId: string = "unknown"): void {
+        console.log('[SyncService] groupIntoFrame called with IDs:', shapeIds, lineIds, textIds, 'owner:', ownerId);
+        if (shapeIds.length === 0) {
+            console.log('[SyncService] Group failed: No shapes provided');
+            return;
+        }
+
+        this.doc.transact(() => {
+            try {
+                const shapes = this.yShapes.toArray();
+                const lines = this.yLines.toArray();
+                const texts = this.yTexts.toArray();
+
+                const selectedShapes = shapes.filter(s => shapeIds.includes(s.id));
+                const selectedLines = lines.filter(l => lineIds.includes(l.id));
+                const selectedTexts = texts.filter(t => textIds.includes(t.id));
+
+                if (selectedShapes.length === 0 && selectedLines.length === 0 && selectedTexts.length === 0) {
+                    console.log('[SyncService] Group failed: No matching elements');
+                    return;
+                }
+
+                // 1. Calculate bounding box
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                selectedShapes.forEach(s => {
+                    const bb = getShapeBoundingBox(s as any);
+                    minX = Math.min(minX, bb.minX);
+                    minY = Math.min(minY, bb.minY);
+                    maxX = Math.max(maxX, bb.maxX);
+                    maxY = Math.max(maxY, bb.maxY);
+                });
+                selectedLines.forEach(l => {
+                    for (let j = 0; j < l.points.length; j += 2) {
+                        minX = Math.min(minX, l.points[j]);
+                        minY = Math.min(minY, l.points[j + 1]);
+                        maxX = Math.max(maxX, l.points[j]);
+                        maxY = Math.max(maxY, l.points[j + 1]);
+                    }
+                });
+                selectedTexts.forEach(t => {
+                    const w = t.text.length * (t.fontSize * 0.6);
+                    const h = t.fontSize * 1.2;
+                    minX = Math.min(minX, t.x);
+                    minY = Math.min(minY, t.y);
+                    maxX = Math.max(maxX, t.x + w);
+                    maxY = Math.max(maxY, t.y + h);
+                });
+
+                const padding = 20;
+                const frameX = minX - padding;
+                const frameY = minY - padding;
+                const frameW = (maxX - minX) + padding * 2;
+                const frameH = (maxY - minY) + padding * 2;
+
+                // Determine if we should inherit a parentId (if all items are in the same frame)
+                const allParentIds = new Set([...selectedShapes, ...selectedLines, ...selectedTexts].map(x => x.parentId));
+                const commonParentId = allParentIds.size === 1 ? Array.from(allParentIds)[0] : undefined;
+
+                // 2. Create the Frame
+                const frameId = `frame-${Date.now()}`;
+                const frame: Shape = {
+                    id: frameId,
+                    parentId: commonParentId,
+                    type: ShapeType.FRAME,
+                    position: { x: frameX, y: frameY },
+                    width: frameW,
+                    height: frameH,
+                    childrenIds: shapeIds,
+                    backgroundVisible: true,
+                    padding: padding,
+                    style: {
+                        stroke: '#66FCF1',
+                        strokeWidth: 1,
+                        fill: 'rgba(102, 252, 241, 0.05)',
+                        hasFill: true,
+                    },
+                    transform: { rotation: 0, scaleX: 1, scaleY: 1 },
+                    zIndex: Math.max(...shapes.map(s => s.zIndex), 0) + 1,
+                    visible: true,
+                    locked: false,
+                    opacity: 1,
+                    ownerId,
+                    assignedUserIds: [],
+                    name: "Frame",
+                };
+
+                // 3. Update children to be relative
+                selectedShapes.forEach(s => {
+                    const idx = shapes.findIndex(sh => sh.id === s.id);
+                    if (idx !== -1) {
+                        const updatedShape: any = {
+                            ...s,
+                            parentId: frameId,
+                            position: {
+                                x: s.position.x - frameX,
+                                y: s.position.y - frameY
+                            }
+                        };
+                        if (updatedShape.startPoint) {
+                            updatedShape.startPoint = { x: updatedShape.startPoint.x - frameX, y: updatedShape.startPoint.y - frameY };
+                            updatedShape.endPoint = { x: updatedShape.endPoint.x - frameX, y: updatedShape.endPoint.y - frameY };
+                        }
+                        if (updatedShape.points) {
+                            updatedShape.points = updatedShape.points.map((p: any) => ({ x: p.x - frameX, y: p.y - frameY }));
+                        }
+
+                        this.yShapes.delete(idx);
+                        this.yShapes.insert(idx, [updatedShape]);
+                    }
+                });
+
+                selectedLines.forEach(l => {
+                    const idx = lines.findIndex(ln => ln.id === l.id);
+                    if (idx !== -1) {
+                        const newPoints = l.points.map((val, i) => i % 2 === 0 ? val - frameX : val - frameY);
+                        const updatedLine = { ...l, parentId: frameId, points: newPoints };
+                        this.yLines.delete(idx);
+                        this.yLines.insert(idx, [updatedLine]);
+                    }
+                });
+
+                selectedTexts.forEach(t => {
+                    const idx = texts.findIndex(tx => tx.id === t.id);
+                    if (idx !== -1) {
+                        const updatedText = { ...t, parentId: frameId, x: t.x - frameX, y: t.y - frameY };
+                        this.yTexts.delete(idx);
+                        this.yTexts.insert(idx, [updatedText]);
+                    }
+                });
+
+                // 4. Add the Frame to the shared collection
+                this.yShapes.push([frame]);
+                console.log('[SyncService] groupIntoFrame COMPLETE! Frame ID:', frameId);
+            } catch (err: any) {
+                console.error('[SyncService] Error during groupIntoFrame:', err);
+            }
+        }, 'local');
+    }
+
+    /**
+     * Disband a frame and return its children to the root level.
+     */
+    ungroupFrame(frameId: string): void {
+        this.doc.transact(() => {
+            const shapesArr = this.yShapes.toArray();
+            const frameIdx = shapesArr.findIndex(s => s.id === frameId);
+            if (frameIdx === -1) return;
+
+            const frame = shapesArr[frameIdx];
+            if (frame.type !== 'frame') return;
+
+            const frameX = frame.position.x;
+            const frameY = frame.position.y;
+
+            // 1. Revert shapes
+            // We use a separate array of updates to avoid index shifting issues during loop
+            const shapeUpdates: { index: number; shape: Shape }[] = [];
+            this.yShapes.toArray().forEach((s, idx) => {
+                if (s.parentId === frameId) {
+                    const revertShape: any = {
+                        ...s,
+                        parentId: undefined,
+                        position: { x: s.position.x + frameX, y: s.position.y + frameY }
+                    };
+                    if (revertShape.startPoint) {
+                        revertShape.startPoint = { x: revertShape.startPoint.x + frameX, y: revertShape.startPoint.y + frameY };
+                        revertShape.endPoint = { x: revertShape.endPoint.x + frameX, y: revertShape.endPoint.y + frameY };
+                    }
+                    if (revertShape.points) {
+                        revertShape.points = revertShape.points.map((p: any) => ({ x: p.x + frameX, y: p.y + frameY }));
+                    }
+                    shapeUpdates.push({
+                        index: idx,
+                        shape: revertShape as Shape
+                    });
+                }
+            });
+            // Apply updates in reverse to maintain indices
+            shapeUpdates.sort((a, b) => b.index - a.index).forEach(upd => {
+                this.yShapes.delete(upd.index);
+                this.yShapes.insert(upd.index, [upd.shape]);
+            });
+
+            // 2. Revert lines
+            const lineUpdates: { index: number; line: StrokeLine }[] = [];
+            this.yLines.toArray().forEach((l, idx) => {
+                if (l.parentId === frameId) {
+                    const newPoints = l.points.map((val, i) => i % 2 === 0 ? val + frameX : val + frameY);
+                    lineUpdates.push({
+                        index: idx,
+                        line: { ...l, parentId: undefined, points: newPoints }
+                    });
+                }
+            });
+            lineUpdates.sort((a, b) => b.index - a.index).forEach(upd => {
+                this.yLines.delete(upd.index);
+                this.yLines.insert(upd.index, [upd.line]);
+            });
+
+            // 3. Revert texts
+            const textUpdates: { index: number; text: TextAnnotation }[] = [];
+            this.yTexts.toArray().forEach((t, idx) => {
+                if (t.parentId === frameId) {
+                    textUpdates.push({
+                        index: idx,
+                        text: {
+                            ...t,
+                            parentId: undefined,
+                            x: t.x + frameX,
+                            y: t.y + frameY
+                        }
+                    });
+                }
+            });
+            textUpdates.sort((a, b) => b.index - a.index).forEach(upd => {
+                this.yTexts.delete(upd.index);
+                this.yTexts.insert(upd.index, [upd.text]);
+            });
+
+            // 4. Delete the frame itself
+            const finalFrameIdx = this.yShapes.toArray().findIndex(s => s.id === frameId);
+            if (finalFrameIdx !== -1) {
+                this.yShapes.delete(finalFrameIdx);
+            }
+        });
+    }
+
 
     // --- UNDO/REDO ---
 

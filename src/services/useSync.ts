@@ -42,6 +42,8 @@ interface UseSyncResult {
     updateShape: (id: string, updates: Partial<Shape>) => void;
     deleteShape: (id: string) => void;
     setShapes: (shapes: Shape[]) => void;
+    groupIntoFrame: (shapeIds: string[], lineIds?: string[], textIds?: string[], ownerId?: string) => void;
+    ungroupFrame: (frameId: string) => void;
 
     // Text operations
     addText: (text: TextAnnotation) => void;
@@ -65,8 +67,8 @@ interface UseSyncResult {
     clearAll: () => void;
 
     // Awareness / presence (Task 3.1.3: includes cursor position for remote users)
-    users: { name: string; color: string; cursor?: { x: number; y: number } }[];
-    updateUserMetadata: (metadata: { name: string; color: string }) => void;
+    users: { id: string; name: string; color: string; cursor?: { x: number; y: number } }[];
+    updateUserMetadata: (metadata: { id: string; name: string; color: string }) => void;
 
     // Task 3.1.1: Live cursor broadcasting
     updateCursorPosition: (x: number, y: number) => void;
@@ -94,7 +96,7 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
     const [canRedo, setCanRedo] = useState(false);
 
     // Task 1.3.3-B / 3.1.3: Live list of connected collaborators (with cursor positions)
-    const [users, setUsers] = useState<{ name: string; color: string; cursor?: { x: number; y: number } }[]>([]);
+    const [users, setUsers] = useState<{ id: string; name: string; color: string; cursor?: { x: number; y: number } }[]>([]);
 
     // Task 3.4.3-A: Track whether local edits are buffered and unconfirmed
     const [hasPendingChanges, setHasPendingChanges] = useState(false);
@@ -217,6 +219,16 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         updateUndoRedoState();
     }, [updateUndoRedoState]);
 
+    const groupIntoFrame = useCallback((shapeIds: string[], lineIds: string[] = [], textIds: string[] = [], ownerId: string = "unknown") => {
+        serviceRef.current?.groupIntoFrame(shapeIds, lineIds, textIds, ownerId);
+        updateUndoRedoState();
+    }, [updateUndoRedoState]);
+
+    const ungroupFrame = useCallback((frameId: string) => {
+        serviceRef.current?.ungroupFrame(frameId);
+        updateUndoRedoState();
+    }, [updateUndoRedoState]);
+
     // Text operations
     const addText = useCallback((text: TextAnnotation) => {
         serviceRef.current?.addText(text);
@@ -268,7 +280,7 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
     }, [updateUndoRedoState]);
 
     // Task 1.3.3-B: Broadcast user identity via Yjs awareness
-    const updateUserMetadata = useCallback((metadata: { name: string; color: string }) => {
+    const updateUserMetadata = useCallback((metadata: { id: string; name: string; color: string }) => {
         serviceRef.current?.updateUserMetadata(metadata);
     }, []);
 
@@ -299,6 +311,8 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         updateShape,
         deleteShape,
         setShapes,
+        groupIntoFrame,
+        ungroupFrame,
         addText,
         updateText,
         deleteText,

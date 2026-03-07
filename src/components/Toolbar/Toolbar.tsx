@@ -258,7 +258,7 @@ export default function Toolbar({
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setActiveColorMode('fill');
         } else if ([ToolType.PEN, ToolType.HIGHLIGHTER, ToolType.LINE, ToolType.ARROW].includes(activeTool as ToolType)) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+             
             setActiveColorMode('stroke');
         }
     }, [activeTool]);

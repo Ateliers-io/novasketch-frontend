@@ -55,6 +55,7 @@ vi.mock('yjs', () => {
 vi.mock('y-websocket', () => ({
     WebsocketProvider: class MockProvider {
         awareness = mockAwareness;
+        messageHandlers: Record<number, (...args: any[]) => void> = {};
         on = vi.fn();
         disconnect = vi.fn();
         destroy = vi.fn();

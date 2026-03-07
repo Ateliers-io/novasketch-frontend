@@ -3,6 +3,11 @@
 // Considerations for future optimization: Implementing a spatial index (QuadTree) if performance degrades on large canvases.
 import {
     Shape,
+    CircleShape,
+    EllipseShape,
+    LineShape,
+    ArrowShape,
+    TriangleShape,
     isRectangle,
     isCircle,
     isEllipse,
@@ -154,17 +159,43 @@ export function removeStrokesAt(x: number, y: number, strokes: StrokeLine[], rad
 // Helper to determine if the eraser area overlaps with a shape.
 // Utilizes bounding box or geometric distance checks depending on shape type.
 export function isPointInShape(shape: Shape, x: number, y: number, radius: number): boolean {
-    if (isRectangle(shape)) {
-        return x >= shape.position.x - radius &&
-            x <= shape.position.x + shape.width + radius &&
-            y >= shape.position.y - radius &&
-            y <= shape.position.y + shape.height + radius;
+    const rotation = shape.transform?.rotation || 0;
+    let tx = x;
+    let ty = y;
+
+    // Bounding dimensions (with scale)
+    const s = shape as any;
+    const w = (s.width || (isCircle(shape) ? s.radius * 2 : 0) || (isEllipse(shape) ? s.radiusX * 2 : 0)) * (shape.transform?.scaleX || 1);
+    const h = (s.height || (isCircle(shape) ? s.radius * 2 : 0) || (isEllipse(shape) ? s.radiusY * 2 : 0)) * (shape.transform?.scaleY || 1);
+
+    if (rotation !== 0) {
+        // Rotate point into local space around shape center
+        const centerX = shape.position.x + w / 2;
+        const centerY = shape.position.y + h / 2;
+        const rad = (-rotation * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        const dx = x - centerX;
+        const dy = y - centerY;
+        tx = dx * cos - dy * sin + centerX;
+        ty = dx * sin + dy * cos + centerY;
+    }
+
+    if (isRectangle(shape) || shape.type === 'frame') {
+        return tx >= shape.position.x - radius &&
+            tx <= shape.position.x + w + radius &&
+            ty >= shape.position.y - radius &&
+            ty <= shape.position.y + h + radius;
     } else if (isCircle(shape)) {
-        const dist = Math.hypot(shape.position.x - x, shape.position.y - y);
-        return dist <= shape.radius + radius;
+        const dist = Math.hypot(shape.position.x - tx, shape.position.y - ty);
+        const r = (shape as CircleShape).radius * Math.max(shape.transform?.scaleX || 1, shape.transform?.scaleY || 1);
+        return dist <= r + radius;
     } else if (isEllipse(shape)) {
-        const dx = (x - shape.position.x) / (shape.radiusX + radius);
-        const dy = (y - shape.position.y) / (shape.radiusY + radius);
+        const es = shape as EllipseShape;
+        const rx = es.radiusX * (shape.transform?.scaleX || 1) + radius;
+        const ry = es.radiusY * (shape.transform?.scaleY || 1) + radius;
+        const dx = (tx - shape.position.x) / rx;
+        const dy = (ty - shape.position.y) / ry;
         return dx * dx + dy * dy <= 1;
     } else if (isLine(shape) || isArrow(shape)) {
         // Point-to-line-segment distance

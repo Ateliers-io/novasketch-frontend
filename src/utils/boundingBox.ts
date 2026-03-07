@@ -60,13 +60,15 @@ function createBoundingBox(minX: number, minY: number, maxX: number, maxY: numbe
  * Calculates the bounding box for a Rectangle shape
  */
 function getRectangleBoundingBox(shape: RectangleShape): BoundingBox {
-    const { position, width, height, style } = shape;
+    const { position, width, height, style, transform } = shape;
     const padding = (style?.strokeWidth || 0) / 2;
+    const sx = transform?.scaleX ?? 1;
+    const sy = transform?.scaleY ?? 1;
     return createBoundingBox(
         position.x - padding,
         position.y - padding,
-        position.x + width + padding,
-        position.y + height + padding
+        position.x + width * sx + padding,
+        position.y + height * sy + padding
     );
 }
 
@@ -74,14 +76,16 @@ function getRectangleBoundingBox(shape: RectangleShape): BoundingBox {
  * Calculates the bounding box for a Circle shape
  */
 function getCircleBoundingBox(shape: CircleShape): BoundingBox {
-    const { position, radius, style } = shape;
+    const { position, radius, style, transform } = shape;
     const padding = (style?.strokeWidth || 0) / 2;
+    const s = Math.max(Math.abs(transform?.scaleX ?? 1), Math.abs(transform?.scaleY ?? 1));
+    const r = radius * s;
     // Position is the center for circles
     return createBoundingBox(
-        position.x - radius - padding,
-        position.y - radius - padding,
-        position.x + radius + padding,
-        position.y + radius + padding
+        position.x - r - padding,
+        position.y - r - padding,
+        position.x + r + padding,
+        position.y + r + padding
     );
 }
 
@@ -89,14 +93,16 @@ function getCircleBoundingBox(shape: CircleShape): BoundingBox {
  * Calculates the bounding box for an Ellipse shape
  */
 function getEllipseBoundingBox(shape: EllipseShape): BoundingBox {
-    const { position, radiusX, radiusY, style } = shape;
+    const { position, radiusX, radiusY, style, transform } = shape;
     const padding = (style?.strokeWidth || 0) / 2;
+    const rx = radiusX * Math.abs(transform?.scaleX ?? 1);
+    const ry = radiusY * Math.abs(transform?.scaleY ?? 1);
     // Position is the center for ellipses
     return createBoundingBox(
-        position.x - radiusX - padding,
-        position.y - radiusY - padding,
-        position.x + radiusX + padding,
-        position.y + radiusY + padding
+        position.x - rx - padding,
+        position.y - ry - padding,
+        position.x + rx + padding,
+        position.y + ry + padding
     );
 }
 
@@ -151,13 +157,15 @@ function getTriangleBoundingBox(shape: TriangleShape): BoundingBox {
  * Calculates the bounding box for a Frame shape
  */
 function getFrameBoundingBox(shape: FrameShape): BoundingBox {
-    const { position, width, height, style } = shape;
+    const { position, width, height, style, transform } = shape;
     const padding = (style?.strokeWidth || 0) / 2;
+    const scaledWidth = width * (transform?.scaleX || 1);
+    const scaledHeight = height * (transform?.scaleY || 1);
     return createBoundingBox(
         position.x - padding,
         position.y - padding,
-        position.x + width + padding,
-        position.y + height + padding
+        position.x + scaledWidth + padding,
+        position.y + scaledHeight + padding
     );
 }
 
@@ -230,7 +238,9 @@ export function getShapeGeometryBoundingBox(shape: Shape): BoundingBox {
         }
         case ShapeType.FRAME: {
             const s = shape as FrameShape;
-            return createBoundingBox(s.position.x, s.position.y, s.position.x + s.width, s.position.y + s.height);
+            const sx = s.transform?.scaleX ?? 1;
+            const sy = s.transform?.scaleY ?? 1;
+            return createBoundingBox(s.position.x, s.position.y, s.position.x + s.width * sx, s.position.y + s.height * sy);
         }
         default:
             return getShapeBoundingBox(shape);

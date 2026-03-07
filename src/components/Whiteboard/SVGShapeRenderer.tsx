@@ -47,13 +47,15 @@ interface ShapeWrapperProps {
 
 const ShapeWrapper: React.FC<ShapeWrapperProps> = ({ shape, children, centerOffset, isSelected, onClick }) => {
     const { position, transform, opacity } = shape;
+    const sx = transform.scaleX || 1;
+    const sy = transform.scaleY || 1;
 
-    const centerX = position.x + centerOffset.x;
-    const centerY = position.y + centerOffset.y;
+    const centerX = position.x + centerOffset.x * sx;
+    const centerY = position.y + centerOffset.y * sy;
 
     return (
         <g
-            transform={`translate(${centerX}, ${centerY}) rotate(${transform.rotation}) scale(${transform.scaleX}, ${transform.scaleY})`}
+            transform={`translate(${centerX}, ${centerY}) rotate(${transform.rotation}) scale(${sx}, ${sy})`}
             opacity={opacity}
             className="svg-shape-group"
             data-tech-id={shape.id}
@@ -249,13 +251,11 @@ const SVGFrame = ({
     onClick?: (e: React.MouseEvent) => void;
     children?: React.ReactNode;
 }) => (
-    <g
-        transform={`translate(${shape.position.x}, ${shape.position.y}) rotate(${shape.transform.rotation}) scale(${shape.transform.scaleX}, ${shape.transform.scaleY})`}
-        opacity={shape.opacity}
-        className="svg-shape-group svg-frame-group"
+    <ShapeWrapper
+        shape={shape}
+        centerOffset={{ x: shape.width / 2, y: shape.height / 2 }}
+        isSelected={isSelected}
         onClick={onClick}
-        style={onClick ? { pointerEvents: 'all', cursor: 'pointer' } : undefined}
-        filter={isSelected ? 'url(#selection-highlight)' : undefined}
     >
         {shape.backgroundVisible && (
             <rect
@@ -268,22 +268,30 @@ const SVGFrame = ({
                 className="svg-primitive svg-frame-bg"
             />
         )}
-        <text
-            x={5}
-            y={-5}
-            fill={shape.style.stroke}
-            fontSize="10"
-            fontWeight="bold"
-            className="svg-frame-label"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-        >
-            FRAME
-        </text>
-        {/* Render children inside the group - they use relative coordinates */}
+        <g transform="translate(5, -12)">
+            {/* Small background for label to prevent overlap bleed */}
+            <rect
+                x={-2} y={-10}
+                width={(shape.name || 'FRAME').length * 6 + 4}
+                height={12}
+                fill="#0B0C10"
+                opacity={0.8}
+                rx={2}
+            />
+            <text
+                fill={shape.style.stroke}
+                fontSize="9"
+                fontWeight="bold"
+                className="svg-frame-label"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+                {shape.name || 'FRAME'}
+            </text>
+        </g>
         <g className="frame-children">
             {children}
         </g>
-    </g>
+    </ShapeWrapper>
 );
 
 // --- MAIN RENDERER ---

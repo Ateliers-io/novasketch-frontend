@@ -16,6 +16,14 @@ interface SelectionOverlayProps {
     onUngroup?: () => void;
     canGroup?: boolean;
     canUngroup?: boolean;
+
+    // Epic 7.6.2 additions
+    frameName?: string;
+    canRenameFrame?: boolean;
+    canAssignGuests?: boolean;
+    onRenameFrame?: () => void;
+    onAssignGuests?: () => void;
+    isReadOnly?: boolean;
 }
 
 const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
@@ -28,6 +36,12 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
     onUngroup,
     canGroup,
     canUngroup,
+    frameName,
+    canRenameFrame,
+    canAssignGuests,
+    onRenameFrame,
+    onAssignGuests,
+    isReadOnly = false
 }) => {
     return (
         <svg
@@ -64,150 +78,176 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                         height={selectionBoundingBox.height + 8}
                         fill="none"
                         stroke="#2dd4bf"
-                        strokeWidth={1.5}
-                        strokeDasharray="6,4"
+                        strokeWidth={1.5 / transform.scale}
+                        strokeDasharray={`${6 / transform.scale},${4 / transform.scale}`}
                         rx={2}
                         filter="url(#selection-glow)"
                         opacity={0.8}
                     />
 
-                    {/* Corner handles with shadows and cursor hints */}
-                    {[
-                        { x: selectionBoundingBox.minX, y: selectionBoundingBox.minY, cursor: 'nwse-resize', id: 'nw' }, // Top-left
-                        { x: selectionBoundingBox.maxX, y: selectionBoundingBox.minY, cursor: 'nesw-resize', id: 'ne' }, // Top-right
-                        { x: selectionBoundingBox.maxX, y: selectionBoundingBox.maxY, cursor: 'nwse-resize', id: 'se' }, // Bottom-right
-                        { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY, cursor: 'nesw-resize', id: 'sw' }, // Bottom-left
-                    ].map((corner, i) => (
-                        <g key={`corner-${i}`} data-resize-handle={corner.id} style={{ pointerEvents: 'auto', cursor: corner.cursor }}>
-                            {/* Larger invisible hit area */}
-                            <rect
-                                x={corner.x - 8}
-                                y={corner.y - 8}
-                                width={16}
-                                height={16}
-                                fill="transparent"
-                            />
-                            {/* Visible handle */}
-                            <rect
-                                x={corner.x - 5}
-                                y={corner.y - 5}
-                                width={10}
-                                height={10}
-                                fill="var(--ns-panel-bg, #ffffff)"
-                                stroke="#2dd4bf"
-                                strokeWidth={1.5}
-                                rx={2}
-                                filter="url(#handle-shadow)"
-                            />
-                            {/* Inner dot */}
-                            <circle
-                                cx={corner.x}
-                                cy={corner.y}
-                                r={2}
-                                fill="#2dd4bf"
-                            />
-                        </g>
-                    ))}
+                    {!isReadOnly && (
+                        <>
+                            {/* Corner handles with shadows and cursor hints */}
+                            {[
+                                { x: selectionBoundingBox.minX, y: selectionBoundingBox.minY, cursor: 'nwse-resize', id: 'nw' }, // Top-left
+                                { x: selectionBoundingBox.maxX, y: selectionBoundingBox.minY, cursor: 'nesw-resize', id: 'ne' }, // Top-right
+                                { x: selectionBoundingBox.maxX, y: selectionBoundingBox.maxY, cursor: 'nwse-resize', id: 'se' }, // Bottom-right
+                                { x: selectionBoundingBox.minX, y: selectionBoundingBox.maxY, cursor: 'nesw-resize', id: 'sw' }, // Bottom-left
+                            ].map((corner, i) => (
+                                <g key={`corner-${i}`} data-resize-handle={corner.id} style={{ pointerEvents: 'auto', cursor: corner.cursor }}>
+                                    {/* Larger invisible hit area */}
+                                    <rect
+                                        x={corner.x - 8}
+                                        y={corner.y - 8}
+                                        width={16}
+                                        height={16}
+                                        fill="transparent"
+                                    />
+                                    {/* Visible handle */}
+                                    <rect
+                                        x={corner.x - 5}
+                                        y={corner.y - 5}
+                                        width={10}
+                                        height={10}
+                                        fill="var(--ns-panel-bg, #ffffff)"
+                                        stroke="#2dd4bf"
+                                        strokeWidth={1.5}
+                                        rx={2}
+                                        filter="url(#handle-shadow)"
+                                    />
+                                    {/* Inner dot */}
+                                    <circle
+                                        cx={corner.x}
+                                        cy={corner.y}
+                                        r={2}
+                                        fill="#2dd4bf"
+                                    />
+                                </g>
+                            ))}
 
-                    {/* Midpoint handles with shadows */}
-                    {[
-                        { x: selectionBoundingBox.centerX, y: selectionBoundingBox.minY, cursor: 'ns-resize', id: 'n' }, // Top-center
-                        { x: selectionBoundingBox.maxX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'e' }, // Right-center
-                        { x: selectionBoundingBox.centerX, y: selectionBoundingBox.maxY, cursor: 'ns-resize', id: 's' }, // Bottom-center
-                        { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'w' }, // Left-center
-                    ].map((mid, i) => (
-                        <g key={`mid-${i}`} data-resize-handle={mid.id} style={{ pointerEvents: 'auto', cursor: mid.cursor }}>
-                            {/* Larger invisible hit area */}
-                            <rect
-                                x={mid.x - 8}
-                                y={mid.y - 8}
-                                width={16}
-                                height={16}
-                                fill="transparent"
-                            />
-                            {/* Visible handle */}
-                            <rect
-                                x={mid.x - 5}
-                                y={mid.y - 5}
-                                width={10}
-                                height={10}
-                                fill="var(--ns-panel-bg, #ffffff)"
-                                stroke="#2dd4bf"
-                                strokeWidth={1.5}
-                                rx={2}
-                                filter="url(#handle-shadow)"
-                            />
-                        </g>
-                    ))}
+                            {/* Midpoint handles with shadows */}
+                            {[
+                                { x: selectionBoundingBox.centerX, y: selectionBoundingBox.minY, cursor: 'ns-resize', id: 'n' }, // Top-center
+                                { x: selectionBoundingBox.maxX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'e' }, // Right-center
+                                { x: selectionBoundingBox.centerX, y: selectionBoundingBox.maxY, cursor: 'ns-resize', id: 's' }, // Bottom-center
+                                { x: selectionBoundingBox.minX, y: selectionBoundingBox.centerY, cursor: 'ew-resize', id: 'w' }, // Left-center
+                            ].map((mid, i) => (
+                                <g key={`mid-${i}`} data-resize-handle={mid.id} style={{ pointerEvents: 'auto', cursor: mid.cursor }}>
+                                    {/* Larger invisible hit area */}
+                                    <rect
+                                        x={mid.x - 8}
+                                        y={mid.y - 8}
+                                        width={16}
+                                        height={16}
+                                        fill="transparent"
+                                    />
+                                    {/* Visible handle */}
+                                    <rect
+                                        x={mid.x - 5}
+                                        y={mid.y - 5}
+                                        width={10}
+                                        height={10}
+                                        fill="var(--ns-panel-bg, #ffffff)"
+                                        stroke="#2dd4bf"
+                                        strokeWidth={1.5}
+                                        rx={2}
+                                        filter="url(#handle-shadow)"
+                                    />
+                                </g>
+                            ))}
 
-                    {/* Task 4.3: Rotation Handle */}
-                    {showRotationHandle && (
-                        <g data-rotation-handle="true" style={{ pointerEvents: 'auto', cursor: 'grab' }}>
-                            {/* Stalk line connecting to selection box. standard convention for visual clarity. */}
-                            <line
-                                x1={selectionBoundingBox.centerX}
-                                y1={selectionBoundingBox.minY - 4}
-                                x2={selectionBoundingBox.centerX}
-                                y2={selectionBoundingBox.minY - 28}
-                                stroke="#2dd4bf"
-                                strokeWidth={1.5}
-                                strokeDasharray="3,2"
-                            />
-                            {/* Rotation handle circle. larger hit area handled by svg event bubbling usually, but here just visual. */}
-                            <circle
-                                cx={selectionBoundingBox.centerX}
-                                cy={selectionBoundingBox.minY - 32}
-                                r={10}
-                                fill="var(--ns-panel-bg, #ffffff)"
-                                stroke="#2dd4bf"
-                                strokeWidth={2}
-                                filter="url(#handle-shadow)"
-                            />
-                            {/* Rotation icon (curved arrow) */}
-                            <path
-                                d={`M ${selectionBoundingBox.centerX - 4} ${selectionBoundingBox.minY - 35}
+                            {/* Task 4.3: Rotation Handle */}
+                            {showRotationHandle && (
+                                <g data-rotation-handle="true" style={{ pointerEvents: 'auto', cursor: 'grab' }}>
+                                    {/* Stalk line connecting to selection box. standard convention for visual clarity. */}
+                                    <line
+                                        x1={selectionBoundingBox.centerX}
+                                        y1={selectionBoundingBox.minY - 4}
+                                        x2={selectionBoundingBox.centerX}
+                                        y2={selectionBoundingBox.minY - 28}
+                                        stroke="#2dd4bf"
+                                        strokeWidth={1.5}
+                                        strokeDasharray="3,2"
+                                    />
+                                    {/* Rotation handle circle. larger hit area handled by svg event bubbling usually, but here just visual. */}
+                                    <circle
+                                        cx={selectionBoundingBox.centerX}
+                                        cy={selectionBoundingBox.minY - 32}
+                                        r={10}
+                                        fill="var(--ns-panel-bg, #ffffff)"
+                                        stroke="#2dd4bf"
+                                        strokeWidth={2}
+                                        filter="url(#handle-shadow)"
+                                    />
+                                    {/* Rotation icon (curved arrow) */}
+                                    <path
+                                        d={`M ${selectionBoundingBox.centerX - 4} ${selectionBoundingBox.minY - 35}
                  a 4 4 0 1 1 8 0`}
-                                stroke="#2dd4bf"
-                                strokeWidth={1.5}
-                                fill="none"
-                                strokeLinecap="round"
-                            />
-                            <path
-                                d={`M ${selectionBoundingBox.centerX + 4} ${selectionBoundingBox.minY - 35}
+                                        stroke="#2dd4bf"
+                                        strokeWidth={1.5}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                    />
+                                    <path
+                                        d={`M ${selectionBoundingBox.centerX + 4} ${selectionBoundingBox.minY - 35}
                  l 2 -2 l 0 4 z`}
-                                fill="#2dd4bf"
-                            />
-                        </g>
-                    )}
+                                        fill="#2dd4bf"
+                                    />
+                                </g>
+                            )}
 
-                    {/* Group/Ungroup Action Buttons (Floating near the selection) */}
-                    {(canGroup || canUngroup) && (
-                        <g transform={`translate(${selectionBoundingBox.centerX}, ${selectionBoundingBox.maxY + 30})`}>
-                            {canGroup && (
-                                <g
-                                    className="action-button group-button"
-                                    style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-                                    onPointerDown={(e) => { e.stopPropagation(); onGroup?.(); }}
-                                >
-                                    <rect x="-45" y="0" width="40" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
-                                    <text x="-25" y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>GROUP</text>
+                            {/* Group/Ungroup Action Buttons (Floating near the selection) */}
+                            {(canGroup || canUngroup) && (
+                                <g transform={`translate(${selectionBoundingBox.centerX}, ${selectionBoundingBox.maxY + 30})`}>
+                                    {canGroup && (
+                                        <g
+                                            className="action-button group-button"
+                                            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                                            onPointerDown={(e) => { e.stopPropagation(); onGroup?.(); }}
+                                        >
+                                            <rect x="-45" y="0" width="40" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
+                                            <text x="-25" y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>GROUP</text>
+                                        </g>
+                                    )}
+                                    {canUngroup && (
+                                        <g
+                                            className="action-button ungroup-button"
+                                            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                                            onPointerDown={(e) => { e.stopPropagation(); onUngroup?.(); }}
+                                        >
+                                            <rect x={canGroup ? "5" : "-45"} y="0" width="55" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
+                                            <text x={canGroup ? "32.5" : "-17.5"} y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>UNGROUP</text>
+                                        </g>
+                                    )}
+
+                                    {canRenameFrame && (
+                                        <g
+                                            className="action-button rename-button"
+                                            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                                            onPointerDown={(e) => { e.stopPropagation(); onRenameFrame?.(); }}
+                                        >
+                                            <rect x={canGroup || canUngroup ? "65" : "-45"} y="0" width="55" height="24" rx="4" fill="#0B0C10" stroke="#eab308" strokeWidth="1" />
+                                            <text x={canGroup || canUngroup ? "92.5" : "-17.5"} y="16" fill="#eab308" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>RENAME</text>
+                                        </g>
+                                    )}
+
+                                    {canAssignGuests && (
+                                        <g
+                                            className="action-button assign-button"
+                                            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                                            onPointerDown={(e) => { e.stopPropagation(); onAssignGuests?.(); }}
+                                        >
+                                            <rect x={canGroup || canUngroup ? (canRenameFrame ? "125" : "65") : (canRenameFrame ? "15" : "-45")} y="0" width="85" height="24" rx="4" fill="#0B0C10" stroke="#a855f7" strokeWidth="1" />
+                                            <text x={canGroup || canUngroup ? (canRenameFrame ? "167.5" : "107.5") : (canRenameFrame ? "57.5" : "-2.5")} y="16" fill="#a855f7" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>ASSIGN GUESTS</text>
+                                        </g>
+                                    )}
                                 </g>
                             )}
-                            {canUngroup && (
-                                <g
-                                    className="action-button ungroup-button"
-                                    style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-                                    onPointerDown={(e) => { e.stopPropagation(); onUngroup?.(); }}
-                                >
-                                    <rect x={canGroup ? "5" : "-45"} y="0" width="55" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
-                                    <text x={canGroup ? "32.5" : "-17.5"} y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>UNGROUP</text>
-                                </g>
-                            )}
-                        </g>
+                        </>
                     )}
                 </g>
             </g>
-        </svg>
+        </svg >
     );
 };
 

@@ -242,9 +242,22 @@ class SyncService {
         this.undoManager.on('stack-cleared', notifyUndoRedo);
 
         // 3. Set up WebSocket provider for real-time sync
+        // disableBc: prevents cross-tab BroadcastChannel from conflicting with WS sync
+        // resyncInterval: periodically re-sends SyncStep1 so late-joiners catch up reliably
         this.wsProvider = new WebsocketProvider(wsUrl, roomId, this.doc, {
             connect: true,
+            disableBc: true,
+            resyncInterval: 5000,
         });
+
+        // CRITICAL FIX: Register no-op handlers for our custom message types (2-5)
+        // so y-websocket doesn't misinterpret them as Auth (type 2) or
+        // QueryAwareness (type 3), which causes awareness storms with 3+ users.
+        const provider = this.wsProvider as any;
+        provider.messageHandlers[2] = () => { }; // Ephemeral/drag — handled elsewhere
+        provider.messageHandlers[3] = () => { }; // Property updates — handled elsewhere
+        provider.messageHandlers[4] = () => { }; // Presence events — handled by custom WS listener
+        provider.messageHandlers[5] = () => { }; // Redis cached state — handled by custom WS listener
 
         // Task 3.4.3-A: Track local doc mutations for pending-change detection.
         // When origin === 'local', show "Syncing..." briefly. If connected, Yjs sends
@@ -581,10 +594,15 @@ class SyncService {
                 const frameW = (maxX - minX) + padding * 2;
                 const frameH = (maxY - minY) + padding * 2;
 
+                // Determine if we should inherit a parentId (if all items are in the same frame)
+                const allParentIds = new Set([...selectedShapes, ...selectedLines, ...selectedTexts].map(x => x.parentId));
+                const commonParentId = allParentIds.size === 1 ? Array.from(allParentIds)[0] : undefined;
+
                 // 2. Create the Frame
                 const frameId = `frame-${Date.now()}`;
                 const frame: Shape = {
                     id: frameId,
+                    parentId: commonParentId,
                     type: ShapeType.FRAME,
                     position: { x: frameX, y: frameY },
                     width: frameW,

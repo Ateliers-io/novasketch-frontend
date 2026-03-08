@@ -17,7 +17,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
-import { getSession, SessionInfo } from '../../../services/session.service';
+import { getSession, joinSession, touchLocalBoard, SessionInfo } from '../../../services/session.service';
 import Whiteboard from '../../Whiteboard/Whiteboard';
 import { SessionNotFound } from './SessionNotFound';
 
@@ -42,6 +42,13 @@ export const BoardPage = () => {
             const session = await getSession(id);
 
             if (cancelled) return;
+
+            // Auto-join the canvas (adds user as participant if not already)
+            // This is fire-and-forget — doesn't block rendering
+            joinSession(id);
+
+            // Update lastEditedAt in localStorage so the board appears recent
+            touchLocalBoard(id);
 
             if (session) {
                 setSessionInfo(session);

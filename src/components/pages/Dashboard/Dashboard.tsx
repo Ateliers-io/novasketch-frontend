@@ -7,13 +7,10 @@ import {
     Plus,
     Clock,
     FolderOpen,
-    FileCode,
-    CheckCircle2,
     Circle,
     Command,
     ChevronLeft,
     Menu,
-    Terminal,
     Grid3X3,
     List as ListIcon,
     Trash2,
@@ -29,18 +26,29 @@ import {
     MessageSquare,
     AlertCircle,
     Loader2,
-    LogOut
+    LogOut,
+    ArrowUp,
+    ArrowDown
 } from 'lucide-react';
 import { useAuth } from '../../../contexts';
-import { createSession } from '../../../services/session.service';
+import { createSession, getUserSessions, SessionInfo, deleteSession } from '../../../services/session.service';
 
-/* --- TYPES --- */
-interface TodoItem {
-    id: number;
-    label: string;
-    completed: boolean;
+/** Simple relative time formatter — avoids heavy date-fns dependency */
+function formatRelativeTime(dateStr?: string): string {
+    if (!dateStr) return 'N/A';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}d ago`;
+    const months = Math.floor(days / 30);
+    return `${months}mo ago`;
 }
 
+/* --- TYPES --- */
 interface Notification {
     id: number;
     type: 'invite' | 'comment' | 'update' | 'alert';
@@ -50,26 +58,7 @@ interface Notification {
     read: boolean;
 }
 
-interface Project {
-    id: string;
-    title: string;
-    edited: string;
-    users: number;
-    previewType: 'rects' | 'circles' | 'mixed';
-    size: string;
-    isCollab: boolean;
-}
-
 /* --- MOCK DATA --- */
-// Temporary hardcoded data for UI development.
-// TODO: Replace with fetch calls to the User Service once API endpoints are ready.
-const INITIAL_TODOS: TodoItem[] = [
-    { id: 1, label: "Initialize first workspace", completed: false },
-    { id: 2, label: "Invite a collaborator", completed: false },
-    { id: 3, label: "Export schema to SVG", completed: false },
-    { id: 4, label: "Configure system settings", completed: false },
-];
-
 const INITIAL_NOTIFICATIONS: Notification[] = [
     { id: 1, type: 'invite', title: 'Team Invitation', message: 'Alex invited you to "Design System" project', time: '2m ago', read: false },
     { id: 2, type: 'comment', title: 'New Comment', message: 'Maya commented on "Neural Interface V2"', time: '15m ago', read: false },
@@ -77,104 +66,12 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
     { id: 4, type: 'alert', title: 'Storage Alert', message: 'You are using 85% of your storage quota', time: '3h ago', read: true },
 ];
 
-const MOCK_PROJECTS: Project[] = [
-    { id: 'proj_01', title: 'Neural Interface V2', edited: '2m ago', users: 3, previewType: 'rects', size: '12MB', isCollab: true },
-    { id: 'proj_02', title: 'System Architecture', edited: '1h ago', users: 2, previewType: 'circles', size: '4.5MB', isCollab: true },
-    { id: 'proj_03', title: 'Q3 Roadmap / Alpha', edited: '4h ago', users: 5, previewType: 'mixed', size: '8.2MB', isCollab: true },
-    { id: 'proj_04', title: 'Personal Sketches', edited: '1d ago', users: 0, previewType: 'rects', size: '24MB', isCollab: false },
-    { id: 'proj_05', title: 'My Ideas Board', edited: '2d ago', users: 0, previewType: 'circles', size: '1.1MB', isCollab: false },
-    { id: 'proj_06', title: 'Quick Notes', edited: '3d ago', users: 0, previewType: 'mixed', size: '0.5MB', isCollab: false },
-];
-
-/* --- 2. TODO ITEM COMPONENT WITH CRUD --- */
-interface TodoItemProps {
-    item: TodoItem;
-    onToggle: (id: number) => void;
-    onEdit: (id: number, newLabel: string) => void;
-    onDelete: (id: number) => void;
+/** Pick a deterministic preview type from the session ID hash */
+function getPreviewType(sessionId: string): 'rects' | 'circles' | 'mixed' {
+    const hash = sessionId.charCodeAt(0) + sessionId.charCodeAt(sessionId.length - 1);
+    const types: ('rects' | 'circles' | 'mixed')[] = ['rects', 'circles', 'mixed'];
+    return types[hash % 3];
 }
-
-const TodoItemComponent = ({ item, onToggle, onEdit, onDelete }: TodoItemProps) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState(item.label);
-    const inputRef = useRef<HTMLInputElement>(null);
-    const itemRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.select();
-        }
-    }, [isEditing]);
-
-    const handleSave = () => {
-        if (editValue.trim()) {
-            onEdit(item.id, editValue.trim());
-        } else {
-            setEditValue(item.label);
-        }
-        setIsEditing(false);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') handleSave();
-        if (e.key === 'Escape') {
-            setEditValue(item.label);
-            setIsEditing(false);
-        }
-    };
-
-    return (
-        <div
-            ref={itemRef}
-            className={`group flex items-center gap-3 py-2 px-3 rounded-md border transition-all ${item.completed
-                ? 'bg-[#66FCF1]/5 border-[#66FCF1]/20'
-                : 'bg-[#1F2833]/30 border-transparent hover:border-[#45A29E]/30'
-                }`}
-        >
-            <button
-                onClick={() => onToggle(item.id)}
-                className="flex-shrink-0 text-[#66FCF1] hover:scale-110 transition-transform"
-            >
-                {item.completed ? <CheckCircle2 size={18} /> : <Circle size={18} className="text-[#45A29E]/50 group-hover:text-[#66FCF1]" />}
-            </button>
-
-            {isEditing ? (
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={handleSave}
-                    onKeyDown={handleKeyDown}
-                    className="flex-1 bg-[#0B0C10] border border-[#66FCF1] rounded px-2 py-1 text-sm text-white focus:outline-none"
-                />
-            ) : (
-                <span className={`flex-1 text-sm font-mono transition-all ${item.completed ? 'text-[#45A29E] line-through opacity-50' : 'text-[#C5C6C7]'
-                    }`}>
-                    {item.label}
-                </span>
-            )}
-
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                    onClick={() => setIsEditing(true)}
-                    className="p-1 rounded hover:bg-[#66FCF1]/10 text-[#8b9bb4] hover:text-[#66FCF1]"
-                    title="Edit"
-                >
-                    <Edit2 size={14} />
-                </button>
-                <button
-                    onClick={() => onDelete(item.id)}
-                    className="p-1 rounded hover:bg-red-500/10 text-[#8b9bb4] hover:text-red-400"
-                    title="Delete"
-                >
-                    <Trash2 size={14} />
-                </button>
-            </div>
-        </div>
-    );
-};
 
 /* --- 3. NOTIFICATIONS PANEL --- */
 interface NotificationsPanelProps {
@@ -241,15 +138,15 @@ const NotificationsPanel = ({ notifications, onMarkRead, onDismiss, onClose }: N
 };
 
 /* --- 4. PROJECT CARD (GRID VIEW) --- */
-const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: any) => {
+const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: { project: SessionInfo; isSelected: boolean; onSelect: (id: string) => void; onOpen: (id: string) => void; onContextMenu: (e: React.MouseEvent, id: string) => void }) => {
     const cardRef = useRef<HTMLDivElement>(null);
     const previewRef = useRef<SVGSVGElement>(null);
     const tlRef = useRef<ReturnType<typeof gsap.timeline> | null>(null);
+    const previewType = getPreviewType(project.sessionId);
+    const thumbnailData = localStorage.getItem(`novasketch_thumbnail_${project.sessionId}`);
 
     useLayoutEffect(() => {
         if (!cardRef.current) return;
-        // Proper GSAP context cleanup is critical here to handle React's Strict Mode double-invoke 
-        // and prevent timeline duplicates.
         const ctx = gsap.context(() => {
             const shapes = gsap.utils.selector(previewRef.current)('.live-shape');
             tlRef.current = gsap.timeline({ paused: true, repeat: -1, yoyo: true });
@@ -264,7 +161,7 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: a
     const renderShapes = () => {
         const shapes = [];
         for (let i = 0; i < 4; i++) {
-            const isRect = project.previewType === 'rects' || (project.previewType === 'mixed' && i % 2 === 0);
+            const isRect = previewType === 'rects' || (previewType === 'mixed' && i % 2 === 0);
             const style = { fill: 'transparent', stroke: i === 0 ? '#66FCF1' : '#45A29E', strokeWidth: 1.5, opacity: i === 0 ? 1 : 0.4 };
             if (isRect) shapes.push(<rect key={i} className="live-shape" x={40 + i * 25} y={30 + i * 12} width={24} height={18} rx={2} {...style} />);
             else shapes.push(<circle key={i} className="live-shape" cx={50 + i * 20} cy={40 + i * 12} r={10} {...style} />);
@@ -272,24 +169,26 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: a
         return shapes;
     };
 
+    const shortId = project.sessionId.length > 8 ? project.sessionId.slice(0, 8) : project.sessionId;
+
     return (
         <div
             ref={cardRef}
-            onClick={(e) => { e.stopPropagation(); onSelect(project.id); }}
-            onDoubleClick={(e) => { e.stopPropagation(); onOpen(project.id); }}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, project.id); }}
+            onClick={(e) => { e.stopPropagation(); onSelect(project.sessionId); }}
+            onDoubleClick={(e) => { e.stopPropagation(); onOpen(project.sessionId); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, project.sessionId); }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             className={`group relative flex flex-col bg-[#1F2833] border rounded-lg overflow-hidden cursor-pointer transition-all ${isSelected ? 'border-[#66FCF1] ring-1 ring-[#66FCF1]' : 'border-white/10 hover:border-[#66FCF1]/50'}`}
         >
             <div className="relative h-32 bg-[#0B0C10] w-full overflow-hidden border-b border-white/5">
-                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#45A29E 1px, transparent 1px), linear-gradient(90deg, #45A29E 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                <svg ref={previewRef} className="absolute inset-0 w-full h-full p-4 pointer-events-none" viewBox="0 0 200 120">{renderShapes()}</svg>
-                {project.users > 0 && (
-                    <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 bg-[#0B0C10]/80 backdrop-blur border border-[#66FCF1] rounded-sm">
-                        <div className="w-1.5 h-1.5 bg-[#66FCF1] rounded-full animate-pulse" />
-                        <span className="text-[9px] font-mono font-bold text-[#66FCF1]">{project.users}</span>
-                    </div>
+                {thumbnailData ? (
+                    <img src={thumbnailData} alt="Board thumbnail" className="absolute inset-0 w-full h-full object-contain opacity-80" />
+                ) : (
+                    <>
+                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#45A29E 1px, transparent 1px), linear-gradient(90deg, #45A29E 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                        <svg ref={previewRef} className="absolute inset-0 w-full h-full p-4 pointer-events-none" viewBox="0 0 200 120">{renderShapes()}</svg>
+                    </>
                 )}
                 {/* Collab/Personal Badge */}
                 <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-sm text-[9px] font-bold ${project.isCollab ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
@@ -297,12 +196,17 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: a
                     {project.isCollab ? <Users size={10} className="inline mr-1" /> : <User size={10} className="inline mr-1" />}
                     {project.isCollab ? 'TEAM' : 'PERSONAL'}
                 </div>
+                {project.role && project.role !== 'owner' && (
+                    <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-[#0B0C10]/80 backdrop-blur border border-[#45A29E]/50 rounded-sm">
+                        <span className="text-[9px] font-mono font-bold text-[#45A29E] uppercase">{project.role}</span>
+                    </div>
+                )}
             </div>
             <div className="p-3 flex flex-col gap-1">
-                <h3 className={`text-sm font-medium truncate transition-colors ${isSelected ? 'text-[#66FCF1]' : 'text-white group-hover:text-[#66FCF1]'}`}>{project.title}</h3>
+                <h3 className={`text-sm font-medium truncate transition-colors ${isSelected ? 'text-[#66FCF1]' : 'text-white group-hover:text-[#66FCF1]'}`}>{project.name}</h3>
                 <div className="flex items-center justify-between text-[10px] font-mono text-[#8b9bb4]">
-                    <div className="flex items-center gap-1"><Clock size={10} /><span>{project.edited}</span></div>
-                    <span>#{project.id.split('_')[1]}</span>
+                    <div className="flex items-center gap-1"><Clock size={10} /><span>{formatRelativeTime(project.lastEditedAt)}</span></div>
+                    <span>#{shortId}</span>
                 </div>
             </div>
         </div>
@@ -310,28 +214,28 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: a
 };
 
 /* --- 5. LIST ROW (LIST VIEW) --- */
-const ProjectRow = ({ project, isSelected, onSelect, onOpen, onContextMenu }: any) => {
+const ProjectRow = ({ project, isSelected, onSelect, onOpen, onContextMenu }: { project: SessionInfo; isSelected: boolean; onSelect: (id: string) => void; onOpen: (id: string) => void; onContextMenu: (e: React.MouseEvent, id: string) => void }) => {
+    const previewType = getPreviewType(project.sessionId);
     return (
         <div
-            onClick={(e) => { e.stopPropagation(); onSelect(project.id); }}
-            onDoubleClick={(e) => { e.stopPropagation(); onOpen(project.id); }}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, project.id); }}
+            onClick={(e) => { e.stopPropagation(); onSelect(project.sessionId); }}
+            onDoubleClick={(e) => { e.stopPropagation(); onOpen(project.sessionId); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, project.sessionId); }}
             className={`group flex items-center gap-4 p-3 rounded-md cursor-pointer border transition-all ${isSelected ? 'bg-[#66FCF1]/10 border-[#66FCF1]/30' : 'bg-[#1F2833]/30 border-transparent hover:bg-[#1F2833]'}`}
         >
             <div className={`w-8 h-8 rounded flex items-center justify-center border ${isSelected ? 'border-[#66FCF1] bg-[#66FCF1]/20' : 'border-white/10 bg-[#0B0C10]'}`}>
-                {project.previewType === 'rects' ? <Grid3X3 size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#45A29E]'} /> : <Circle size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#45A29E]'} />}
+                {previewType === 'rects' ? <Grid3X3 size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#45A29E]'} /> : <Circle size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#45A29E]'} />}
             </div>
             <div className="flex-1 min-w-0">
-                <h3 className={`text-sm font-medium truncate ${isSelected ? 'text-[#66FCF1]' : 'text-white'}`}>{project.title}</h3>
+                <h3 className={`text-sm font-medium truncate ${isSelected ? 'text-[#66FCF1]' : 'text-white'}`}>{project.name}</h3>
             </div>
             <div className={`px-2 py-0.5 rounded text-[10px] font-bold ${project.isCollab ? 'bg-pink-500/20 text-pink-400' : 'bg-indigo-500/20 text-indigo-400'
                 }`}>
                 {project.isCollab ? 'TEAM' : 'PERSONAL'}
             </div>
             <div className="hidden md:flex items-center gap-6 text-xs text-[#8b9bb4] font-mono">
-                {project.users > 0 && <div className="flex items-center gap-1 text-[#66FCF1]"><Users size={12} /> <span>{project.users}</span></div>}
-                <span>{project.size}</span>
-                <span>{project.edited}</span>
+                {project.role && <span className="text-[#45A29E] uppercase">{project.role}</span>}
+                <span>{formatRelativeTime(project.lastEditedAt)}</span>
             </div>
         </div>
     );
@@ -342,6 +246,26 @@ export const Dashboard = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
+    const [projects, setProjects] = useState<SessionInfo[]>([]);
+    const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+
+    const fetchProjects = async () => {
+        setIsLoadingProjects(true);
+        try {
+            const data = await getUserSessions();
+            setProjects(data);
+        } catch (err) {
+            console.error("Failed to fetch projects", err);
+        } finally {
+            setIsLoadingProjects(false);
+        }
+    };
+
+    useEffect(() => {
+        // Always fetch — getUserSessions now merges API + localStorage
+        fetchProjects();
+    }, [user]);
+
     const handleLogout = () => {
         logout();
         navigate('/');
@@ -350,48 +274,23 @@ export const Dashboard = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    // keeping context menu simple, just x/y coordinates
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
     const [projectFilter, setProjectFilter] = useState<'all' | 'collab' | 'personal'>('all');
 
-    // Todo State with CRUD
-    const [todos, setTodos] = useState<TodoItem[]>(INITIAL_TODOS);
-    const [newTodoText, setNewTodoText] = useState('');
+    // Task 4: Sidebar view (All Projects vs Recent)
+    const [sidebarView, setSidebarView] = useState<'all' | 'recent'>('all');
+
+    // Task 4: Sort order (newest first / oldest first)
+    const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+    // Task 4: Search query for filtering projects
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Notifications State
     const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
     const [showNotifications, setShowNotifications] = useState(false);
 
     const unreadCount = notifications.filter(n => !n.read).length;
-
-    // Todo CRUD Operations
-    const addTodo = () => {
-        if (newTodoText.trim()) {
-            const newTodo: TodoItem = {
-                id: Date.now(),
-                label: newTodoText.trim(),
-                completed: false
-            };
-            setTodos([...todos, newTodo]);
-            setNewTodoText('');
-        }
-    };
-
-    const toggleTodo = (id: number) => {
-        setTodos(todos.map(todo =>
-            todo.id === id ? { ...todo, completed: !todo.completed } : todo
-        ));
-    };
-
-    const editTodo = (id: number, newLabel: string) => {
-        setTodos(todos.map(todo =>
-            todo.id === id ? { ...todo, label: newLabel } : todo
-        ));
-    };
-
-    const deleteTodo = (id: number) => {
-        setTodos(todos.filter(todo => todo.id !== id));
-    };
 
     // Notification Operations
     const markNotificationRead = (id: number) => {
@@ -404,8 +303,32 @@ export const Dashboard = () => {
         setNotifications(notifications.filter(n => n.id !== id));
     };
 
-    const collabProjects = MOCK_PROJECTS.filter(p => p.isCollab);
-    const personalProjects = MOCK_PROJECTS.filter(p => !p.isCollab);
+    // Sort projects chronologically by lastEditedAt
+    const sortedProjects = [...projects]
+        .filter(p => {
+            // Task 4: Apply search filter
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                return p.name.toLowerCase().includes(q) || p.sessionId.toLowerCase().includes(q);
+            }
+            return true;
+        })
+        .sort((a, b) => {
+            const dateA = a.lastEditedAt ? new Date(a.lastEditedAt).getTime() : 0;
+            const dateB = b.lastEditedAt ? new Date(b.lastEditedAt).getTime() : 0;
+            return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+        });
+
+    // Apply type filter
+    const filteredProjects = sortedProjects.filter(p => {
+        if (projectFilter === 'collab') return p.isCollab;
+        if (projectFilter === 'personal') return !p.isCollab;
+        return true;
+    });
+
+    // Split into sections (only used in 'all' sidebarView)
+    const collabProjects = sortedProjects.filter(p => p.isCollab);
+    const personalProjects = sortedProjects.filter(p => !p.isCollab);
 
     // Close context menu on click anywhere
     useEffect(() => {
@@ -420,15 +343,40 @@ export const Dashboard = () => {
         setContextMenu({ x: e.pageX, y: e.pageY, id });
     };
 
-    const openProject = (id: string) => navigate(`/board/${id}`);
+    const openProject = (id: string) => {
+        // Navigate to board URL
+        navigate(`/board/${id}`);
+    };
+
+    const handleDeleteProject = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this board?")) return;
+        await deleteSession(id);
+        fetchProjects();
+        setContextMenu(null);
+    };
 
     const [isCreatingBoard, setIsCreatingBoard] = useState(false);
+    const [joinBoardId, setJoinBoardId] = useState('');
 
-    const handleCreateBoard = async () => {
+    const handleJoinBoard = () => {
+        if (!joinBoardId.trim()) return;
+
+        let idToJoin = joinBoardId.trim();
+        // If they pasted a full URL, extract the ID
+        if (idToJoin.includes('/board/')) {
+            const parts = idToJoin.split('/board/');
+            idToJoin = parts[parts.length - 1].split('?')[0].split('/')[0];
+        }
+        navigate(`/board/${idToJoin}`);
+    };
+
+    const handleCreateBoard = async (isCollab: boolean = false) => {
         if (isCreatingBoard) return;
         setIsCreatingBoard(true);
         try {
-            const { url } = await createSession();
+            const { url } = await createSession(undefined, isCollab);
+            // Re-fetch projects so the new board appears if user goes back
+            fetchProjects();
             navigate(url);
         } catch (err) {
             console.error('Failed to create board:', err);
@@ -437,6 +385,17 @@ export const Dashboard = () => {
             setIsCreatingBoard(false);
         }
     };
+
+    // Task 5: Re-fetch projects when tab becomes visible (detects collab promotion)
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                fetchProjects();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => document.removeEventListener('visibilitychange', handleVisibility);
+    }, []);
 
     useLayoutEffect(() => {
         const ctx = gsap.context(() => {
@@ -463,9 +422,18 @@ export const Dashboard = () => {
                     </button>
                 </div>
                 <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-2">
-                    <div className="sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm bg-[#1F2833] text-white text-sm cursor-pointer"><FolderOpen size={16} className="text-[#66FCF1]" />{!isSidebarCollapsed && <span>All Projects</span>}</div>
-                    <div className="sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm hover:bg-[#1F2833]/50 text-[#8b9bb4] hover:text-white text-sm cursor-pointer transition-colors"><Clock size={16} />{!isSidebarCollapsed && <span>Recent</span>}</div>
-                    <div className="sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm hover:bg-[#1F2833]/50 text-[#8b9bb4] hover:text-white text-sm cursor-pointer transition-colors"><FileCode size={16} />{!isSidebarCollapsed && <span>Drafts</span>}</div>
+                    <div
+                        onClick={() => { setSidebarView('all'); setProjectFilter('all'); }}
+                        className={`sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors ${sidebarView === 'all' && projectFilter === 'all' ? 'bg-[#1F2833] text-white' : 'text-[#8b9bb4] hover:bg-[#1F2833]/50 hover:text-white'}`}
+                    >
+                        <FolderOpen size={16} className={sidebarView === 'all' && projectFilter === 'all' ? 'text-[#66FCF1]' : ''} />{!isSidebarCollapsed && <span>All Projects</span>}
+                    </div>
+                    <div
+                        onClick={() => { setSidebarView('recent'); setProjectFilter('all'); }}
+                        className={`sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors ${sidebarView === 'recent' ? 'bg-[#1F2833] text-white' : 'text-[#8b9bb4] hover:bg-[#1F2833]/50 hover:text-white'}`}
+                    >
+                        <Clock size={16} className={sidebarView === 'recent' ? 'text-[#66FCF1]' : ''} />{!isSidebarCollapsed && <span>Recent</span>}
+                    </div>
 
                     {!isSidebarCollapsed && (
                         <div className="mt-6 pt-4 border-t border-white/10">
@@ -506,14 +474,58 @@ export const Dashboard = () => {
                 {/* HEADER */}
                 <header className="h-12 border-b border-white/10 flex items-center justify-between px-6 bg-[#0B0C10] z-10">
                     <div className="flex items-center gap-2 text-sm text-[#8b9bb4]">
-                        <span className="text-white font-medium">Dashboard</span>
+                        <span className="text-white font-medium">{sidebarView === 'recent' ? 'Recent Projects' : 'Dashboard'}</span>
+                        {sidebarView === 'recent' && (
+                            <span className="text-[10px] font-mono text-[#45A29E] bg-[#1F2833] px-2 py-0.5 rounded">
+                                {sortOrder === 'newest' ? 'Newest First' : 'Oldest First'}
+                            </span>
+                        )}
+                        <div className="ml-4 flex bg-[#1F2833] rounded-md border border-white/10 items-center overflow-hidden h-8 hidden md:flex">
+                            <input
+                                type="text"
+                                placeholder="Enter board ID or share link to join"
+                                value={joinBoardId}
+                                onChange={(e) => setJoinBoardId(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleJoinBoard()}
+                                className="bg-transparent border-none outline-none text-xs text-white px-3 w-64 placeholder:text-[#8b9bb4]"
+                            />
+                            <button
+                                onClick={handleJoinBoard}
+                                disabled={!joinBoardId.trim()}
+                                className="h-full px-3 text-[10px] font-bold bg-[#45A29E]/20 text-[#66FCF1] hover:bg-[#45A29E]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-l border-white/10"
+                            >
+                                JOIN
+                            </button>
+                        </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="relative group w-64 hidden md:block">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-[#45A29E]" size={14} />
-                            <input type="text" placeholder="Jump to file..." className="w-full h-8 bg-[#1F2833] border border-white/10 rounded-sm pl-8 pr-8 text-xs text-white focus:outline-none focus:border-[#66FCF1] transition-all placeholder:text-[#8b9bb4]" />
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none"><Command size={10} className="text-[#8b9bb4]" /><span className="text-[10px] font-mono text-[#8b9bb4]">K</span></div>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search projects..."
+                                className="w-full h-8 bg-[#1F2833] border border-white/10 rounded-sm pl-8 pr-8 text-xs text-white focus:outline-none focus:border-[#66FCF1] transition-all placeholder:text-[#8b9bb4]"
+                            />
+                            {searchQuery ? (
+                                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8b9bb4] hover:text-white">
+                                    <X size={12} />
+                                </button>
+                            ) : (
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none"><Command size={10} className="text-[#8b9bb4]" /><span className="text-[10px] font-mono text-[#8b9bb4]">K</span></div>
+                            )}
                         </div>
+
+                        {/* Sort Toggle */}
+                        <button
+                            onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                            className="flex items-center gap-1.5 px-2 py-1.5 rounded text-[#8b9bb4] hover:text-[#66FCF1] hover:bg-[#1F2833] transition-all text-xs font-mono"
+                            title={`Sort: ${sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}`}
+                        >
+                            {sortOrder === 'newest' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+                            <span className="hidden lg:inline">{sortOrder === 'newest' ? 'Newest' : 'Oldest'}</span>
+                        </button>
 
                         {/* Notifications Button */}
                         <div className="relative">
@@ -549,86 +561,88 @@ export const Dashboard = () => {
                 <div className="flex-1 overflow-y-auto p-8 dash-content">
                     <div className="max-w-6xl mx-auto space-y-10">
 
-                        {/* TODO SECTION WITH CRUD */}
-                        <section>
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wide">
-                                    <Terminal size={14} className="text-[#66FCF1]" />
-                                    Tasks & Reminders
-                                </h2>
-                                <span className="text-[10px] font-mono text-[#45A29E]">
-                                    {todos.filter(t => t.completed).length}/{todos.length} completed
-                                </span>
+                        {/* LOADING STATE */}
+                        {isLoadingProjects && (
+                            <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                <Loader2 size={32} className="text-[#66FCF1] animate-spin" />
+                                <p className="text-sm text-[#8b9bb4] font-mono">Loading your projects...</p>
                             </div>
+                        )}
 
-                            {/* Add New Todo */}
-                            <div className="flex gap-2 mb-4">
-                                <input
-                                    type="text"
-                                    value={newTodoText}
-                                    onChange={(e) => setNewTodoText(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && addTodo()}
-                                    placeholder="Add a new task..."
-                                    className="flex-1 h-10 bg-[#1F2833] border border-white/10 rounded-md px-4 text-sm text-white focus:outline-none focus:border-[#66FCF1] transition-all placeholder:text-[#8b9bb4]"
-                                />
+                        {/* EMPTY STATE — no projects at all */}
+                        {!isLoadingProjects && projects.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-20 gap-6">
+                                <div className="w-16 h-16 rounded-2xl bg-[#1F2833] border border-white/10 flex items-center justify-center">
+                                    <FolderOpen size={28} className="text-[#45A29E]" />
+                                </div>
+                                <div className="text-center">
+                                    <h3 className="text-lg font-bold text-white mb-1">No projects yet</h3>
+                                    <p className="text-sm text-[#8b9bb4]">Create your first board to get started!</p>
+                                </div>
                                 <button
-                                    onClick={addTodo}
-                                    className="h-10 px-4 bg-[#66FCF1] hover:bg-[#45A29E] text-black font-bold text-sm rounded-md flex items-center gap-2 transition-colors"
+                                    onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
+                                    disabled={isCreatingBoard}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-[#66FCF1] hover:bg-[#45A29E] text-black font-bold text-sm rounded-lg transition-all disabled:opacity-50"
                                 >
-                                    <Plus size={16} />
-                                    Add
+                                    {isCreatingBoard ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                                    Create New Board
                                 </button>
                             </div>
+                        )}
 
-                            {/* Todo List */}
-                            <div className="bg-[#1F2833]/30 border border-white/10 rounded-lg p-3 space-y-2">
-                                {todos.length === 0 ? (
-                                    <div className="text-center py-8 text-[#8b9bb4] text-sm">
-                                        No tasks yet. Add one above!
-                                    </div>
-                                ) : (
-                                    todos.map(item => (
-                                        <TodoItemComponent
-                                            key={item.id}
-                                            item={item}
-                                            onToggle={toggleTodo}
-                                            onEdit={editTodo}
-                                            onDelete={deleteTodo}
-                                        />
-                                    ))
+                        {/* SEARCH NO RESULTS STATE */}
+                        {!isLoadingProjects && projects.length > 0 && filteredProjects.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                <Search size={28} className="text-[#45A29E]" />
+                                <div className="text-center">
+                                    <h3 className="text-lg font-bold text-white mb-1">No matching projects</h3>
+                                    <p className="text-sm text-[#8b9bb4]">
+                                        {searchQuery ? `No results for "${searchQuery}"` : 'No projects match the selected filter'}
+                                    </p>
+                                </div>
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => setSearchQuery('')}
+                                        className="text-xs text-[#66FCF1] hover:underline"
+                                    >
+                                        Clear search
+                                    </button>
                                 )}
                             </div>
-                        </section>
+                        )}
 
-                        {/* COLLABORATIVE PROJECTS SECTION */}
-                        {(projectFilter === 'all' || projectFilter === 'collab') && collabProjects.length > 0 && (
+                        {/* ============ RECENT VIEW (flat list) ============ */}
+                        {!isLoadingProjects && sidebarView === 'recent' && filteredProjects.length > 0 && (
                             <section>
                                 <div className="flex items-end justify-between mb-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-pink-500/10 border border-pink-500/20">
-                                            <Users size={18} className="text-pink-400" />
+                                        <div className="p-2 rounded-lg bg-[#66FCF1]/10 border border-[#66FCF1]/20">
+                                            <Clock size={18} className="text-[#66FCF1]" />
                                         </div>
                                         <div>
-                                            <h2 className="text-xl font-bold text-white">Collaborative Projects</h2>
-                                            <p className="text-xs text-[#8b9bb4] mt-0.5">Team boards you're working on with others</p>
+                                            <h2 className="text-xl font-bold text-white">Recent Projects</h2>
+                                            <p className="text-xs text-[#8b9bb4] mt-0.5">
+                                                {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} · Sorted by {sortOrder === 'newest' ? 'newest first' : 'oldest first'}
+                                                {projectFilter !== 'all' && ` · ${projectFilter === 'collab' ? 'Collaborative only' : 'Personal only'}`}
+                                            </p>
                                         </div>
                                     </div>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
                                         disabled={isCreatingBoard}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-400 text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-[#66FCF1]/10 hover:bg-[#66FCF1]/20 border border-[#66FCF1]/30 text-[#66FCF1] text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {isCreatingBoard ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}NEW TEAM BOARD
+                                        {isCreatingBoard ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}NEW BOARD
                                     </button>
                                 </div>
 
                                 {viewMode === 'grid' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                                        {collabProjects.map((project) => (
+                                        {filteredProjects.map((project) => (
                                             <ProjectCard
-                                                key={project.id}
+                                                key={project.sessionId}
                                                 project={project}
-                                                isSelected={selectedId === project.id}
+                                                isSelected={selectedId === project.sessionId}
                                                 onSelect={setSelectedId}
                                                 onOpen={openProject}
                                                 onContextMenu={handleContextMenu}
@@ -637,11 +651,11 @@ export const Dashboard = () => {
                                     </div>
                                 ) : (
                                     <div className="flex flex-col gap-1">
-                                        {collabProjects.map((project) => (
+                                        {filteredProjects.map((project) => (
                                             <ProjectRow
-                                                key={project.id}
+                                                key={project.sessionId}
                                                 project={project}
-                                                isSelected={selectedId === project.id}
+                                                isSelected={selectedId === project.sessionId}
                                                 onSelect={setSelectedId}
                                                 onOpen={openProject}
                                                 onContextMenu={handleContextMenu}
@@ -652,65 +666,131 @@ export const Dashboard = () => {
                             </section>
                         )}
 
-                        {/* PERSONAL PROJECTS SECTION */}
-                        {(projectFilter === 'all' || projectFilter === 'personal') && personalProjects.length > 0 && (
-                            <section>
-                                <div className="flex items-end justify-between mb-6">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                                            <User size={18} className="text-indigo-400" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-xl font-bold text-white">Personal Boards</h2>
-                                            <p className="text-xs text-[#8b9bb4] mt-0.5">Your private sketches and ideas</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
-                                        disabled={isCreatingBoard}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {isCreatingBoard ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}NEW PERSONAL BOARD
-                                    </button>
-                                </div>
-
-                                {viewMode === 'grid' ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                                        <div
-                                            onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
-                                            className={`group border border-dashed border-white/20 hover:border-indigo-400 rounded-lg p-4 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-[#1F2833]/50 transition-all min-h-[200px] ${isCreatingBoard ? 'opacity-50 pointer-events-none' : ''}`}
-                                        >
-                                            <div className="w-10 h-10 rounded-full bg-[#1F2833] flex items-center justify-center group-hover:scale-110 transition-transform border border-white/10 group-hover:border-indigo-400">
-                                                {isCreatingBoard ? <Loader2 size={20} className="text-indigo-400 animate-spin" /> : <Plus size={20} className="text-indigo-400" />}
+                        {/* ============ ALL PROJECTS VIEW (split sections) ============ */}
+                        {!isLoadingProjects && sidebarView === 'all' && (
+                            <>
+                                {/* COLLABORATIVE PROJECTS SECTION */}
+                                {(projectFilter === 'all' || projectFilter === 'collab') && (
+                                    <section>
+                                        <div className="flex items-end justify-between mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 rounded-lg bg-pink-500/10 border border-pink-500/20">
+                                                    <Users size={18} className="text-pink-400" />
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-xl font-bold text-white">Collaborative Projects</h2>
+                                                    <p className="text-xs text-[#8b9bb4] mt-0.5">Team boards you're working on with others</p>
+                                                </div>
                                             </div>
-                                            <span className="text-xs font-medium text-[#8b9bb4] group-hover:text-white">{isCreatingBoard ? 'Creating...' : 'Create Personal Board'}</span>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleCreateBoard(true); }}
+                                                disabled={isCreatingBoard}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-400 text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isCreatingBoard ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}NEW TEAM BOARD
+                                            </button>
                                         </div>
-                                        {personalProjects.map((project) => (
-                                            <ProjectCard
-                                                key={project.id}
-                                                project={project}
-                                                isSelected={selectedId === project.id}
-                                                onSelect={setSelectedId}
-                                                onOpen={openProject}
-                                                onContextMenu={handleContextMenu}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col gap-1">
-                                        {personalProjects.map((project) => (
-                                            <ProjectRow
-                                                key={project.id}
-                                                project={project}
-                                                isSelected={selectedId === project.id}
-                                                onSelect={setSelectedId}
-                                                onOpen={openProject}
-                                                onContextMenu={handleContextMenu}
-                                            />
-                                        ))}
-                                    </div>
+
+                                        {viewMode === 'grid' ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                                                <div
+                                                    onClick={(e) => { e.stopPropagation(); handleCreateBoard(true); }}
+                                                    className={`group border border-dashed border-white/20 hover:border-pink-500 rounded-lg p-4 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-[#1F2833]/50 transition-all min-h-[200px] ${isCreatingBoard ? 'opacity-50 pointer-events-none' : ''}`}
+                                                >
+                                                    <div className="w-10 h-10 rounded-full bg-[#1F2833] flex items-center justify-center group-hover:scale-110 transition-transform border border-white/10 group-hover:border-pink-500">
+                                                        {isCreatingBoard ? <Loader2 size={20} className="text-pink-500 animate-spin" /> : <Plus size={20} className="text-pink-400" />}
+                                                    </div>
+                                                    <span className="text-xs font-medium text-[#8b9bb4] group-hover:text-white">{isCreatingBoard ? 'Creating...' : 'Create Team Board'}</span>
+                                                </div>
+                                                {collabProjects.map((project) => (
+                                                    <ProjectCard
+                                                        key={project.sessionId}
+                                                        project={project}
+                                                        isSelected={selectedId === project.sessionId}
+                                                        onSelect={setSelectedId}
+                                                        onOpen={openProject}
+                                                        onContextMenu={handleContextMenu}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col gap-1">
+                                                {collabProjects.map((project) => (
+                                                    <ProjectRow
+                                                        key={project.sessionId}
+                                                        project={project}
+                                                        isSelected={selectedId === project.sessionId}
+                                                        onSelect={setSelectedId}
+                                                        onOpen={openProject}
+                                                        onContextMenu={handleContextMenu}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </section>
                                 )}
-                            </section>
+
+                                {/* PERSONAL PROJECTS SECTION */}
+                                {(projectFilter === 'all' || projectFilter === 'personal') && (
+                                    <section>
+                                        <div className="flex items-end justify-between mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                                                    <User size={18} className="text-indigo-400" />
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-xl font-bold text-white">Personal Boards</h2>
+                                                    <p className="text-xs text-[#8b9bb4] mt-0.5">Your private sketches and ideas</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
+                                                disabled={isCreatingBoard}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isCreatingBoard ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}NEW PERSONAL BOARD
+                                            </button>
+                                        </div>
+
+                                        {viewMode === 'grid' ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                                                <div
+                                                    onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
+                                                    className={`group border border-dashed border-white/20 hover:border-indigo-400 rounded-lg p-4 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-[#1F2833]/50 transition-all min-h-[200px] ${isCreatingBoard ? 'opacity-50 pointer-events-none' : ''}`}
+                                                >
+                                                    <div className="w-10 h-10 rounded-full bg-[#1F2833] flex items-center justify-center group-hover:scale-110 transition-transform border border-white/10 group-hover:border-indigo-400">
+                                                        {isCreatingBoard ? <Loader2 size={20} className="text-indigo-400 animate-spin" /> : <Plus size={20} className="text-indigo-400" />}
+                                                    </div>
+                                                    <span className="text-xs font-medium text-[#8b9bb4] group-hover:text-white">{isCreatingBoard ? 'Creating...' : 'Create Personal Board'}</span>
+                                                </div>
+                                                {personalProjects.map((project) => (
+                                                    <ProjectCard
+                                                        key={project.sessionId}
+                                                        project={project}
+                                                        isSelected={selectedId === project.sessionId}
+                                                        onSelect={setSelectedId}
+                                                        onOpen={openProject}
+                                                        onContextMenu={handleContextMenu}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col gap-1">
+                                                {personalProjects.map((project) => (
+                                                    <ProjectRow
+                                                        key={project.sessionId}
+                                                        project={project}
+                                                        isSelected={selectedId === project.sessionId}
+                                                        onSelect={setSelectedId}
+                                                        onOpen={openProject}
+                                                        onContextMenu={handleContextMenu}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </section>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -722,12 +802,15 @@ export const Dashboard = () => {
                         style={{ top: contextMenu.y, left: contextMenu.x }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="px-3 py-2 text-xs font-mono text-[#45A29E] border-b border-white/5 mb-1">ID: {contextMenu.id.split('_')[1]}</div>
+                        <div className="px-3 py-2 text-xs font-mono text-[#45A29E] border-b border-white/5 mb-1">ID: {contextMenu.id.length > 12 ? `${contextMenu.id.slice(0, 8)}...` : contextMenu.id}</div>
                         <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#66FCF1]/10 hover:text-[#66FCF1] flex items-center gap-2"><Edit2 size={14} /> Rename</button>
                         <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#66FCF1]/10 hover:text-[#66FCF1] flex items-center gap-2"><Copy size={14} /> Duplicate</button>
-                        <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#66FCF1]/10 hover:text-[#66FCF1] flex items-center gap-2"><Share2 size={14} /> Share</button>
+                        <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#66FCF1]/10 hover:text-[#66FCF1] flex items-center gap-2" onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/board/${contextMenu.id}`);
+                            setContextMenu(null);
+                        }}><Share2 size={14} /> Copy Link</button>
                         <div className="h-px bg-white/5 my-1" />
-                        <button className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-red-400/10 flex items-center gap-2"><Trash2 size={14} /> Delete</button>
+                        <button onClick={() => handleDeleteProject(contextMenu.id)} className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-red-400/10 flex items-center gap-2"><Trash2 size={14} /> Delete</button>
                     </div>
                 )}
             </main>

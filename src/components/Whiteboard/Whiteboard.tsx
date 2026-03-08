@@ -58,6 +58,7 @@ import {
 import FloatingInput from './components/FloatingInput';
 import SelectionOverlay from './components/SelectionOverlay';
 import EraserCursor from './components/EraserCursor';
+import Stroke from './components/Stroke';
 import { GridConfig, DEFAULT_GRID_CONFIG } from '../../types/grid';
 import GridRenderer from './GridRenderer';
 import MiniMap from './components/MiniMap';
@@ -3812,37 +3813,12 @@ export default function Whiteboard({
           <Layer>
             {/* Render lines first so they are behind shapes if desired, or same layer */}
             {visibleLines.map((line) => (
-              <Line
-                key={line.id}
-                points={line.points}
-                stroke={line.color}
-                strokeWidth={line.strokeWidth}
-                tension={line.tension ?? 0.5}
-                lineCap={line.lineCap ?? 'round'}
-                lineJoin={line.lineJoin ?? 'round'}
-                opacity={line.opacity ?? 1}
-                dash={line.dash}
-                globalCompositeOperation={line.globalCompositeOperation as any}
-                shadowBlur={line.shadowBlur}
-                shadowColor={line.shadowColor || line.color}
-              />
+              <Stroke key={line.id} line={line} />
             ))}
 
             {/* Task 3.4.1-A: Render the Optimistic line immediately above synced lines */}
             {optimisticLine && (
-              <Line
-                points={optimisticLine.points}
-                stroke={optimisticLine.color}
-                strokeWidth={optimisticLine.strokeWidth}
-                tension={optimisticLine.tension ?? 0.5}
-                lineCap={optimisticLine.lineCap ?? 'round'}
-                lineJoin={optimisticLine.lineJoin ?? 'round'}
-                opacity={optimisticLine.opacity ?? 1}
-                dash={optimisticLine.dash}
-                globalCompositeOperation={optimisticLine.globalCompositeOperation as any}
-                shadowBlur={optimisticLine.shadowBlur}
-                shadowColor={optimisticLine.shadowColor || optimisticLine.color}
-              />
+              <Stroke line={optimisticLine} />
             )}
           </Layer>
 

@@ -72,6 +72,20 @@ describe('brushUtils', () => {
             expect(props.dash).toEqual([0.5, 0.5]);
             expect(props.strokeWidth).toBe(3);
         });
+
+        it('should return properties for MAGIC_PENCIL', () => {
+            const props = getBrushProperties(BrushType.MAGIC_PENCIL, 5, '#000');
+            expect(props.lineCap).toBe('round');
+            expect(props.lineJoin).toBe('round');
+            expect(props.tension).toBe(0.5);
+            expect(props.opacity).toBe(1);
+            expect(props.strokeWidth).toBe(5);
+        });
+
+        it('should scale MAGIC_PENCIL strokeWidth to the exact input size', () => {
+            const props = getBrushProperties(BrushType.MAGIC_PENCIL, 12, '#FFF');
+            expect(props.strokeWidth).toBe(12);
+        });
     });
 
     describe('getStrokeDashArray', () => {

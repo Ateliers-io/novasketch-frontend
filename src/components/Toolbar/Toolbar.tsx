@@ -124,6 +124,7 @@ const BRUSH_OPTIONS: { type: BrushType; label: string }[] = [
     { type: BrushType.MARKER, label: 'Marker' },
     { type: BrushType.NATURAL_PENCIL, label: 'Pencil' },
     { type: BrushType.WATERCOLOUR, label: 'Watercolour' },
+    { type: BrushType.MAGIC_PENCIL, label: 'Magic Pencil' },
 ];
 
 /* --- SVG BRUSH PREVIEW --- */
@@ -149,6 +150,8 @@ const BrushPreview = ({ brushType }: { brushType: BrushType }) => {
                 return <path d="M4 18 Q18 8, 38 14 Q58 20, 78 10 Q90 6, 96 12" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.9" />;
             case BrushType.WATERCOLOUR:
                 return <path d="M4 14 Q22 4, 48 14 Q74 24, 96 10" stroke="currentColor" strokeWidth="8" fill="none" strokeLinecap="round" opacity="0.25" />;
+            case BrushType.MAGIC_PENCIL:
+                return <path d="M4 14 Q22 4, 48 14 Q74 24, 96 10" stroke="none" fill="currentColor" opacity="1" />;
         }
     };
     return <svg width="100" height="26" viewBox="0 0 100 26" className="flex-shrink-0">{getPath()}</svg>;

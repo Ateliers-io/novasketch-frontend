@@ -18,6 +18,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, session
 
     // Reset copied state when url changes
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCopied(false);
     }, [fullUrl, isOpen]);
 

@@ -4,8 +4,8 @@
  */
 import React, { useMemo, useRef, useCallback } from 'react';
 import {
-    Shape, isRectangle, isCircle, isEllipse, isLine, isArrow, isTriangle,
-    RectangleShape, CircleShape, EllipseShape, LineShape, ArrowShape, TriangleShape
+    Shape, isRectangle, isCircle, isEllipse, isLine, isArrow, isTriangle, isImage,
+    RectangleShape, CircleShape, EllipseShape, LineShape, ArrowShape, TriangleShape, ImageShape
 } from '../../../types/shapes';
 import { getTransformedBoundingBox } from '../../../utils/boundingBox';
 import { StrokeLine } from '../../../services/sync.service';
@@ -281,6 +281,21 @@ const MiniMap: React.FC<MiniMapProps> = ({
                     if (isLine(s) || isArrow(s)) {
                         const ls = s as LineShape;
                         return <line key={s.id} x1={toMiniX(ls.startPoint.x)} y1={toMiniY(ls.startPoint.y)} x2={toMiniX(ls.endPoint.x)} y2={toMiniY(ls.endPoint.y)} stroke={color} strokeWidth={0.8} opacity={0.8} />;
+                    }
+                    if (isImage(s)) {
+                        const imgS = s as ImageShape;
+                        return (
+                            <image
+                                key={s.id}
+                                href={imgS.src}
+                                x={mx}
+                                y={my}
+                                width={mw}
+                                height={mh}
+                                preserveAspectRatio="xMidYMid slice"
+                                opacity={0.85}
+                            />
+                        );
                     }
                     // Rectangle and fallback
                     return <rect key={s.id} x={mx} y={my} width={mw} height={mh} fill={fill} stroke={color} strokeWidth={0.8} rx={0.5} opacity={0.8} />;

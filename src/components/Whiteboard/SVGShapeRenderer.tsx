@@ -8,6 +8,7 @@ import {
     ArrowShape,
     TriangleShape,
     FrameShape,
+    ImageShape,
     isRectangle,
     isCircle,
     isEllipse,
@@ -15,6 +16,8 @@ import {
     isArrow,
     isTriangle,
     isFrame,
+    isImage,
+    ShapeType,
 } from '../../types/shapes';
 import './SVGShapeRenderer.css';
 
@@ -131,11 +134,51 @@ const SVGEllipse = ({ shape, isSelected, onClick }: { shape: EllipseShape; isSel
     </ShapeWrapper>
 );
 
+export const generateLinePathData = (shape: LineShape | ArrowShape, midX: number, midY: number) => {
+    const dx = shape.endPoint.x - shape.startPoint.x;
+    const dy = shape.endPoint.y - shape.startPoint.y;
+
+    const startX = -dx / 2;
+    const startY = -dy / 2;
+    const endX = dx / 2;
+    const endY = dy / 2;
+
+    const lineType = shape.lineType || 'curved'; // Default to curved for flexible bending
+
+    if (lineType === 'straight') {
+        return `M ${startX} ${startY} L ${endX} ${endY}`;
+    }
+
+    // Default to a straight line if there's no control point explicitly defined
+    if (!shape.controlPoint) {
+        return `M ${startX} ${startY} L ${endX} ${endY}`;
+    }
+
+    const bx = shape.controlPoint.x - midX;
+    const by = shape.controlPoint.y - midY;
+
+    if (lineType === 'stepped') {
+        // Orthogonal routing directly through the middle handle in both X and Y.
+        return `M ${startX} ${startY} L ${bx} ${startY} L ${bx} ${by} L ${endX} ${by} L ${endX} ${endY}`;
+    }
+
+    // curved (Quadratic Bezier but computed so the curve natively passes exactly through the bezier parameter t=0.5 handle)
+    const cpX = 2 * bx - 0.5 * startX - 0.5 * endX;
+    const cpY = 2 * by - 0.5 * startY - 0.5 * endY;
+
+    return `M ${startX} ${startY} Q ${cpX} ${cpY} ${endX} ${endY}`;
+};
+
 const SVGLine = ({ shape, isSelected, onClick }: { shape: LineShape; isSelected?: boolean; onClick?: (e: React.MouseEvent) => void }) => {
     const dx = shape.endPoint.x - shape.startPoint.x;
     const dy = shape.endPoint.y - shape.startPoint.y;
     const midX = shape.startPoint.x + dx / 2;
     const midY = shape.startPoint.y + dy / 2;
+
+    const pathData = generateLinePathData(shape, midX, midY);
+
+    const markerStartId = shape.arrowAtStart ? `arrowhead-start-${shape.id}` : '';
+    const markerEndId = shape.arrowAtEnd ? `arrowhead-end-${shape.id}` : '';
 
     return (
         <g
@@ -146,19 +189,33 @@ const SVGLine = ({ shape, isSelected, onClick }: { shape: LineShape; isSelected?
             style={onClick ? { pointerEvents: 'all', cursor: 'pointer' } : undefined}
             filter={isSelected ? 'url(#selection-highlight)' : undefined}
         >
-            <line
-                x1={-dx / 2} y1={-dy / 2}
-                x2={dx / 2} y2={dy / 2}
+            <defs>
+                {shape.arrowAtStart && (
+                    <marker id={markerStartId} markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto-start-reverse">
+                        <polygon points="0 0, 10 3.5, 0 7" fill={shape.style.stroke} />
+                    </marker>
+                )}
+                {shape.arrowAtEnd && (
+                    <marker id={markerEndId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill={shape.style.stroke} />
+                    </marker>
+                )}
+            </defs>
+            <path
+                d={pathData}
+                fill="none"
                 stroke={shape.style.stroke}
                 strokeWidth={shape.style.strokeWidth}
                 strokeLinecap="round"
                 strokeDasharray={shape.style.strokeDashArray?.join(' ')}
+                markerStart={shape.arrowAtStart ? `url(#${markerStartId})` : undefined}
+                markerEnd={shape.arrowAtEnd ? `url(#${markerEndId})` : undefined}
                 className="svg-primitive"
             />
             {/* Invisible wider hit area for easier selection */}
-            <line
-                x1={-dx / 2} y1={-dy / 2}
-                x2={dx / 2} y2={dy / 2}
+            <path
+                d={pathData}
+                fill="none"
                 stroke="transparent"
                 strokeWidth={Math.max(shape.style.strokeWidth + 10, 14)}
                 strokeLinecap="round"
@@ -172,7 +229,11 @@ const SVGArrow = ({ shape, isSelected, onClick }: { shape: ArrowShape; isSelecte
     const dy = shape.endPoint.y - shape.startPoint.y;
     const midX = shape.startPoint.x + dx / 2;
     const midY = shape.startPoint.y + dy / 2;
-    const markerId = `arrowhead-${shape.id}`;
+
+    const markerStartId = shape.arrowAtStart ? `arrowhead-start-${shape.id}` : '';
+    const markerEndId = shape.arrowAtEnd ? `arrowhead-end-${shape.id}` : '';
+
+    const pathData = generateLinePathData(shape, midX, midY);
 
     return (
         <g
@@ -183,26 +244,33 @@ const SVGArrow = ({ shape, isSelected, onClick }: { shape: ArrowShape; isSelecte
             style={onClick ? { pointerEvents: 'all', cursor: 'pointer' } : undefined}
             filter={isSelected ? 'url(#selection-highlight)' : undefined}
         >
-            {/* Per-shape arrowhead marker with correct color */}
             <defs>
-                <marker id={markerId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill={shape.style.stroke} />
-                </marker>
+                {shape.arrowAtStart && (
+                    <marker id={markerStartId} markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto-start-reverse">
+                        <polygon points="0 0, 10 3.5, 0 7" fill={shape.style.stroke} />
+                    </marker>
+                )}
+                {shape.arrowAtEnd && (
+                    <marker id={markerEndId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill={shape.style.stroke} />
+                    </marker>
+                )}
             </defs>
-            <line
-                x1={-dx / 2} y1={-dy / 2}
-                x2={dx / 2} y2={dy / 2}
+            <path
+                d={pathData}
+                fill="none"
                 stroke={shape.style.stroke}
                 strokeWidth={shape.style.strokeWidth}
                 strokeLinecap="round"
                 strokeDasharray={shape.style.strokeDashArray?.join(' ')}
-                markerEnd={`url(#${markerId})`}
+                markerStart={shape.arrowAtStart ? `url(#${markerStartId})` : undefined}
+                markerEnd={shape.arrowAtEnd ? `url(#${markerEndId})` : undefined}
                 className="svg-primitive"
             />
             {/* Invisible wider hit area */}
-            <line
-                x1={-dx / 2} y1={-dy / 2}
-                x2={dx / 2} y2={dy / 2}
+            <path
+                d={pathData}
+                fill="none"
                 stroke="transparent"
                 strokeWidth={Math.max(shape.style.strokeWidth + 10, 14)}
                 strokeLinecap="round"
@@ -294,6 +362,28 @@ const SVGFrame = ({
     </ShapeWrapper>
 );
 
+const SVGImage = ({ shape, isSelected, onClick }: { shape: ImageShape; isSelected?: boolean; onClick?: (e: React.MouseEvent) => void }) => {
+    return (
+        <ShapeWrapper
+            shape={shape}
+            centerOffset={{ x: shape.width / 2, y: shape.height / 2 }}
+            isSelected={isSelected}
+            onClick={onClick}
+        >
+            <image
+                href={shape.src}
+                x={0}
+                y={0}
+                width={shape.width}
+                height={shape.height}
+                preserveAspectRatio="none"
+                style={{ pointerEvents: 'none' }}
+                className="svg-primitive"
+            />
+        </ShapeWrapper>
+    );
+};
+
 // --- MAIN RENDERER ---
 
 export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
@@ -365,6 +455,7 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                         if (isLine(shape)) return <SVGLine key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
                         if (isArrow(shape)) return <SVGArrow key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
                         if (isTriangle(shape)) return <SVGTriangle key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
+                        if (isImage(shape)) return <SVGImage key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler} />;
 
                         if (isFrame(shape)) {
                             const children = sortedShapes.filter(s => s.parentId === shape.id);

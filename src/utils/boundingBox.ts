@@ -129,11 +129,16 @@ function getArrowBoundingBox(shape: ArrowShape): BoundingBox {
     // Also include stroke width
     const strokePadding = (style?.strokeWidth || 0) / 2;
     const padding = (arrowSize || 10) + strokePadding;
+    const minX = Math.min(startPoint.x, endPoint.x, shape.controlPoint?.x ?? startPoint.x);
+    const minY = Math.min(startPoint.y, endPoint.y, shape.controlPoint?.y ?? startPoint.y);
+    const maxX = Math.max(startPoint.x, endPoint.x, shape.controlPoint?.x ?? startPoint.x);
+    const maxY = Math.max(startPoint.y, endPoint.y, shape.controlPoint?.y ?? startPoint.y);
+
     return createBoundingBox(
-        Math.min(startPoint.x, endPoint.x) - padding,
-        Math.min(startPoint.y, endPoint.y) - padding,
-        Math.max(startPoint.x, endPoint.x) + padding,
-        Math.max(startPoint.y, endPoint.y) + padding
+        minX - padding,
+        minY - padding,
+        maxX + padding,
+        maxY + padding
     );
 }
 
@@ -170,6 +175,22 @@ function getFrameBoundingBox(shape: FrameShape): BoundingBox {
 }
 
 /**
+ * Calculates the bounding box for an Image shape
+ */
+function getImageBoundingBox(shape: any): BoundingBox {
+    const { position, width, height, style, transform } = shape;
+    const padding = (style?.strokeWidth || 0) / 2;
+    const sx = transform?.scaleX ?? 1;
+    const sy = transform?.scaleY ?? 1;
+    return createBoundingBox(
+        position.x - padding,
+        position.y - padding,
+        position.x + width * sx + padding,
+        position.y + height * sy + padding
+    );
+}
+
+/**
  * Calculates the bounding box for any single shape
  * @param shape - The shape to calculate the bounding box for
  * @returns The bounding box of the shape
@@ -190,6 +211,8 @@ export function getShapeBoundingBox(shape: Shape): BoundingBox {
             return getTriangleBoundingBox(shape as TriangleShape);
         case ShapeType.FRAME:
             return getFrameBoundingBox(shape as FrameShape);
+        case ShapeType.IMAGE:
+            return getImageBoundingBox(shape);
         default: {
             // Fallback for unknown shapes - use position as origin
             const unknownShape = shape as Shape;
@@ -228,7 +251,11 @@ export function getShapeGeometryBoundingBox(shape: Shape): BoundingBox {
         case ShapeType.ARROW: {
             const s = shape as ArrowShape;
             const pad = s.arrowSize || 10;
-            return createBoundingBox(Math.min(s.startPoint.x, s.endPoint.x) - pad, Math.min(s.startPoint.y, s.endPoint.y) - pad, Math.max(s.startPoint.x, s.endPoint.x) + pad, Math.max(s.startPoint.y, s.endPoint.y) + pad);
+            const minX = Math.min(s.startPoint.x, s.endPoint.x, s.controlPoint?.x ?? s.startPoint.x);
+            const minY = Math.min(s.startPoint.y, s.endPoint.y, s.controlPoint?.y ?? s.startPoint.y);
+            const maxX = Math.max(s.startPoint.x, s.endPoint.x, s.controlPoint?.x ?? s.startPoint.x);
+            const maxY = Math.max(s.startPoint.y, s.endPoint.y, s.controlPoint?.y ?? s.startPoint.y);
+            return createBoundingBox(minX - pad, minY - pad, maxX + pad, maxY + pad);
         }
         case ShapeType.TRIANGLE: {
             const s = shape as TriangleShape;
@@ -238,6 +265,12 @@ export function getShapeGeometryBoundingBox(shape: Shape): BoundingBox {
         }
         case ShapeType.FRAME: {
             const s = shape as FrameShape;
+            const sx = s.transform?.scaleX ?? 1;
+            const sy = s.transform?.scaleY ?? 1;
+            return createBoundingBox(s.position.x, s.position.y, s.position.x + s.width * sx, s.position.y + s.height * sy);
+        }
+        case ShapeType.IMAGE: {
+            const s = shape as any;
             const sx = s.transform?.scaleX ?? 1;
             const sy = s.transform?.scaleY ?? 1;
             return createBoundingBox(s.position.x, s.position.y, s.position.x + s.width * sx, s.position.y + s.height * sy);

@@ -181,7 +181,7 @@ export function isPointInShape(shape: Shape, x: number, y: number, radius: numbe
         ty = dx * sin + dy * cos + centerY;
     }
 
-    if (isRectangle(shape) || shape.type === 'frame') {
+    if (isRectangle(shape) || shape.type === 'frame' || shape.type === 'image') {
         return tx >= shape.position.x - radius &&
             tx <= shape.position.x + w + radius &&
             ty >= shape.position.y - radius &&
@@ -198,6 +198,33 @@ export function isPointInShape(shape: Shape, x: number, y: number, radius: numbe
         const dy = (ty - shape.position.y) / ry;
         return dx * dx + dy * dy <= 1;
     } else if (isLine(shape) || isArrow(shape)) {
+        const cp = (shape as ArrowShape).controlPoint;
+        if (isArrow(shape) && cp && (cp.x !== (shape.startPoint.x + shape.endPoint.x) / 2 || cp.y !== (shape.startPoint.y + shape.endPoint.y) / 2)) {
+            // Bezier curve approximation using 4 segments
+            let prevX = shape.startPoint.x;
+            let prevY = shape.startPoint.y;
+            for (let i = 1; i <= 4; i++) {
+                const t = i / 4;
+                const mt = 1 - t;
+                const currX = mt * mt * shape.startPoint.x + 2 * mt * t * cp.x + t * t * shape.endPoint.x;
+                const currY = mt * mt * shape.startPoint.y + 2 * mt * t * cp.y + t * t * shape.endPoint.y;
+
+                const sx = currX - prevX;
+                const sy = currY - prevY;
+                const lenSq = sx * sx + sy * sy;
+                let dt = ((x - prevX) * sx + (y - prevY) * sy) / (lenSq || 1);
+                dt = Math.max(0, Math.min(1, dt));
+                const closestX = prevX + dt * sx;
+                const closestY = prevY + dt * sy;
+                if (Math.hypot(x - closestX, y - closestY) <= radius + shape.style.strokeWidth / 2 + 5) {
+                    return true;
+                }
+                prevX = currX;
+                prevY = currY;
+            }
+            return false;
+        }
+
         // Point-to-line-segment distance
         const dx = shape.endPoint.x - shape.startPoint.x;
         const dy = shape.endPoint.y - shape.startPoint.y;

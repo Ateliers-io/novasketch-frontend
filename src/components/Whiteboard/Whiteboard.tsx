@@ -15,6 +15,7 @@ import {
   createLine,
   createArrow,
   createTriangle,
+  createImage,
   isRectangle,
   isCircle,
   isEllipse,
@@ -22,6 +23,7 @@ import {
   isArrow,
   isTriangle,
   isFrame,
+  isImage,
   RectangleShape,
   CircleShape,
   EllipseShape,
@@ -66,6 +68,7 @@ import HamburgerMenu from './components/HamburgerMenu';
 import RemoteCursors from './components/RemoteCursors';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
+import ImageUploadModal from './components/ImageUploadModal';
 
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
@@ -153,13 +156,21 @@ const generateSvgContent = (shapes: any[], lines: any[], textAnnotations: any[],
       cx = s.startPoint.x + dx / 2; cy = s.startPoint.y + dy / 2;
       tr = `translate(${cx},${cy}) rotate(${t.rotation})`;
       const marker = shape.type === 'arrow' ? ' marker-end="url(#ah)"' : '';
-      inner = `<line x1="${-dx / 2}" y1="${-dy / 2}" x2="${dx / 2}" y2="${dy / 2}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"${marker}/>`;
+      const cpX = (s.controlPoint?.x ?? cx) - cx;
+      const cpY = (s.controlPoint?.y ?? cy) - cy;
+      const pathData = `M ${-dx / 2} ${-dy / 2} Q ${cpX} ${cpY} ${dx / 2} ${dy / 2}`;
+      inner = `<path d="${pathData}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"${marker}/>`;
     } else if (shape.type === 'triangle') {
       const s = shape as any;
       cx = (s.points[0].x + s.points[1].x + s.points[2].x) / 3; cy = (s.points[0].y + s.points[1].y + s.points[2].y) / 3;
       const pts = s.points.map((p: any) => `${p.x - cx},${p.y - cy}`).join(' ');
       tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY})`;
       inner = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    } else if (shape.type === 'image') {
+      const s = shape as any;
+      cx = position.x + s.width / 2; cy = position.y + s.height / 2;
+      tr = `translate(${cx},${cy}) rotate(${t.rotation}) scale(${t.scaleX},${t.scaleY}) translate(${-s.width / 2},${-s.height / 2})`;
+      inner = `<image href="${s.src}" width="${s.width}" height="${s.height}" preserveAspectRatio="none"/>`;
     }
     if (inner && tr) svg += `<g transform="${tr}" opacity="${opacity}">${inner}</g>`;
   });
@@ -429,6 +440,11 @@ export default function Whiteboard({
   // Initialize tool state
   const [activeTool, setActiveTool] = useState<ActiveTool>('select'); // Default to select
 
+  // Line & Arrow Styles
+  const [currentLineType, setCurrentLineType] = useState<'straight' | 'curved' | 'stepped'>('curved');
+  const [currentArrowAtStart, setCurrentArrowAtStart] = useState<boolean>(false);
+  const [currentArrowAtEnd, setCurrentArrowAtEnd] = useState<boolean>(false);
+
   // Task 1.5.2: If the session locks AND this user is a guest, fall back to Hand tool.
   useEffect(() => {
     if (isEffectivelyLocked) {
@@ -485,6 +501,13 @@ export default function Whiteboard({
   const [selectedTextIds, setSelectedTextIds] = useState<Set<string>>(new Set());
   // selectionBoundingBox computed by useSelectionBounds hook
   const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Image Upload Modal
+  const [showImageUpload, setShowImageUpload] = useState(false);
+
+  // Arrow Bending State
+  const [isBendingArrow, setIsBendingArrow] = useState<string | null>(null);
+  const [isEditingArrowEnd, setIsEditingArrowEnd] = useState<{ id: string, end: 'start' | 'end' } | null>(null);
 
   // Reset selection rotation and initial states when selection changes
   useEffect(() => {
@@ -1324,9 +1347,49 @@ export default function Whiteboard({
     const nativeTarget = ('nativeEvent' in e ? e.nativeEvent.target : e.target) as Element;
     const resizeHandleEl = nativeTarget.closest?.('[data-resize-handle]');
     const rotationHandleEl = nativeTarget.closest?.('[data-rotation-handle]');
+    const bendHandleEl = nativeTarget.closest?.('[data-bend-handle]');
+    const arrowHandleEl = nativeTarget.closest?.('[data-arrow-handle]');
 
     // Get pointer position for handle interactions
     const { x, y } = getPointerPos(e);
+
+    // Task 8: Check if clicking line/arrow edge handles
+    if (activeTool === 'select' && arrowHandleEl) {
+      if ('stopPropagation' in e) e.stopPropagation();
+
+      if (!isOwner && !canModifySelection()) {
+        alert("Permission Denied: You do not have access to modify this frame.");
+        return;
+      }
+
+      const shapeId = arrowHandleEl.getAttribute('data-arrow-id');
+      const endMarker = arrowHandleEl.getAttribute('data-arrow-handle') as 'start' | 'end';
+      if (shapeId && endMarker) {
+        setIsEditingArrowEnd({ id: shapeId, end: endMarker });
+
+        // Store initial state for history
+        setInitialDragState({
+          shapes: new Map(shapes.filter(s => s.id === shapeId).map(s => [s.id, s] as [string, Shape]))
+        } as any);
+        return;
+      }
+    }
+
+    // Task 8: Check if clicking line/arrow bend handle
+    if (activeTool === 'select' && bendHandleEl) {
+      if ('stopPropagation' in e) e.stopPropagation();
+
+      if (!isOwner && !canModifySelection()) {
+        alert("Permission Denied: You do not have access to modify this frame.");
+        return;
+      }
+
+      const shapeId = bendHandleEl.getAttribute('data-bend-handle');
+      if (shapeId) {
+        setIsBendingArrow(shapeId);
+        return;
+      }
+    }
 
     // Task 4.3: Check if clicking rotation handle
     if (activeTool === 'select' && rotationHandleEl && selectionBoundingBox) {
@@ -1360,9 +1423,11 @@ export default function Whiteboard({
         if (isTriangle(s)) {
           initialPoints.set(s.id, (s as TriangleShape).points);
         } else if (isLine(s) || isArrow(s)) {
-          // Store start/end as an array of 2 points
+          // Store start/end and optional controlPoint as an array of points
           const ls = s as LineShape;
-          initialPoints.set(s.id, [ls.startPoint, ls.endPoint]);
+          const pts = [ls.startPoint, ls.endPoint];
+          if (ls.controlPoint) pts.push(ls.controlPoint);
+          initialPoints.set(s.id, pts);
         }
       });
 
@@ -1394,7 +1459,8 @@ export default function Whiteboard({
       return;
     }
 
-    if (activeTool === 'select' && resizeHandleEl && selectionBoundingBox) {
+    // Check if clicking resize handles (ignore if an edge/bend handle was targeted instead)
+    if (activeTool === 'select' && resizeHandleEl && selectionBoundingBox && !arrowHandleEl && !bendHandleEl) {
       if ('stopPropagation' in e) e.stopPropagation();
 
       // Epic 7.6.4: Guard against unauthorized modification
@@ -1438,6 +1504,13 @@ export default function Whiteboard({
     // A. SELECTION TOOL
     if (activeTool === 'select') {
       // Task 4.2.1: Drag Logic - Check bounding box first
+      // Complete manipulations
+      if (isBendingArrow || isEditingArrowEnd) {
+        setIsBendingArrow(null);
+        setIsEditingArrowEnd(null);
+        return;
+      }
+
       // If we have a selection and click inside its bounding box, start dragging
       if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
         // Epic 7.6.4: Guard against unauthorized modification
@@ -1719,16 +1792,16 @@ export default function Whiteboard({
         const initRot = initialShapeRotations.get(s.id) || 0;
         if (!initPos) return s;
 
-        if (isRectangle(s) || isCircle(s) || isEllipse(s) || isFrame(s)) {
-          // Rigid Body Rotation for Centered Shapes (Rect, Circle, Ellipse, Frame)
+        if (isRectangle(s) || isCircle(s) || isEllipse(s) || isFrame(s) || isImage(s)) {
+          // Rigid Body Rotation for Centered Shapes (Rect, Circle, Ellipse, Frame, Image)
 
           // Calculate Initial Center/Pivot
           let itemCx = initPos.x;
           let itemCy = initPos.y;
 
-          if (isRectangle(s) || isFrame(s)) {
-            itemCx += (s as RectangleShape).width / 2;
-            itemCy += (s as RectangleShape).height / 2;
+          if (isRectangle(s) || isFrame(s) || isImage(s)) {
+            itemCx += (s as any).width / 2;
+            itemCy += (s as any).height / 2;
           }
 
           // Rotate the pivot point around the selection center
@@ -1738,9 +1811,9 @@ export default function Whiteboard({
           // Convert back to Top-Left if necessary
           const newPos = { x: newCenter.x, y: newCenter.y };
 
-          if (isRectangle(s) || isFrame(s)) {
-            newPos.x -= (s as RectangleShape).width / 2;
-            newPos.y -= (s as RectangleShape).height / 2;
+          if (isRectangle(s) || isFrame(s) || isImage(s)) {
+            newPos.x -= (s as any).width / 2;
+            newPos.y -= (s as any).height / 2;
           }
 
           return {
@@ -1758,19 +1831,18 @@ export default function Whiteboard({
 
           const p1 = rotatePoint(points[0].x, points[0].y);
           const p2 = rotatePoint(points[1].x, points[1].y);
+          let p3;
+          if (points.length >= 3) {
+            p3 = rotatePoint(points[2].x, points[2].y);
+          }
 
           return {
             ...s,
-            // LineShape properties need casting or explicit update
-            ...((isLine(s) ? {
-              startPoint: p1,
-              endPoint: p2
-            } : {
-              startPoint: p1,
-              endPoint: p2
-            }) as any),
+            startPoint: p1,
+            endPoint: p2,
+            ...(p3 ? { controlPoint: p3 } : {}),
             transform: { ...s.transform, rotation: initRot } // Keep initial local rotation! 
-          };
+          } as Shape;
         } else if (isTriangle(s)) {
           // For Triangles, rotate all points physically.
           const points = initialShapePoints.get(s.id);
@@ -1840,6 +1912,32 @@ export default function Whiteboard({
 
 
 
+
+    if (isEditingArrowEnd) {
+      setShapes(prev => prev.map(s => {
+        if (s.id === isEditingArrowEnd.id && (isArrow(s) || isLine(s))) {
+          return {
+            ...s,
+            [isEditingArrowEnd.end === 'start' ? 'startPoint' : 'endPoint']: { x, y }
+          };
+        }
+        return s;
+      }));
+      return;
+    }
+
+    if (isBendingArrow) {
+      setShapes(prev => prev.map(s => {
+        if (s.id === isBendingArrow && (isArrow(s) || isLine(s))) {
+          return {
+            ...s,
+            controlPoint: { x, y }
+          } as any;
+        }
+        return s;
+      }));
+      return;
+    }
 
     // Task 2: Handle Resizing Logic
     if (isResizing && initialResizeState && resizeHandle) {
@@ -1974,8 +2072,8 @@ export default function Whiteboard({
                 finalY = newY + relY * scaleY;
               }
 
-              if (isRectangle(initS)) {
-                return { ...s, position: { x: finalX, y: finalY }, width: (initS as RectangleShape).width * scaleX, height: (initS as RectangleShape).height * scaleY } as Shape;
+              if (isRectangle(initS) || isImage(initS)) {
+                return { ...s, position: { x: finalX, y: finalY }, width: (initS as any).width * scaleX, height: (initS as any).height * scaleY } as Shape;
               } else if (isCircle(initS)) {
                 let scale: number;
                 if (['n', 's'].includes(resizeHandle)) scale = scaleY;
@@ -1983,7 +2081,6 @@ export default function Whiteboard({
                 else scale = Math.max(scaleX, scaleY);
 
                 return { ...s, position: { x: finalX, y: finalY }, radius: (initS as CircleShape).radius * scale } as Shape;
-              } else if (isLine(initS) || isArrow(initS)) {
                 const ls = initS as LineShape;
                 return {
                   ...s,
@@ -1996,6 +2093,12 @@ export default function Whiteboard({
                     x: newX + (ls.endPoint.x - box.x) * scaleX,
                     y: newY + (ls.endPoint.y - box.y) * scaleY,
                   },
+                  ...(ls.controlPoint ? {
+                    controlPoint: {
+                      x: newX + (ls.controlPoint!.x - box.x) * scaleX,
+                      y: newY + (ls.controlPoint!.y - box.y) * scaleY,
+                    }
+                  } : {})
                 } as Shape;
               } else if (isFrame(initS)) {
                 return {
@@ -2196,10 +2299,12 @@ export default function Whiteboard({
                 position: { x: initS.position.x + totalDx, y: initS.position.y + totalDy }
               };
               if (isLine(initS) || isArrow(initS)) {
+                const ls = initS as LineShape;
                 updated = {
                   ...updated,
-                  startPoint: { x: (initS as LineShape).startPoint.x + totalDx, y: (initS as LineShape).startPoint.y + totalDy },
-                  endPoint: { x: (initS as LineShape).endPoint.x + totalDx, y: (initS as LineShape).endPoint.y + totalDy },
+                  startPoint: { x: ls.startPoint.x + totalDx, y: ls.startPoint.y + totalDy },
+                  endPoint: { x: ls.endPoint.x + totalDx, y: ls.endPoint.y + totalDy },
+                  ...(ls.controlPoint ? { controlPoint: { x: ls.controlPoint.x + totalDx, y: ls.controlPoint.y + totalDy } } : {})
                 } as typeof updated;
               }
               if (isTriangle(initS)) {
@@ -2310,18 +2415,16 @@ export default function Whiteboard({
           radiusX,
           radiusY,
         } as EllipseShape);
-      } else if (activeTool === ToolType.LINE) {
+      } else if (activeTool === ToolType.LINE || activeTool === ToolType.ARROW) {
         setPreviewShape({
-          ...previewShape,
+          ...(previewShape as any),
           startPoint: { x: dragStart.x, y: dragStart.y },
           endPoint: { x, y },
-        } as LineShape);
-      } else if (activeTool === ToolType.ARROW) {
-        setPreviewShape({
-          ...previewShape,
-          startPoint: { x: dragStart.x, y: dragStart.y },
-          endPoint: { x, y },
-        } as ArrowShape);
+          controlPoint: { x: (dragStart.x + x) / 2, y: (dragStart.y + y) / 2 },
+          lineType: currentLineType,
+          arrowAtStart: currentArrowAtStart,
+          arrowAtEnd: currentArrowAtEnd,
+        });
       } else if (activeTool === ToolType.TRIANGLE) {
         const size = Math.max(Math.abs(width), Math.abs(height));
         const h = (Math.sqrt(3) / 2) * size;
@@ -2346,6 +2449,19 @@ export default function Whiteboard({
       addLine(optimisticLineRef.current);
       optimisticLineRef.current = null;
       setOptimisticLine(null);
+    }
+
+    if (isEditingArrowEnd || isBendingArrow) {
+      const shapeId = isBendingArrow || isEditingArrowEnd?.id;
+      setIsBendingArrow(null);
+      setIsEditingArrowEnd(null);
+      if (shapeId) {
+        const bentShape = shapesRef.current.find(s => s.id === shapeId);
+        if (bentShape) {
+          const prevState = initialDragState?.shapes.get(shapeId) || { ...bentShape };
+          addToHistory({ type: 'UPDATE', objectType: 'shape', id: shapeId, previousState: prevState, newState: bentShape, userId: 'local' });
+        }
+      }
     }
 
     // Task 5.1: Stop Panning when mouse released
@@ -2728,7 +2844,7 @@ export default function Whiteboard({
       lines.forEach(line => {
         if (line.points.length < 2) return;
         let lineMinX = Infinity, lineMinY = Infinity, lineMaxX = -Infinity, lineMaxY = -Infinity;
-        for (let i = 0; i < line.points.length; i += 2) {
+        for (let i = 2; i < line.points.length; i += 2) {
           const px = line.points[i];
           const py = line.points[i + 1];
           lineMinX = Math.min(lineMinX, px);
@@ -3295,6 +3411,54 @@ export default function Whiteboard({
         onEraserModeChange={setEraserMode}
         eraserSize={eraserSize}
         onEraserSizeChange={setEraserSize}
+        lineType={currentLineType}
+        onLineTypeChange={(lt) => {
+          setCurrentLineType(lt);
+          if (selectedShapeIds.size > 0) {
+            const updates: Action[] = [];
+            setShapes(prev => prev.map(s => {
+              if (selectedShapeIds.has(s.id) && (s.type === 'line' || s.type === 'arrow')) {
+                const newS = { ...s, lineType: lt } as any;
+                updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
+                return newS;
+              }
+              return s;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
+        arrowAtStart={currentArrowAtStart}
+        onArrowAtStartChange={(a) => {
+          setCurrentArrowAtStart(a);
+          if (selectedShapeIds.size > 0) {
+            const updates: Action[] = [];
+            setShapes(prev => prev.map(s => {
+              if (selectedShapeIds.has(s.id) && (s.type === 'line' || s.type === 'arrow')) {
+                const newS = { ...s, arrowAtStart: a } as any;
+                updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
+                return newS;
+              }
+              return s;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
+        arrowAtEnd={currentArrowAtEnd}
+        onArrowAtEndChange={(a) => {
+          setCurrentArrowAtEnd(a);
+          if (selectedShapeIds.size > 0) {
+            const updates: Action[] = [];
+            setShapes(prev => prev.map(s => {
+              if (selectedShapeIds.has(s.id) && (s.type === 'line' || s.type === 'arrow')) {
+                const newS = { ...s, arrowAtEnd: a } as any;
+                updates.push({ type: 'UPDATE', objectType: 'shape', id: s.id, previousState: s, newState: newS, userId: 'local' });
+                return newS;
+              }
+              return s;
+            }));
+            if (updates.length > 0) addToHistory({ type: 'BATCH', userId: 'local', actions: updates });
+          }
+        }}
 
         hasSelection={selectedShapeIds.size > 0 || selectedLineIds.size > 0 || selectedTextIds.size > 0}
         onBringForward={handleBringForward}
@@ -3318,6 +3482,24 @@ export default function Whiteboard({
           } catch (err) {
             console.warn('Backend lock sync failed (local lock still applied):', err);
           }
+        }}
+        onImageUpload={() => setShowImageUpload(true)}
+      />
+
+      {/* Image Upload Modal */}
+      <ImageUploadModal
+        isOpen={showImageUpload}
+        onClose={() => { setShowImageUpload(false); setActiveTool('select'); }}
+        onImageInsert={(src, width, height) => {
+          // Place the image near the viewport center
+          const cx = (dimensions.width / 2 - stagePos.x) / stageScale - width / 2;
+          const cy = (dimensions.height / 2 - stagePos.y) / stageScale - height / 2;
+          const newImage = createImage(cx, cy, src, width, height, {
+            zIndex: shapes.length,
+          });
+          setShapes(prev => [...prev, newImage]);
+          setActiveTool('select');
+          setSelectedShapeIds(new Set([newImage.id]));
         }}
       />
 
@@ -3480,7 +3662,79 @@ export default function Whiteboard({
           }}
           canGroup={selectedShapeIds.size > 1 && !Array.from(selectedShapeIds).some(id => shapes.find(s => s.id === id)?.parentId)}
           canUngroup={selectedShapeIds.size === 1 && shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.type === 'frame'}
+          hideStandardHandles={
+            selectedShapeIds.size === 1 &&
+            selectedLineIds.size === 0 &&
+            selectedTextIds.size === 0 &&
+            (shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.type === 'arrow' || shapes.find(s => s.id === Array.from(selectedShapeIds)[0])?.type === 'line')
+          }
         />
+      )}
+
+      {/* LAYER 2.6: ARROW/LINE BEND & EDGE HANDLES */}
+      {selectedShapeIds.size === 1 && selectedLineIds.size === 0 && selectedTextIds.size === 0 && activeTool === 'select' && !activeTextInput && (
+        (() => {
+          const sId = Array.from(selectedShapeIds)[0];
+          const selectedLineOrArrow = shapes.find(s => s.id === sId);
+
+          if (selectedLineOrArrow && (isArrow(selectedLineOrArrow) || isLine(selectedLineOrArrow))) {
+            const ls = selectedLineOrArrow as any;
+            const cp = ls.controlPoint || {
+              x: (ls.startPoint.x + ls.endPoint.x) / 2,
+              y: (ls.startPoint.y + ls.endPoint.y) / 2
+            };
+
+            const cpX = stagePos.x + cp.x * stageScale;
+            const cpY = stagePos.y + cp.y * stageScale;
+
+            const stX = stagePos.x + ls.startPoint.x * stageScale;
+            const stY = stagePos.y + ls.startPoint.y * stageScale;
+
+            const enX = stagePos.x + ls.endPoint.x * stageScale;
+            const enY = stagePos.y + ls.endPoint.y * stageScale;
+
+            return (
+              <svg className="absolute inset-0 z-40 pointer-events-none overflow-visible" width={dimensions.width} height={dimensions.height}>
+                {/* Mid/Bend Handle */}
+                <circle
+                  cx={cpX}
+                  cy={cpY}
+                  r={6}
+                  fill="#ffffff"
+                  stroke="#2dd4bf"
+                  strokeWidth={2}
+                  style={{ pointerEvents: 'auto', cursor: 'grab' }}
+                  data-bend-handle={ls.id}
+                />
+                {/* Start Handle */}
+                <circle
+                  cx={stX}
+                  cy={stY}
+                  r={6}
+                  fill="#2dd4bf"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                  data-arrow-handle="start"
+                  data-arrow-id={ls.id}
+                />
+                {/* End Handle */}
+                <circle
+                  cx={enX}
+                  cy={enY}
+                  r={6}
+                  fill="#2dd4bf"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                  data-arrow-handle="end"
+                  data-arrow-id={ls.id}
+                />
+              </svg>
+            );
+          }
+          return null;
+        })()
       )}
 
       {/* LAYER 3: KONVA (Drawings) - Native Konva Transform */}

@@ -30,6 +30,7 @@ import {
     Plus,
     Hand,
     Grid3x3,
+    ImageIcon,
 } from 'lucide-react';
 import { ToolType, BrushType, StrokeStyle } from '../../types/shapes';
 import { GridConfig, GridSnapType, GridAppearance } from '../../types/grid';
@@ -103,6 +104,13 @@ interface ToolbarProps {
     isLockActive?: boolean;
     onToggleLock?: () => Promise<void>;
     theme?: 'light' | 'dark';
+    onImageUpload?: () => void;
+    lineType?: 'straight' | 'curved' | 'stepped';
+    onLineTypeChange?: (type: 'straight' | 'curved' | 'stepped') => void;
+    arrowAtStart?: boolean;
+    onArrowAtStartChange?: (arrow: boolean) => void;
+    arrowAtEnd?: boolean;
+    onArrowAtEndChange?: (arrow: boolean) => void;
 }
 
 /* --- BRUSH DATA --- */
@@ -147,6 +155,15 @@ const BrushPreview = ({ brushType }: { brushType: BrushType }) => {
 };
 
 /* --- COMPONENTS --- */
+const IconCurvedLine = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 18 Q 12 4 20 18" /></svg>;
+const IconStraightLine = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 20 L20 4" /></svg>;
+const IconSteppedLine = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 20 L12 20 L12 4 L20 4" /></svg>;
+
+const IconArrowStart = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10 18l-6-6 6-6" /><path d="M20 12H4" /></svg>;
+const IconArrowEnd = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 12h16" /><path d="M14 6l6 6-6 6" /></svg>;
+const IconArrowNone = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 12h16" /></svg>;
+
+
 
 const ToolButton = ({
     isActive, onClick, icon: Icon, label, hasDropdown = false, size = 18,
@@ -225,11 +242,16 @@ export default function Toolbar({
     isLockActive = false,
     onToggleLock,
     theme = 'dark',
+    onImageUpload,
+    lineType = 'curved', onLineTypeChange,
+    arrowAtStart = false, onArrowAtStartChange,
+    arrowAtEnd = false, onArrowAtEndChange,
 }: ToolbarProps) {
     const [showEraserMenu, setShowEraserMenu] = useState(false);
     const [showBrushMenu, setShowBrushMenu] = useState(false);
     const [showStrokeStyleMenu, setShowStrokeStyleMenu] = useState(false);
     const [showGridMenu, setShowGridMenu] = useState(false);
+    const [showLineStyleMenu, setShowLineStyleMenu] = useState(false);
     const gridColorRef = useRef<HTMLInputElement>(null);
 
     const ACTIVE_COLORS = theme === 'light' ? PRO_COLORS_LIGHT : PRO_COLORS_DARK;
@@ -240,6 +262,7 @@ export default function Toolbar({
     const brushMenuRef = useRef<HTMLDivElement>(null);
     const strokeStyleRef = useRef<HTMLDivElement>(null);
     const gridMenuRef = useRef<HTMLDivElement>(null);
+    const lineStyleRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -247,6 +270,7 @@ export default function Toolbar({
             if (brushMenuRef.current && !brushMenuRef.current.contains(event.target as Node)) setShowBrushMenu(false);
             if (strokeStyleRef.current && !strokeStyleRef.current.contains(event.target as Node)) setShowStrokeStyleMenu(false);
             if (gridMenuRef.current && !gridMenuRef.current.contains(event.target as Node)) setShowGridMenu(false);
+            if (lineStyleRef.current && !lineStyleRef.current.contains(event.target as Node)) setShowLineStyleMenu(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -258,7 +282,7 @@ export default function Toolbar({
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setActiveColorMode('fill');
         } else if ([ToolType.PEN, ToolType.HIGHLIGHTER, ToolType.LINE, ToolType.ARROW].includes(activeTool as ToolType)) {
-             
+
             setActiveColorMode('stroke');
         }
     }, [activeTool]);
@@ -447,6 +471,7 @@ export default function Toolbar({
                     <ToolButton icon={Triangle} label="Triangle" isActive={activeTool === ToolType.TRIANGLE} onClick={() => onToolChange(ToolType.TRIANGLE)} />
                     <ToolButton icon={Slash} label="Line (L)" isActive={activeTool === ToolType.LINE} onClick={() => onToolChange(ToolType.LINE)} />
                     <ToolButton icon={ArrowRight} label="Arrow" isActive={activeTool === ToolType.ARROW} onClick={() => onToolChange(ToolType.ARROW)} />
+                    <ToolButton icon={ImageIcon} label="Image (I)" isActive={activeTool === ToolType.IMAGE} onClick={() => { onToolChange(ToolType.IMAGE); onImageUpload?.(); }} />
 
                 </ToolSection>
 
@@ -489,6 +514,78 @@ export default function Toolbar({
                                             <span className="text-[11px] font-medium">{label}</span>
                                         </button>
                                     ))}
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {/* ═══ LINE & ARROW STYLES ═══ */}
+                {(activeTool === ToolType.LINE || activeTool === ToolType.ARROW || (hasSelection && onLineTypeChange)) && (
+                    <>
+                        <Separator />
+                        <div className="relative" ref={lineStyleRef}>
+                            <ToolSection label="Line Settings">
+                                <button onClick={() => setShowLineStyleMenu(!showLineStyleMenu)} title="Line Options"
+                                    className={`flex items-center gap-1.5 px-2 h-8 rounded-md transition-all duration-150 ${showLineStyleMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                                    {lineType === 'curved' && <IconCurvedLine />}
+                                    {lineType === 'straight' && <IconStraightLine />}
+                                    {lineType === 'stepped' && <IconSteppedLine />}
+                                    <ChevronDown size={10} className="opacity-60" />
+                                </button>
+                            </ToolSection>
+
+                            {showLineStyleMenu && (
+                                <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-2 z-[200] flex flex-col gap-3"
+                                    style={{ animation: 'fadeIn 150ms ease-out' }}>
+
+                                    {/* Line Styles */}
+                                    <div>
+                                        <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Line Style</div>
+                                        <div className="flex gap-1">
+                                            {[
+                                                { type: 'straight', icon: IconStraightLine, title: 'Straight' },
+                                                { type: 'curved', icon: IconCurvedLine, title: 'Curved' },
+                                                { type: 'stepped', icon: IconSteppedLine, title: 'Stepped' },
+                                            ].map((style) => (
+                                                <button key={style.type} title={style.title}
+                                                    onClick={() => onLineTypeChange?.(style.type as any)}
+                                                    className={`flex-1 flex justify-center py-2 rounded-lg transition-all ${lineType === style.type ? 'bg-[#2dd4bf]/10 text-[#2dd4bf] border border-[#2dd4bf]/30' : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white border border-transparent'}`}>
+                                                    <style.icon />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Arrow Heads */}
+                                    <div>
+                                        <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Arrows</div>
+                                        <div className="flex gap-1">
+                                            {/* Start */}
+                                            <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
+                                                <button onClick={() => onArrowAtStartChange?.(true)} title="Arrow Start"
+                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtStart ? 'bg-[#1e262d] text-[#2dd4bf]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                    <IconArrowStart />
+                                                </button>
+                                                <button onClick={() => onArrowAtStartChange?.(false)} title="Line Start"
+                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtStart ? 'bg-[#1e262d] text-[#2dd4bf]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                    <IconArrowNone />
+                                                </button>
+                                            </div>
+                                            {/* End */}
+                                            <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
+                                                <button onClick={() => onArrowAtEndChange?.(false)} title="Line End"
+                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtEnd ? 'bg-[#1e262d] text-[#2dd4bf]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                    <IconArrowNone />
+                                                </button>
+                                                <button onClick={() => onArrowAtEndChange?.(true)} title="Arrow End"
+                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtEnd ? 'bg-[#1e262d] text-[#2dd4bf]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                    <IconArrowEnd />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </div>
                             )}
                         </div>

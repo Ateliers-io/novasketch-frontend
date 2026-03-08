@@ -6,6 +6,7 @@ export enum ShapeType {
     ARROW = 'arrow',
     TRIANGLE = 'triangle',
     FRAME = 'frame',
+    IMAGE = 'image',
 }
 
 export enum ToolType {
@@ -22,6 +23,7 @@ export enum ToolType {
     TEXT = 'text',
     FILL_BUCKET = 'fill_bucket',
     HAND = 'hand',
+    IMAGE = 'image',
 }
 
 export enum BrushType {
@@ -108,6 +110,11 @@ export interface LineShape extends BaseShape {
     type: ShapeType.LINE;
     startPoint: Position;
     endPoint: Position;
+    controlPoint?: Position;
+    lineType?: 'straight' | 'curved' | 'stepped';
+    arrowAtStart?: boolean;
+    arrowAtEnd?: boolean;
+    arrowSize?: number;
 }
 
 export interface ArrowShape extends BaseShape {
@@ -117,6 +124,8 @@ export interface ArrowShape extends BaseShape {
     arrowAtStart: boolean;
     arrowAtEnd: boolean;
     arrowSize: number;
+    controlPoint?: Position;
+    lineType?: 'straight' | 'curved' | 'stepped';
 }
 
 export interface TriangleShape extends BaseShape {
@@ -136,6 +145,13 @@ export interface FrameShape extends BaseShape {
     name: string;
 }
 
+export interface ImageShape extends BaseShape {
+    type: ShapeType.IMAGE;
+    src: string;
+    width: number;
+    height: number;
+}
+
 export type Shape =
     | RectangleShape
     | CircleShape
@@ -143,7 +159,8 @@ export type Shape =
     | LineShape
     | ArrowShape
     | TriangleShape
-    | FrameShape;
+    | FrameShape
+    | ImageShape;
 
 export const DEFAULT_SHAPE_STYLE: ShapeStyle = {
     fill: '#3B82F6',
@@ -286,6 +303,7 @@ export function createArrow(
         arrowAtStart: false,
         arrowAtEnd: true,
         arrowSize: 10,
+        controlPoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
         style: { ...DEFAULT_SHAPE_STYLE, hasFill: false },
         transform: { ...DEFAULT_TRANSFORM },
         zIndex: 0,
@@ -390,4 +408,35 @@ export function isTriangle(shape: Shape): shape is TriangleShape {
 
 export function isFrame(shape: Shape): shape is FrameShape {
     return shape.type === ShapeType.FRAME;
+}
+
+export function isImage(shape: Shape): shape is ImageShape {
+    return shape.type === ShapeType.IMAGE;
+}
+
+export function createImage(
+    x: number,
+    y: number,
+    src: string,
+    width: number,
+    height: number,
+    options?: Partial<ImageShape>
+): ImageShape {
+    const now = getCurrentTimestamp();
+    return {
+        id: generateShapeId(),
+        type: ShapeType.IMAGE,
+        position: { x, y },
+        src,
+        width,
+        height,
+        style: { ...DEFAULT_SHAPE_STYLE },
+        transform: { ...DEFAULT_TRANSFORM },
+        zIndex: 0,
+        opacity: 1,
+        visible: true,
+        createdAt: now,
+        updatedAt: now,
+        ...options,
+    };
 }

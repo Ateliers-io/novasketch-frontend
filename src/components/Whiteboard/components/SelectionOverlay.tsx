@@ -24,6 +24,7 @@ interface SelectionOverlayProps {
     onRenameFrame?: () => void;
     onAssignGuests?: () => void;
     isReadOnly?: boolean;
+    hideStandardHandles?: boolean;
 }
 
 const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
@@ -41,7 +42,8 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
     canAssignGuests,
     onRenameFrame,
     onAssignGuests,
-    isReadOnly = false
+    isReadOnly = false,
+    hideStandardHandles = false
 }) => {
     return (
         <svg
@@ -85,7 +87,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                         opacity={0.8}
                     />
 
-                    {!isReadOnly && (
+                    {!isReadOnly && !hideStandardHandles && (
                         <>
                             {/* Corner handles with shadows and cursor hints */}
                             {[

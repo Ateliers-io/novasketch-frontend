@@ -28,6 +28,10 @@ export function getBrushProperties(brush: BrushType, size: number, color: string
             return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.8, strokeWidth: Math.max(1, size * 0.6), dash: [0.5, 0.5] }; // textured look
         case BrushType.WATERCOLOUR:
             return { lineCap: 'round', lineJoin: 'round', tension: 0.6, opacity: 0.3, strokeWidth: size * 2.5, shadowBlur: 5, shadowColor: color };
+        case BrushType.MAGIC_PENCIL:
+            // Rendered by perfect-freehand in <Stroke /> as a filled variable-width polygon.
+            // These Konva Line props are stored in Yjs for data consistency but are not used directly.
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
         default:
             return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
     }

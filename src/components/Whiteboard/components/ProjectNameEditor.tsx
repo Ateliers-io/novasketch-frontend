@@ -20,6 +20,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
     const bgColor = isDark ? '#1F2833' : 'rgba(248,250,251,0.96)';
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setName(initialName || 'Untitled Board');
     }, [initialName]);
 

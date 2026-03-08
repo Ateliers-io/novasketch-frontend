@@ -69,6 +69,7 @@ import RemoteCursors from './components/RemoteCursors';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 import ImageUploadModal from './components/ImageUploadModal';
+import ProjectNameEditor from './components/ProjectNameEditor';
 
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
@@ -337,10 +338,63 @@ export default function Whiteboard({
   // local ref to avoid staleness in event handlers.
   // local ref to avoid staleness in event handlers.
 
-  // 🔍 TEMP: Remove after verifying Task 1.3.3-B
   useEffect(() => {
     console.log('[AWARENESS] Connected users in room:', users);
   }, [users]);
+
+  useEffect(() => {
+    // Auto-promote personal board to collaborative board locally if multiple people are in the room
+    if (users.length > 1) {
+      if (typeof window !== 'undefined') {
+        try {
+          const boards = JSON.parse(localStorage.getItem('novasketch_boards') || '[]');
+          const idx = boards.findIndex((b: any) => b.sessionId === roomId);
+          if (idx >= 0 && !boards[idx].isCollab) {
+            boards[idx].isCollab = true;
+            localStorage.setItem('novasketch_boards', JSON.stringify(boards));
+          }
+        } catch (e) { }
+      }
+    }
+  }, [users.length, roomId]);
+  // Task 6: Save local thumbnail for Dashboard history
+  useEffect(() => {
+    if (isLoadingCanvas) return;
+    const saveThumbnail = () => {
+      try {
+        const bg = canvasBackgroundColor || (theme === 'light' ? '#F7F9FC' : '#121212');
+        const s = shapesRef.current;
+        const l = linesRef.current;
+        const t = textAnnotationsRef.current;
+
+        const { minX, minY, maxX, maxY, hasContent } = calculateContentBounds(s, l, t);
+        if (!hasContent) return;
+
+        const PAD = 40;
+        const offX = minX - PAD;
+        const offY = minY - PAD;
+        const w = Math.max((maxX - minX) + PAD * 2, 200);
+        const h = Math.max((maxY - minY) + PAD * 2, 200);
+
+        const svg = generateSvgContent(s, l, t, bg, w, h, offX, offY);
+        const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+        localStorage.setItem(`novasketch_thumbnail_${roomId}`, dataUrl);
+      } catch (e) {
+        console.warn('Failed to capture thumbnail', e);
+      }
+    };
+    // Save once after a short delay
+    const initialT = setTimeout(saveThumbnail, 3000);
+    // Then every 10 seconds
+    const interval = setInterval(saveThumbnail, 10000);
+
+    return () => {
+      clearTimeout(initialT);
+      clearInterval(interval);
+      saveThumbnail(); // Try to save on unmount
+    };
+  }, [roomId, isLoadingCanvas, theme, canvasBackgroundColor]);
+
   const linesRef = useRef(lines);
   const shapesRef = useRef(shapes);
   const textAnnotationsRef = useRef(textAnnotations);
@@ -3972,6 +4026,16 @@ export default function Whiteboard({
 
       {/* Task 3.1.3: Remote collaborator cursors — always visible on top */}
       <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
+
+      {/* Project Name Editor */}
+      <div className="fixed top-4 left-20 z-50">
+        <ProjectNameEditor
+          sessionId={roomId}
+          initialName={sessionInfo?.name || 'Untitled Board'}
+          isOwner={isOwner}
+          theme={theme}
+        />
+      </div>
 
       {/* Hamburger Menu — top-left */}
       <HamburgerMenu

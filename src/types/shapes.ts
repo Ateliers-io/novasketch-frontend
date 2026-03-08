@@ -36,6 +36,7 @@ export enum BrushType {
     MARKER = 'marker',
     NATURAL_PENCIL = 'natural_pencil',
     WATERCOLOUR = 'watercolour',
+    MAGIC_PENCIL = 'magic_pencil', // Rendered via perfect-freehand as a variable-width filled polygon
 }
 
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted';

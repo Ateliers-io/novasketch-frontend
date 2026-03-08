@@ -123,4 +123,58 @@ describe('Dashboard Component', () => {
             expect(mockNavigate).toHaveBeenCalledWith('/');
         });
     });
+
+    describe('Dashboard History and Filters', () => {
+        it('should filter projects by search query', async () => {
+            renderDashboard();
+            await screen.findByText('Neural Interface V2');
+
+            const searchInput = screen.getByPlaceholderText('Search projects...');
+            fireEvent.change(searchInput, { target: { value: 'Team Brainstorm' } });
+
+            await waitFor(() => {
+                expect(screen.getByText('Team Brainstorm')).toBeInTheDocument();
+                expect(screen.queryByText('Neural Interface V2')).not.toBeInTheDocument();
+            });
+
+            // clear search
+            fireEvent.change(searchInput, { target: { value: '' } });
+            await waitFor(() => {
+                expect(screen.getByText('Neural Interface V2')).toBeInTheDocument();
+            });
+        });
+
+        it('should change to recent view (dashboard history) and display sorted projects', async () => {
+            renderDashboard();
+            await screen.findByText('Neural Interface V2');
+
+            const recentBtn = screen.getByText('Recent');
+            fireEvent.click(recentBtn);
+
+            await waitFor(() => {
+                expect(screen.getByText('Recent Projects')).toBeInTheDocument();
+            });
+
+            // Toggle sort
+            const sortBtn = screen.getByTitle('Sort: Newest first');
+            fireEvent.click(sortBtn);
+
+            await waitFor(() => {
+                expect(screen.getByTitle('Sort: Oldest first')).toBeInTheDocument();
+            });
+        });
+
+        it('should show zero states when no project matches search', async () => {
+            renderDashboard();
+            await screen.findByText('Neural Interface V2');
+
+            const searchInput = screen.getByPlaceholderText('Search projects...');
+            fireEvent.change(searchInput, { target: { value: 'NonExistentProject1234' } });
+
+            await waitFor(() => {
+                expect(screen.getByText('No matching projects')).toBeInTheDocument();
+                expect(screen.queryByText('Neural Interface V2')).not.toBeInTheDocument();
+            });
+        });
+    });
 });

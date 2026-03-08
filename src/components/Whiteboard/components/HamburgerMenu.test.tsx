@@ -77,4 +77,55 @@ describe('HamburgerMenu Component', () => {
         expect(mockProps.onToggleTheme).toHaveBeenCalled();
     });
 
+    it('should close menu when escape key is pressed', () => {
+        render(<HamburgerMenu {...mockProps} />);
+        const button = screen.getByTitle('Open menu');
+        fireEvent.click(button); // open
+
+        expect(screen.getByText('Theme')).toBeInTheDocument();
+        fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
+
+        expect(screen.queryByText('Theme')).not.toBeInTheDocument();
+    });
+
+    it('should close menu when clicked outside', () => {
+        render(<HamburgerMenu {...mockProps} />);
+        const button = screen.getByTitle('Open menu');
+        fireEvent.click(button); // open
+
+        expect(screen.getByText('Theme')).toBeInTheDocument();
+        fireEvent.mouseDown(document.body);
+
+        expect(screen.queryByText('Theme')).not.toBeInTheDocument();
+    });
+
+    it('should expand Export submenu when clicked', () => {
+        render(<HamburgerMenu {...mockProps} />);
+        fireEvent.click(screen.getByTitle('Open menu'));
+
+        const exportMenu = screen.getByText('Export Canvas');
+        // SVG export shouldn't be visible before clicking
+        expect(screen.queryByText('Export as SVG')).not.toBeInTheDocument();
+
+        fireEvent.click(exportMenu);
+
+        expect(screen.getByText('Export as SVG')).toBeInTheDocument();
+        expect(screen.getByText('Export as PNG')).toBeInTheDocument();
+    });
+
+    it('should render extra sections when provided', () => {
+        const extraProps = {
+            ...mockProps,
+            extraSections: [{
+                id: 'custom-section',
+                title: 'Custom Settings',
+                items: [{ id: 'custom-item', label: 'My Custom Action' }]
+            }]
+        };
+        render(<HamburgerMenu {...extraProps} />);
+        fireEvent.click(screen.getByTitle('Open menu'));
+
+        expect(screen.getByText('Custom Settings')).toBeInTheDocument();
+        expect(screen.getByText('My Custom Action')).toBeInTheDocument();
+    });
 });

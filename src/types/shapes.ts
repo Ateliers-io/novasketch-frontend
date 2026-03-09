@@ -1,3 +1,31 @@
+// --- Smart Connector types ---
+
+/**
+ * The 9 named attachment points on a shape's bounding box.
+ * Mirrors the same type exported from utils/connectorUtils.ts.
+ */
+export type AnchorType =
+    | 'top-left'
+    | 'top'
+    | 'top-right'
+    | 'left'
+    | 'center'
+    | 'right'
+    | 'bottom-left'
+    | 'bottom'
+    | 'bottom-right';
+
+/**
+ * A reference that binds one endpoint of a line/arrow to a specific
+ * anchor on another shape.  Stored on LineShape / ArrowShape so that
+ * the endpoint can be repositioned automatically whenever the target
+ * shape moves.
+ */
+export interface ConnectionRef {
+    shapeId: string;
+    anchorType: AnchorType;
+}
+
 export enum ShapeType {
     RECTANGLE = 'rectangle',
     CIRCLE = 'circle',
@@ -116,6 +144,10 @@ export interface LineShape extends BaseShape {
     arrowAtStart?: boolean;
     arrowAtEnd?: boolean;
     arrowSize?: number;
+    /** Smart Connector: bind start endpoint to a shape anchor */
+    startConnection?: ConnectionRef;
+    /** Smart Connector: bind end endpoint to a shape anchor */
+    endConnection?: ConnectionRef;
 }
 
 export interface ArrowShape extends BaseShape {
@@ -127,6 +159,10 @@ export interface ArrowShape extends BaseShape {
     arrowSize: number;
     controlPoint?: Position;
     lineType?: 'straight' | 'curved' | 'stepped';
+    /** Smart Connector: bind start endpoint to a shape anchor */
+    startConnection?: ConnectionRef;
+    /** Smart Connector: bind end endpoint to a shape anchor */
+    endConnection?: ConnectionRef;
 }
 
 export interface TriangleShape extends BaseShape {

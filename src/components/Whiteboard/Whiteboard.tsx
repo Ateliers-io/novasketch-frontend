@@ -3220,7 +3220,7 @@ export default function Whiteboard({
 
       {/* Task 3.4.3-B: Sync Status — fixed top-right */}
       <div className="fixed top-4 right-4 z-40 pointer-events-none">
-        <div className={`backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-500 flex items-center gap-2 shadow-lg border ${isLoadingCanvas
+        <div className={`backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-500 flex items-center gap-2 shadow-lg border h-[28px] ${isLoadingCanvas
           ? 'bg-yellow-500/15 border-yellow-500/30'
           : !isConnected
             ? 'bg-red-500/15 border-red-500/30'
@@ -4019,7 +4019,7 @@ export default function Whiteboard({
       <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
 
       {/* Project Name Editor */}
-      <div className="fixed top-4 left-20 z-50">
+      <div className="fixed top-4 left-16 xl:left-20 z-50 hidden lg:block">
         <ProjectNameEditor
           sessionId={roomId}
           initialName={sessionInfo?.name || 'Untitled Board'}

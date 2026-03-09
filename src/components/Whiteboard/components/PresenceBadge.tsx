@@ -18,11 +18,6 @@ function getInitial(name: string): string {
 
 const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
     const [expanded, setExpanded] = useState(false);
-    // Draggable position — starts in top-left area, shifted right to avoid overlapping the new Hamburger menu
-    const [pos, setPos] = useState({ x: 74, y: 16 });
-    const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number; origX: number; origY: number }>({
-        isDragging: false, startX: 0, startY: 0, origX: 0, origY: 0,
-    });
 
     const count = users.length;
     const visible = users.slice(0, MAX_VISIBLE);
@@ -49,53 +44,21 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
         };
     }, [expanded]);
 
-    // Drag handlers
-    const handleDragStart = useCallback((e: React.MouseEvent) => {
-        e.stopPropagation();
-        dragRef.current = { isDragging: true, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
-
-        const onMove = (ev: MouseEvent) => {
-            if (!dragRef.current.isDragging) return;
-            const dx = ev.clientX - dragRef.current.startX;
-            const dy = ev.clientY - dragRef.current.startY;
-            setPos({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy });
-        };
-
-        const onUp = () => {
-            dragRef.current.isDragging = false;
-            window.removeEventListener('mousemove', onMove);
-            window.removeEventListener('mouseup', onUp);
-        };
-
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-    }, [pos]);
-
-    const handlePillClick = useCallback((e: React.MouseEvent) => {
-        // Only toggle if it wasn't a drag
-        if (Math.abs(e.clientX - dragRef.current.startX) > 5 || Math.abs(e.clientY - dragRef.current.startY) > 5) return;
-        setExpanded(prev => !prev);
-    }, []);
-
-    // eslint-disable-next-line react-hooks/refs
-    const cursorStyle = dragRef.current.isDragging ? 'grabbing' : 'grab';
-
     return (
         <div
             ref={containerRef}
-            className="fixed z-50 flex flex-col items-start gap-2 select-none"
-            style={{ left: pos.x, top: pos.y, cursor: cursorStyle }}
-            onMouseDown={handleDragStart}
+            className="fixed z-50 flex flex-col items-end gap-2 select-none right-4 top-14"
         >
 
             {/* Main pill badge */}
             <button
-                onClick={handlePillClick}
+                onClick={() => setExpanded(prev => !prev)}
                 title={expanded ? 'Hide members' : 'Show members'}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full transition-all duration-300"
                 style={{
                     background: 'var(--ns-panel-bg, rgba(11, 12, 16, 0.75))',
                     backdropFilter: 'blur(12px)',
+                    height: '30px',
                     WebkitBackdropFilter: 'blur(12px)',
                     border: '1px solid var(--ns-panel-border, rgba(255,255,255,0.12))',
                     boxShadow: count > 0
@@ -110,12 +73,12 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                         <div
                             className="flex items-center justify-center rounded-full font-bold text-white z-10"
                             style={{
-                                width: 26,
-                                height: 26,
-                                fontSize: 10,
+                                width: 20,
+                                height: 20,
+                                fontSize: 9,
                                 background: 'rgba(255,255,255,0.12)',
                                 border: '2px solid var(--ns-panel-bg, rgba(11,12,16,0.9))',
-                                marginRight: -6,
+                                marginRight: -4,
                                 flexShrink: 0,
                             }}
                         >
@@ -130,12 +93,12 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                             title={user.name}
                             className="flex items-center justify-center rounded-full font-bold text-black flex-shrink-0"
                             style={{
-                                width: 26,
-                                height: 26,
-                                fontSize: 11,
+                                width: 20,
+                                height: 20,
+                                fontSize: 9,
                                 background: user.color,
                                 border: '2px solid var(--ns-panel-bg, rgba(11,12,16,0.9))',
-                                marginRight: idx === 0 ? 0 : -8,
+                                marginRight: idx === 0 ? 0 : -6,
                                 zIndex: visible.length - idx,
                                 boxShadow: `0 0 8px ${user.color}55`,
                             }}

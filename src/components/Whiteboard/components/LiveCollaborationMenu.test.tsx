@@ -59,7 +59,7 @@ describe('LiveCollaborationMenu Component', () => {
 
         // Mock success output
         fireEvent.click(copyLinkBtn);
-        expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('novasketch.vercel.app'));
+        expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('/board/'));
     });
 
     it('should open WhatsApp link when Share via WhatsApp is clicked', () => {

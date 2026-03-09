@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { generateLinePathData } from './SVGShapeRenderer';
-import { ShapeType, LineShape, ArrowShape } from '../../types/shapes';
+import { render } from '@testing-library/react';
+import { generateLinePathData, SVGShapeRenderer } from './SVGShapeRenderer';
+import { ShapeType, LineShape, ArrowShape, createRectangle } from '../../types/shapes';
+import { AnchorPoint } from '../../utils/connectorUtils';
 
 describe('SVGShapeRenderer - Arrow and Line Features (Three Point / Bend logic)', () => {
 
@@ -74,5 +76,98 @@ describe('SVGShapeRenderer - Arrow and Line Features (Three Point / Bend logic)'
 
         // This validates the quadratic math that ensures the curve physically intersects the handle
         expect(pathData).toBe('M -100 0 Q 0 200 100 0');
+    });
+});
+
+// --- Smart Connector anchor overlay tests ---
+
+describe('SVGShapeRenderer - Smart Connector anchor overlays', () => {
+    const rect = createRectangle(100, 100, 200, 100);
+    const anchors: AnchorPoint[] = [
+        { type: 'top',    position: { x: 200, y: 100 } },
+        { type: 'center', position: { x: 200, y: 150 } },
+        { type: 'bottom', position: { x: 200, y: 200 } },
+    ];
+
+    it('renders no anchor dots when anchorOverlays is empty', () => {
+        const { container } = render(
+            <SVGShapeRenderer
+                shapes={[rect]}
+                width={800}
+                height={600}
+                anchorOverlays={[]}
+            />
+        );
+        const dots = container.querySelectorAll('.connector-anchor-dot');
+        expect(dots).toHaveLength(0);
+    });
+
+    it('renders one dot per anchor in anchorOverlays', () => {
+        const { container } = render(
+            <SVGShapeRenderer
+                shapes={[rect]}
+                width={800}
+                height={600}
+                anchorOverlays={[{ shape: rect, anchors }]}
+            />
+        );
+        const dots = container.querySelectorAll('.connector-anchor-dot');
+        expect(dots).toHaveLength(anchors.length);
+    });
+
+    it('renders no snap ring when snapTargetAnchor is null', () => {
+        const { container } = render(
+            <SVGShapeRenderer
+                shapes={[rect]}
+                width={800}
+                height={600}
+                anchorOverlays={[{ shape: rect, anchors }]}
+                snapTargetAnchor={null}
+            />
+        );
+        const rings = container.querySelectorAll('.connector-snap-ring');
+        expect(rings).toHaveLength(0);
+    });
+
+    it('renders snap ring for the matching shapeId + anchorType', () => {
+        const { container } = render(
+            <SVGShapeRenderer
+                shapes={[rect]}
+                width={800}
+                height={600}
+                anchorOverlays={[{ shape: rect, anchors }]}
+                snapTargetAnchor={{ shapeId: rect.id, anchorType: 'top' }}
+            />
+        );
+        const rings = container.querySelectorAll('.connector-snap-ring');
+        expect(rings).toHaveLength(1);
+    });
+
+    it('renders snap dot (filled circle) alongside the snap ring', () => {
+        const { container } = render(
+            <SVGShapeRenderer
+                shapes={[rect]}
+                width={800}
+                height={600}
+                anchorOverlays={[{ shape: rect, anchors }]}
+                snapTargetAnchor={{ shapeId: rect.id, anchorType: 'center' }}
+            />
+        );
+        const snapDots = container.querySelectorAll('.connector-snap-dot');
+        expect(snapDots).toHaveLength(1);
+    });
+
+    it('connector-anchors group has pointer-events:none so it does not block clicks', () => {
+        const { container } = render(
+            <SVGShapeRenderer
+                shapes={[rect]}
+                width={800}
+                height={600}
+                anchorOverlays={[{ shape: rect, anchors }]}
+            />
+        );
+        const anchorsGroup = container.querySelector('.connector-anchors') as SVGGElement | null;
+        expect(anchorsGroup).not.toBeNull();
+        expect(anchorsGroup?.style.pointerEvents).toBe('none');
     });
 });

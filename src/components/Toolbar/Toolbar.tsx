@@ -169,7 +169,7 @@ const IconArrowNone = () => <svg width="18" height="18" viewBox="0 0 24 24" fill
 
 
 const ToolButton = ({
-    isActive, onClick, icon: Icon, label, hasDropdown = false, size = 18,
+    isActive, onClick, icon: Icon, label, hasDropdown = false, size = 16,
 }: {
     isActive: boolean; onClick: () => void; icon: any; label: string; hasDropdown?: boolean; size?: number;
 }) => (
@@ -177,7 +177,7 @@ const ToolButton = ({
         onClick={onClick}
         title={label}
         className={`
-            relative group flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150
+            relative group flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150
             ${isActive
                 ? 'shadow-sm'
                 : ''
@@ -194,28 +194,27 @@ const ToolButton = ({
     >
         <Icon size={size} />
         {hasDropdown && (
-            <ChevronDown size={8} className="absolute bottom-0.5 right-0.5 opacity-60" />
+            <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
         )}
     </button>
 );
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-    <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-center select-none leading-none" style={{ color: 'var(--ns-section-label)' }}>
+    <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-center select-none leading-none opacity-80" style={{ color: 'var(--ns-section-label)' }}>
         {children}
     </div>
 );
 
-
 const ToolSection = ({ children, label }: { children: React.ReactNode; label: string }) => (
-    <div className="flex flex-col items-center gap-[3px]">
-        <div className="flex items-center gap-[2px]">
+    <div className="flex flex-col items-center justify-end h-full px-1 pb-[2px] pt-1">
+        <div className="flex items-center gap-[1px] mb-[3px]">
             {children}
         </div>
         <SectionLabel>{label}</SectionLabel>
     </div>
 );
 
-const Separator = () => <div className="w-px h-9 mx-1.5 self-center" style={{ background: 'var(--ns-separator)' }} />;
+const Separator = () => <div className="w-px h-8 mx-1 self-center opacity-70" style={{ background: 'var(--ns-separator)' }} />;
 
 
 
@@ -317,13 +316,13 @@ export default function Toolbar({
     const undoCursor = canUndo ? 'pointer' : 'not-allowed';
     const redoColor = canRedo ? 'var(--ns-toolbar-muted)' : 'var(--ns-disabled)';
     const redoCursor = canRedo ? 'pointer' : 'not-allowed';
-    const strokeOpacity = activeColorMode === 'stroke' ? 1 : 0.6;
+    const strokeOpacity = activeColorMode === '' ? 1 : 0.6;
     const fillOpacity = activeColorMode === 'fill' ? 1 : 0.6;
 
     return (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50" data-component="toolbar">
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50" data-component="toolbar">
             <div
-                className="flex items-stretch gap-0 px-3 py-1.5 backdrop-blur-2xl rounded-2xl transition-all duration-300"
+                className="flex items-stretch gap-0 px-2 py-1 backdrop-blur-2xl rounded-xl transition-all duration-300"
                 style={{
                     background: 'var(--ns-toolbar-bg)',
                     border: `1px solid ${toolbarBorderColor}`,
@@ -337,18 +336,18 @@ export default function Toolbar({
                 {/* ═══ HISTORY ═══ */}
                 <ToolSection label="History">
                     <button onClick={onUndo} disabled={canUndo === false} title="Undo (Ctrl+Z)"
-                        className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 active:scale-95"
+                        className="flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 active:scale-95"
                         style={{ color: undoColor, cursor: undoCursor }}
                         onMouseEnter={(e) => { if (canUndo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = undoColor; }}>
-                        <Undo2 size={15} />
+                        <Undo2 size={14} />
                     </button>
                     <button onClick={onRedo} disabled={canRedo === false} title="Redo (Ctrl+Y)"
-                        className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 active:scale-95"
+                        className="flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 active:scale-95"
                         style={{ color: redoColor, cursor: redoCursor }}
                         onMouseEnter={(e) => { if (canRedo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = redoColor; }}>
-                        <Redo2 size={15} />
+                        <Redo2 size={14} />
                     </button>
                 </ToolSection>
 
@@ -359,8 +358,8 @@ export default function Toolbar({
                     <ToolButton icon={MousePointer2} label="Select (V)" isActive={activeTool === 'select'} onClick={() => onToolChange('select')} />
                     <ToolButton icon={Hand} label="Hand (H)" isActive={activeTool === ToolType.HAND} onClick={() => onToolChange(ToolType.HAND)} />
                     <button onClick={() => onToolLockChange(!isToolLocked)} title={isToolLocked ? 'Unlock Tool' : 'Lock Tool'}
-                        className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${isToolLocked ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#4a5b6a] hover:bg-[#262e35] hover:text-[#8b9dad]'}`}>
-                        {isToolLocked ? <Lock size={13} /> : <Unlock size={13} />}
+                        className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${isToolLocked ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#4a5b6a] hover:bg-[#262e35] hover:text-[#8b9dad]'}`}>
+                        {isToolLocked ? <Lock size={12} /> : <Unlock size={12} />}
                     </button>
                 </ToolSection>
 
@@ -376,10 +375,10 @@ export default function Toolbar({
                         <button
                             onClick={() => setShowBrushMenu(!showBrushMenu)}
                             title={`Brush Type: ${BRUSH_OPTIONS.find(b => b.type === brushType)?.label || 'Brush'}`}
-                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${showBrushMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
+                            className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showBrushMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
                         >
                             <Paintbrush size={16} />
-                            <ChevronDown size={8} className="absolute bottom-0.5 right-0.5 opacity-60" />
+                            <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
                         </button>
 
                         {/* Brush Dropdown Panel */}
@@ -458,6 +457,7 @@ export default function Toolbar({
                     </div>
 
                     <ToolButton icon={Type} label="Text (T)" isActive={activeTool === 'text'} onClick={() => onToolChange('text')} />
+                    <ToolButton icon={ImageIcon} label="Image (I)" isActive={activeTool === ToolType.IMAGE} onClick={() => { onToolChange(ToolType.IMAGE); onImageUpload?.(); }} />
                 </ToolSection>
 
                 <Separator />
@@ -468,14 +468,12 @@ export default function Toolbar({
                     <ToolButton icon={Circle} label="Circle (C)" isActive={activeTool === ToolType.CIRCLE} onClick={() => onToolChange(ToolType.CIRCLE)} />
                     {/* Custom Ellipse */}
                     <button onClick={() => onToolChange(ToolType.ELLIPSE)} title="Ellipse"
-                        className={`relative group flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${activeTool === ToolType.ELLIPSE ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40 shadow-[0_0_8px_rgba(45,212,191,0.15)]' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>
+                        className={`relative group flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${activeTool === ToolType.ELLIPSE ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40 shadow-[0_0_8px_rgba(45,212,191,0.15)]' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>
                     </button>
                     <ToolButton icon={Triangle} label="Triangle" isActive={activeTool === ToolType.TRIANGLE} onClick={() => onToolChange(ToolType.TRIANGLE)} />
                     <ToolButton icon={Slash} label="Line (L)" isActive={activeTool === ToolType.LINE} onClick={() => onToolChange(ToolType.LINE)} />
                     <ToolButton icon={ArrowRight} label="Arrow" isActive={activeTool === ToolType.ARROW} onClick={() => onToolChange(ToolType.ARROW)} />
-                    <ToolButton icon={ImageIcon} label="Image (I)" isActive={activeTool === ToolType.IMAGE} onClick={() => { onToolChange(ToolType.IMAGE); onImageUpload?.(); }} />
-
                 </ToolSection>
 
                 {/* ═══ STROKE STYLE (only for shapes) ═══ */}
@@ -485,13 +483,13 @@ export default function Toolbar({
                         <div className="relative" ref={strokeStyleRef}>
                             <ToolSection label="Style">
                                 <button onClick={() => setShowStrokeStyleMenu(!showStrokeStyleMenu)} title={`Stroke: ${strokeStyle}`}
-                                    className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${showStrokeStyleMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showStrokeStyleMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                         {strokeStyle === 'solid' && <line x1="3" y1="12" x2="21" y2="12" />}
                                         {strokeStyle === 'dashed' && <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="5 3" />}
                                         {strokeStyle === 'dotted' && <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="2 3" strokeLinecap="round" />}
                                     </svg>
-                                    <ChevronDown size={8} className="absolute bottom-0.5 right-0.5 opacity-60" />
+                                    <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
                                 </button>
                             </ToolSection>
 
@@ -528,13 +526,13 @@ export default function Toolbar({
                     <>
                         <Separator />
                         <div className="relative" ref={lineStyleRef}>
-                            <ToolSection label="Line Settings">
+                            <ToolSection label="Lines">
                                 <button onClick={() => setShowLineStyleMenu(!showLineStyleMenu)} title="Line Options"
-                                    className={`flex items-center gap-1.5 px-2 h-8 rounded-md transition-all duration-150 ${showLineStyleMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                                    className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showLineStyleMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
                                     {lineType === 'curved' && <IconCurvedLine />}
                                     {lineType === 'straight' && <IconStraightLine />}
                                     {lineType === 'stepped' && <IconSteppedLine />}
-                                    <ChevronDown size={10} className="opacity-60" />
+                                    <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
                                 </button>
                             </ToolSection>
 

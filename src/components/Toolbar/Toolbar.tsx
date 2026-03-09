@@ -316,7 +316,7 @@ export default function Toolbar({
     const undoCursor = canUndo ? 'pointer' : 'not-allowed';
     const redoColor = canRedo ? 'var(--ns-toolbar-muted)' : 'var(--ns-disabled)';
     const redoCursor = canRedo ? 'pointer' : 'not-allowed';
-    const strokeOpacity = activeColorMode === '' ? 1 : 0.6;
+    const strokeOpacity = activeColorMode === 'stroke' ? 1 : 0.6;
     const fillOpacity = activeColorMode === 'fill' ? 1 : 0.6;
 
     return (

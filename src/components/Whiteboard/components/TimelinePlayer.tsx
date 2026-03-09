@@ -1,9 +1,63 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import SVGShapeRenderer from '../SVGShapeRenderer';
 import RemoteCursors from './RemoteCursors';
 import Toolbar from '../../Toolbar/Toolbar';
 import { ToolType, BrushType, StrokeStyle } from '../../../types/shapes';
 import { DEFAULT_GRID_CONFIG } from '../../../types/grid';
+
+/**
+ * Computes a viewport transform so all content (shapes, lines, annotations)
+ * fits within the fixed export canvas regardless of where on the board it was drawn.
+ */
+function computeFitTransform(
+    shapes: any[], lines: any[], textAnnotations: any[],
+    viewW: number, viewH: number
+): { x: number; y: number; scale: number } {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hasContent = false;
+
+    for (const s of shapes) {
+        const x = s.position?.x ?? 0;
+        const y = s.position?.y ?? 0;
+        const w = Math.abs(s.width ?? 0);
+        const h = Math.abs(s.height ?? 0);
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h);
+        hasContent = true;
+    }
+    for (const l of lines) {
+        for (const p of (l.points ?? [])) {
+            const px = p.x ?? p[0] ?? 0;
+            const py = p.y ?? p[1] ?? 0;
+            minX = Math.min(minX, px); minY = Math.min(minY, py);
+            maxX = Math.max(maxX, px); maxY = Math.max(maxY, py);
+            hasContent = true;
+        }
+    }
+    for (const t of textAnnotations) {
+        const tx = t.position?.x ?? t.x ?? 0;
+        const ty = t.position?.y ?? t.y ?? 0;
+        minX = Math.min(minX, tx); minY = Math.min(minY, ty);
+        maxX = Math.max(maxX, tx + 200); maxY = Math.max(maxY, ty + 50);
+        hasContent = true;
+    }
+
+    if (!hasContent) return { x: 0, y: 0, scale: 1 };
+
+    const PADDING = 80;
+    const contentW = maxX - minX;
+    const contentH = maxY - minY;
+    const scale = Math.min(
+        (viewW - PADDING * 2) / Math.max(contentW, 1),
+        (viewH - PADDING * 2) / Math.max(contentH, 1),
+        1
+    );
+    return {
+        x: (viewW - contentW * scale) / 2 - minX * scale,
+        y: (viewH - contentH * scale) / 2 - minY * scale,
+        scale,
+    };
+}
 
 interface TimelinePlayerProps {
     state: any;
@@ -28,6 +82,11 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({ state, width = 1
         if (containerRef.current) observer.observe(containerRef.current);
         return () => observer.disconnect();
     }, [width, height]);
+
+    const fitTransform = useMemo(
+        () => computeFitTransform(state?.shapes ?? [], state?.lines ?? [], state?.textAnnotations ?? [], width, height),
+        [state?.shapes, state?.lines, state?.textAnnotations, width, height]
+    );
 
     if (!state) return null;
 
@@ -111,6 +170,7 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({ state, width = 1
                     textAnnotations={state.textAnnotations}
                     width={width}
                     height={height}
+                    transform={fitTransform}
                 />
 
                 {/* Render the cursors on top of the shapes */}

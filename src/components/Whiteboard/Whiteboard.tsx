@@ -348,19 +348,20 @@ export default function Whiteboard({
   }, [users]);
 
   useEffect(() => {
-    // Auto-promote personal board to collaborative board locally if multiple people are in the room
-    if (users.length > 1) {
-      if (typeof window !== 'undefined') {
-        try {
-          const boards = JSON.parse(localStorage.getItem('novasketch_boards') || '[]');
-          const idx = boards.findIndex((b: any) => b.sessionId === roomId);
-          if (idx >= 0 && !boards[idx].isCollab) {
-            boards[idx].isCollab = true;
-            localStorage.setItem('novasketch_boards', JSON.stringify(boards));
-          }
-        } catch { /* ignore */ }
+    // Keep the board's isCollab flag in sync with the current participant count.
+    // Promotes personal boards to collaborative when others join, and reverts when they leave.
+    if (typeof window === 'undefined') return;
+    try {
+      const boards = JSON.parse(localStorage.getItem('novasketch_boards') || '[]');
+      const idx = boards.findIndex((b: any) => b.sessionId === roomId);
+      if (idx >= 0) {
+        const nowCollab = users.length > 1;
+        if (boards[idx].isCollab !== nowCollab) {
+          boards[idx].isCollab = nowCollab;
+          localStorage.setItem('novasketch_boards', JSON.stringify(boards));
+        }
       }
-    }
+    } catch { /* ignore */ }
   }, [users.length, roomId]);
   // Task 6: Save local thumbnail for Dashboard history
   useEffect(() => {
@@ -4148,6 +4149,7 @@ export default function Whiteboard({
         onToggleTheme={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
         onCaptureCanvas={handleCaptureCanvas}
         onOpenReplay={() => setShowReplay(true)}
+        roomId={roomId}
       />
 
       {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}

@@ -248,19 +248,19 @@ export default function Whiteboard({
   const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
-  // Task 1.3.1-B: Track username — null means modal is shown
+  // Track username - null means modal is shown
   const [userName, setUserName] = useState<string | null>(
     () => localStorage.getItem('novasketch_userName')
   );
 
-  // Epic 7.6.3: Guest Assignment Toast State
+  // Guest Assignment Toast State
   const [guestToastMessage, setGuestToastMessage] = useState<string | null>(null);
 
-  // Epic 7.6.2: Assign Guests Modal State
+  // Assign Guests Modal State
   const [isAssignGuestsModalOpen, setIsAssignGuestsModalOpen] = useState(false);
   const [assignGuestsFrameId, setAssignGuestsFrameId] = useState<string | null>(null);
 
-  // Task 1.3.3-A / 3.1.3: Assign a unique color based on the username so each
+  // Assign a unique color based on the username so each
   // collaborator always gets a distinct cursor/avatar color.
   const [userColor] = useState<string>(() => {
     // Expanded palette with 16 visually distinct colors
@@ -358,7 +358,7 @@ export default function Whiteboard({
             boards[idx].isCollab = true;
             localStorage.setItem('novasketch_boards', JSON.stringify(boards));
           }
-        } catch (e) { }
+        } catch { /* ignore */ }
       }
     }
   }, [users.length, roomId]);
@@ -404,19 +404,20 @@ export default function Whiteboard({
   const shapesRef = useRef(shapes);
   const textAnnotationsRef = useRef(textAnnotations);
 
-  // Task 3.1.2: Throttle cursor broadcasts to ~20 updates/sec (every 50ms)
+  // Throttle cursor broadcasts to ~20 updates/sec (every 50ms)
   const lastCursorBroadcastRef = useRef(0);
 
-  useEffect(() => { linesRef.current = lines; }, [lines]);
-  useEffect(() => { shapesRef.current = shapes; }, [shapes]);
-  useEffect(() => { textAnnotationsRef.current = textAnnotations; }, [textAnnotations]);
+  // Sync refs during render so event handlers always read the latest state
+  linesRef.current = lines;
+  shapesRef.current = shapes;
+  textAnnotationsRef.current = textAnnotations;
 
-  // Task 3.4.1-A: Optimistic UI Local Rendering
+  // Optimistic UI Local Rendering
   // Temporarily hold newly drawn lines to render locally before sending via WS
   const [optimisticLine, setOptimisticLine] = useState<StrokeLine | null>(null);
   const optimisticLineRef = useRef<StrokeLine | null>(null);
 
-  // Epic 7.6.3: Monitor incoming shapes to trigger "Assigned as Guest" toasts
+  // Monitor incoming shapes to trigger "Assigned as Guest" toasts
   const previousShapesRef = useRef(shapes);
   useEffect(() => {
     if (!user?.id) return;
@@ -2448,7 +2449,7 @@ export default function Whiteboard({
             if (selectedShapeIds.has(s.id)) return s; // the moved shape itself is handled above
             if (!isLine(s) && !isArrow(s)) return s;
             const ls = s as LineShape;
-            let updated: any = { ...s };
+            const updated: any = { ...s };
             let changed = false;
             if (ls.startConnection && selectedShapeIds.has(ls.startConnection.shapeId)) {
               const initShape = initialDragState.shapes.get(ls.startConnection.shapeId);

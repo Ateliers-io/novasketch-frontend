@@ -15,6 +15,7 @@ import {
   createLine,
   createArrow,
   createTriangle,
+  createFrame,
   createImage,
   isRectangle,
   isCircle,
@@ -30,6 +31,7 @@ import {
   LineShape,
   ArrowShape,
   TriangleShape,
+  FrameShape,
   Position,
 } from '../../types/shapes';
 import SVGShapeRenderer from './SVGShapeRenderer';
@@ -1804,6 +1806,8 @@ export default function Whiteboard({
     } else if (activeTool === ToolType.TRIANGLE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
       setPreviewShape(createTriangle(startX, startY, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
+    } else if (activeTool === ToolType.FRAME) {
+      setPreviewShape(createFrame(startX, startY, 0, 0, { ownerId: user?.id || 'unknown' }));
     }
   };
 
@@ -2586,6 +2590,13 @@ export default function Whiteboard({
             { x: baseX, y: baseY + h },
           ],
         } as TriangleShape);
+      } else if (activeTool === ToolType.FRAME) {
+        setPreviewShape({
+          ...previewShape,
+          position: { x: width < 0 ? x : dragStart.x, y: height < 0 ? y : dragStart.y },
+          width: Math.abs(width),
+          height: Math.abs(height),
+        } as FrameShape);
       }
     }
   };
@@ -3073,6 +3084,8 @@ export default function Whiteboard({
         const xs = s.points.map(p => p.x);
         const ys = s.points.map(p => p.y);
         isValidShape = (Math.max(...xs) - Math.min(...xs)) > 5 || (Math.max(...ys) - Math.min(...ys)) > 5;
+      } else if (isFrame(previewShape)) {
+        isValidShape = (previewShape as FrameShape).width > 20 && (previewShape as FrameShape).height > 20;
       }
 
       if (isValidShape) {
@@ -3092,7 +3105,8 @@ export default function Whiteboard({
         setConnectorAnchorOverlays([]);
 
         const bbox = getShapeBoundingBox(newShape);
-        const targetFrame = getTargetFrame(bbox.centerX, bbox.centerY);
+        // Frames are always top-level, never nest them inside another frame
+        const targetFrame = isFrame(newShape) ? null : getTargetFrame(bbox.centerX, bbox.centerY);
 
         if (targetFrame) {
           newShape = {

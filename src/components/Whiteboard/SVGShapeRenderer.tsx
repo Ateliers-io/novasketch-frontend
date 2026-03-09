@@ -19,6 +19,7 @@ import {
     isImage,
     ShapeType,
 } from '../../types/shapes';
+import { AnchorPoint, AnchorType } from '../../utils/connectorUtils';
 import './SVGShapeRenderer.css';
 
 // --- PROPS ---
@@ -31,6 +32,16 @@ interface SVGShapeRendererProps {
     selectedShapeIds?: Set<string>;
     onShapeClick?: (shapeId: string, e: React.MouseEvent) => void;
     transform?: { x: number; y: number; scale: number };
+    /**
+     * Smart Connectors: shapes whose anchor points should be rendered
+     * as connection dots (shown while drawing a line/arrow near them).
+     */
+    anchorOverlays?: { shape: Shape; anchors: AnchorPoint[] }[];
+    /**
+     * Smart Connectors: the single anchor that is currently being snapped to a line/arrow.
+     * This anchor should be rendered with a glowing turquoise ring.
+     */
+    snapTargetAnchor?: { shapeId: string; anchorType: AnchorType } | null;
 }
 
 // --- CONSTANTS ---
@@ -386,6 +397,73 @@ const SVGImage = ({ shape, isSelected, onClick }: { shape: ImageShape; isSelecte
     );
 };
 
+// --- SMART CONNECTOR ANCHOR OVERLAY ---
+
+/**
+ * Renders connection-point dots for each shape in anchorOverlays, and a
+ * glowing snap-target ring for the currently-snapped anchor.
+ * Rendered on top of all shapes so the dots are always visible.
+ */
+const ConnectorAnchors: React.FC<{
+    anchorOverlays: { shape: Shape; anchors: AnchorPoint[] }[];
+    snapTargetAnchor?: { shapeId: string; anchorType: AnchorType } | null;
+}> = ({ anchorOverlays, snapTargetAnchor }) => {
+    if (!anchorOverlays || anchorOverlays.length === 0) return null;
+
+    return (
+        <g className="connector-anchors" style={{ pointerEvents: 'none' }}>
+            {anchorOverlays.map(({ shape, anchors }) =>
+                anchors.map((anchor) => {
+                    const isSnapTarget =
+                        snapTargetAnchor?.shapeId === shape.id &&
+                        snapTargetAnchor?.anchorType === anchor.type;
+
+                    const { x, y } = anchor.position;
+
+                    return (
+                        <g key={`${shape.id}-${anchor.type}`}>
+                            {/* Background dot for all anchor points */}
+                            <circle
+                                cx={x}
+                                cy={y}
+                                r={4}
+                                fill="rgba(200, 200, 200, 0.75)"
+                                stroke="#ffffff"
+                                strokeWidth={1}
+                                className="connector-anchor-dot"
+                            />
+                            {/* Glowing snap-target ring */}
+                            {isSnapTarget && (
+                                <>
+                                    <circle
+                                        cx={x}
+                                        cy={y}
+                                        r={9}
+                                        fill="none"
+                                        stroke={NEON_TURQUOISE}
+                                        strokeWidth={2}
+                                        className="connector-snap-ring"
+                                        filter="url(#neon-bloom)"
+                                    />
+                                    {/* Solid inner fill for the active snap target */}
+                                    <circle
+                                        cx={x}
+                                        cy={y}
+                                        r={4}
+                                        fill={NEON_TURQUOISE}
+                                        stroke="none"
+                                        className="connector-snap-dot"
+                                    />
+                                </>
+                            )}
+                        </g>
+                    );
+                })
+            )}
+        </g>
+    );
+};
+
 // --- FREEHAND LINES AND TEXTS ---
 
 const SVGFreehandLine = ({ line }: { line: any }) => {
@@ -443,6 +521,8 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
     selectedShapeIds,
     onShapeClick,
     transform = { x: 0, y: 0, scale: 1 },
+    anchorOverlays = [],
+    snapTargetAnchor,
 }) => {
     const sortedShapes = useMemo(() =>
         [...shapes].sort((a, b) => a.zIndex - b.zIndex),
@@ -535,6 +615,12 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                 {textAnnotations.map((text) => (
                     <SVGTextAnnotation key={text.id} text={text} />
                 ))}
+
+                {/* 4. Smart Connector anchor overlays (always on top) */}
+                <ConnectorAnchors
+                    anchorOverlays={anchorOverlays}
+                    snapTargetAnchor={snapTargetAnchor}
+                />
             </g>
         </svg>
     );

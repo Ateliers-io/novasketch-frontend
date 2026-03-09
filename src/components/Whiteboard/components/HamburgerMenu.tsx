@@ -410,6 +410,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     onToggleTheme,
     onCaptureCanvas,
     onOpenReplay,
+    roomId,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedSubmenus, setExpandedSubmenus] = useState<Record<string, boolean>>({});

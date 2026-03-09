@@ -71,6 +71,8 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 import ImageUploadModal from './components/ImageUploadModal';
 import ProjectNameEditor from './components/ProjectNameEditor';
+import ReplayOverlay from './components/ReplayOverlay';
+import * as Y from 'yjs';
 
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
@@ -560,6 +562,9 @@ export default function Whiteboard({
   // Image Upload Modal
   const [showImageUpload, setShowImageUpload] = useState(false);
 
+  // Timeline Replay
+  const [showReplay, setShowReplay] = useState(false);
+
   // Arrow Bending State
   const [isBendingArrow, setIsBendingArrow] = useState<string | null>(null);
   const [isEditingArrowEnd, setIsEditingArrowEnd] = useState<{ id: string, end: 'start' | 'end' } | null>(null);
@@ -855,7 +860,17 @@ export default function Whiteboard({
 
   // -- 4. HELPERS --
   const getPointerPos = (e: any) => {
-    // robustly get client coordinates from various event types (React, Konva, Native)
+    // Try to get perfect coordinates from Konva's stage transform inversion
+    if (stageRef.current) {
+      const stage = stageRef.current;
+      const pos = stage.getPointerPosition();
+      if (pos) {
+        const transform = stage.getAbsoluteTransform().copy().invert();
+        return transform.point(pos);
+      }
+    }
+
+    // fallback: robustly get client coordinates
     const nativeEvent = e.nativeEvent || e;
     const clientX = e.clientX ?? nativeEvent.clientX ?? e.evt?.clientX;
     const clientY = e.clientY ?? nativeEvent.clientY ?? e.evt?.clientY;
@@ -4039,6 +4054,7 @@ export default function Whiteboard({
         theme={theme}
         onToggleTheme={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
         onCaptureCanvas={handleCaptureCanvas}
+        onOpenReplay={() => setShowReplay(true)}
       />
 
       {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}
@@ -4119,6 +4135,27 @@ export default function Whiteboard({
           onSubmit={(name) => {
             localStorage.setItem('novasketch_userName', name);
             setUserName(name);
+          }}
+        />
+      )}
+
+      {/* Timeline Replay Overlay */}
+      {showReplay && (
+        <ReplayOverlay
+          sessionId={roomId}
+          onClose={() => setShowReplay(false)}
+          onApplyToLive={(update: Uint8Array) => {
+            const tempDoc = new Y.Doc();
+            Y.applyUpdate(tempDoc, update);
+            const snapLines = tempDoc.getArray('lines').toArray() as any[];
+            const snapShapes = tempDoc.getArray('shapes').toArray() as any[];
+            const snapTexts = tempDoc.getArray('texts').toArray() as any[];
+            tempDoc.destroy();
+            batch(() => {
+              syncSetLines(snapLines);
+              syncSetShapes(snapShapes);
+              syncSetTexts(snapTexts);
+            });
           }}
         />
       )}

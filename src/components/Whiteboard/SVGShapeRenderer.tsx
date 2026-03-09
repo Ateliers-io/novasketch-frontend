@@ -24,6 +24,8 @@ import './SVGShapeRenderer.css';
 // --- PROPS ---
 interface SVGShapeRendererProps {
     shapes: Shape[];
+    lines?: any[];
+    textAnnotations?: any[];
     width: number;
     height: number;
     selectedShapeIds?: Set<string>;
@@ -384,10 +386,58 @@ const SVGImage = ({ shape, isSelected, onClick }: { shape: ImageShape; isSelecte
     );
 };
 
+// --- FREEHAND LINES AND TEXTS ---
+
+const SVGFreehandLine = ({ line }: { line: any }) => {
+    if (!line.points || line.points.length < 2) return null;
+    let d = `M ${line.points[0]} ${line.points[1]}`;
+    for (let i = 2; i < line.points.length; i += 2) {
+        d += ` L ${line.points[i]} ${line.points[i + 1]}`;
+    }
+    return (
+        <path
+            d={d}
+            stroke={line.color}
+            strokeWidth={line.strokeWidth}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="svg-primitive"
+        />
+    );
+};
+
+const SVGTextAnnotation = ({ text }: { text: any }) => {
+    let anchor: 'start' | 'middle' | 'end' = 'start';
+    if (text.textAlign === 'center') anchor = 'middle';
+    else if (text.textAlign === 'right') anchor = 'end';
+
+    return (
+        <text
+            x={text.x}
+            y={text.y}
+            transform={`rotate(${text.rotation || 0}, ${text.x}, ${text.y})`}
+            fontFamily={text.fontFamily || 'Arial'}
+            fontSize={text.fontSize || 18}
+            fill={text.color || '#ffffff'}
+            fontWeight={text.fontWeight || 'normal'}
+            fontStyle={text.fontStyle || 'normal'}
+            textDecoration={text.textDecoration || 'none'}
+            dominantBaseline="hanging"
+            textAnchor={anchor}
+            className="svg-primitive svg-text"
+        >
+            {text.text}
+        </text>
+    );
+};
+
 // --- MAIN RENDERER ---
 
 export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
     shapes,
+    lines = [],
+    textAnnotations = [],
     width,
     height,
     selectedShapeIds,
@@ -444,6 +494,12 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
 
             {/* Viewport transform: pan + zoom applied to all shapes */}
             <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
+                {/* 1. Freehand Lines */}
+                {lines.map((line) => (
+                    <SVGFreehandLine key={line.id} line={line} />
+                ))}
+
+                {/* 2. Shapes */}
                 {(() => {
                     const renderShape = (shape: Shape): React.ReactNode => {
                         const isSelected = selectedShapeIds?.has(shape.id) || false;
@@ -474,6 +530,11 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                         .filter(s => !s.parentId && s.visible !== false)
                         .map(s => renderShape(s));
                 })()}
+
+                {/* 3. Text Annotations */}
+                {textAnnotations.map((text) => (
+                    <SVGTextAnnotation key={text.id} text={text} />
+                ))}
             </g>
         </svg>
     );

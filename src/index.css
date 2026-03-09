@@ -111,8 +111,19 @@
 [data-ns-theme="light"] .bg-\[\#1F2833\],
 [data-ns-theme="light"] .bg-\[\#151a1f\],
 [data-ns-theme="light"] .bg-\[\#1e262d\],
-[data-ns-theme="light"] .bg-\[\#0d1117\] {
+[data-ns-theme="light"] .bg-\[\#0d1117\],
+[data-ns-theme="light"] .bg-\[\#12141D\] {
   background-color: #ffffff !important;
+}
+
+[data-ns-theme="light"] .bg-\[\#12141D\]\/90 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* SVG inline label/button backgrounds (frame label, action buttons) */
+[data-ns-theme="light"] .svg-label-bg,
+[data-ns-theme="light"] .svg-action-btn-bg {
+  fill: #e8ecf0 !important;
 }
 
 /* ── Hardcoded dark hover backgrounds → teal-tinted ── */

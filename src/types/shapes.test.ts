@@ -16,6 +16,12 @@ import {
     createRectangle,
     createCircle,
     createEllipse,
+    createLine,
+    createArrow,
+    ConnectionRef,
+    AnchorType,
+    LineShape,
+    ArrowShape,
 } from './shapes';
 
 describe('ShapeType enum', () => {
@@ -307,5 +313,88 @@ describe('Shape uniqueness', () => {
         const uniqueIds = new Set(ids);
 
         expect(uniqueIds.size).toBe(shapes.length);
+    });
+});
+
+// --- Smart Connector data model tests ---
+
+describe('ConnectionRef interface', () => {
+    it('should accept a valid ConnectionRef object', () => {
+        const ref: ConnectionRef = { shapeId: 'rect-1', anchorType: 'top' };
+        expect(ref.shapeId).toBe('rect-1');
+        expect(ref.anchorType).toBe('top');
+    });
+
+    it('should accept every valid AnchorType value', () => {
+        const anchorTypes: AnchorType[] = [
+            'top-left', 'top', 'top-right',
+            'left', 'center', 'right',
+            'bottom-left', 'bottom', 'bottom-right',
+        ];
+        for (const anchorType of anchorTypes) {
+            const ref: ConnectionRef = { shapeId: 'test-id', anchorType };
+            expect(ref.anchorType).toBe(anchorType);
+        }
+    });
+});
+
+describe('LineShape smart connector fields', () => {
+    it('createLine produces a shape with no startConnection by default', () => {
+        const line = createLine(0, 0, 100, 100);
+        expect((line as LineShape).startConnection).toBeUndefined();
+    });
+
+    it('createLine produces a shape with no endConnection by default', () => {
+        const line = createLine(0, 0, 100, 100);
+        expect((line as LineShape).endConnection).toBeUndefined();
+    });
+
+    it('accepts startConnection via options override', () => {
+        const connRef: ConnectionRef = { shapeId: 'shape-abc', anchorType: 'left' };
+        const line = createLine(0, 0, 100, 100, { startConnection: connRef } as Partial<LineShape>);
+        expect((line as LineShape).startConnection).toEqual(connRef);
+    });
+
+    it('accepts endConnection via options override', () => {
+        const connRef: ConnectionRef = { shapeId: 'shape-xyz', anchorType: 'right' };
+        const line = createLine(0, 0, 100, 100, { endConnection: connRef } as Partial<LineShape>);
+        expect((line as LineShape).endConnection).toEqual(connRef);
+    });
+
+    it('accepting both startConnection and endConnection', () => {
+        const startRef: ConnectionRef = { shapeId: 'shape-a', anchorType: 'bottom' };
+        const endRef: ConnectionRef   = { shapeId: 'shape-b', anchorType: 'top' };
+        const line = createLine(0, 0, 100, 100, {
+            startConnection: startRef,
+            endConnection: endRef,
+        } as Partial<LineShape>);
+        expect((line as LineShape).startConnection).toEqual(startRef);
+        expect((line as LineShape).endConnection).toEqual(endRef);
+    });
+});
+
+describe('ArrowShape smart connector fields', () => {
+    it('createArrow produces a shape with no startConnection by default', () => {
+        const arrow = createArrow(0, 0, 100, 100);
+        expect((arrow as ArrowShape).startConnection).toBeUndefined();
+    });
+
+    it('createArrow produces a shape with no endConnection by default', () => {
+        const arrow = createArrow(0, 0, 100, 100);
+        expect((arrow as ArrowShape).endConnection).toBeUndefined();
+    });
+
+    it('accepts endConnection via options override', () => {
+        const connRef: ConnectionRef = { shapeId: 'target-shape', anchorType: 'center' };
+        const arrow = createArrow(0, 0, 100, 100, { endConnection: connRef } as Partial<ArrowShape>);
+        expect((arrow as ArrowShape).endConnection).toEqual(connRef);
+    });
+
+    it('preserves startConnection shapeId and anchorType fidelity', () => {
+        const connRef: ConnectionRef = { shapeId: 'unique-shape-id-123', anchorType: 'bottom-right' };
+        const arrow = createArrow(0, 0, 100, 100, { startConnection: connRef } as Partial<ArrowShape>);
+        const result = (arrow as ArrowShape).startConnection!;
+        expect(result.shapeId).toBe('unique-shape-id-123');
+        expect(result.anchorType).toBe('bottom-right');
     });
 });

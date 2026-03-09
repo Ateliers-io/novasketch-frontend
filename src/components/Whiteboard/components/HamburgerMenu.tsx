@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Konva from 'konva';
 import { jsPDF } from 'jspdf';
-import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2, Sun, Moon, Sparkles } from 'lucide-react';
+import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2, Sun, Moon, Sparkles, History } from 'lucide-react';
 import LiveCollaborationMenu from './LiveCollaborationMenu';
 import AnalyzeWithAI from './AnalyzeWithAI';
 import {
@@ -65,6 +65,9 @@ interface HamburgerMenuProps {
 
     /** Canvas capture callback for AI sharing */
     onCaptureCanvas?: () => Promise<Blob | null>;
+
+    /** Timeline replay */
+    onOpenReplay?: () => void;
 }
 
 // ─── Compute bounding box of all content ─────────────────────
@@ -403,6 +406,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     theme = 'dark',
     onToggleTheme,
     onCaptureCanvas,
+    onOpenReplay,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedSubmenus, setExpandedSubmenus] = useState<Record<string, boolean>>({});
@@ -606,6 +610,15 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 label: 'Analyze with AI',
                 icon: <Sparkles size={16} />,
                 customContent: <AnalyzeWithAI theme={theme} onCaptureCanvas={onCaptureCanvas} />
+            },
+            {
+                id: 'timeline-replay',
+                label: 'Timeline Replay',
+                icon: <History size={16} />,
+                onClick: () => {
+                    onOpenReplay?.();
+                    setIsOpen(false);
+                }
             },
             {
                 id: 'clear-canvas',

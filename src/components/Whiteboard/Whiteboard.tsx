@@ -34,7 +34,7 @@ import {
 } from '../../types/shapes';
 import SVGShapeRenderer from './SVGShapeRenderer';
 import { findNearestAnchorPoint, getAnchorPoints, computeAnchorPosition, AnchorPoint } from '../../utils/connectorUtils';
-import { AnchorType, ConnectionRef } from '../../types/shapes';
+import { AnchorType } from '../../types/shapes';
 import {
   getShapeBoundingBox,
   getTransformedBoundingBox,

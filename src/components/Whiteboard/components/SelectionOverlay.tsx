@@ -207,7 +207,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
                                             onPointerDown={(e) => { e.stopPropagation(); onGroup?.(); }}
                                         >
-                                            <rect x="-45" y="0" width="40" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
+                                            <rect x="-45" y="0" width="40" height="24" rx="4" className="svg-action-btn-bg" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
                                             <text x="-25" y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>GROUP</text>
                                         </g>
                                     )}
@@ -217,7 +217,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
                                             onPointerDown={(e) => { e.stopPropagation(); onUngroup?.(); }}
                                         >
-                                            <rect x={canGroup ? "5" : "-45"} y="0" width="55" height="24" rx="4" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
+                                            <rect x={canGroup ? "5" : "-45"} y="0" width="55" height="24" rx="4" className="svg-action-btn-bg" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
                                             <text x={canGroup ? "32.5" : "-17.5"} y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>UNGROUP</text>
                                         </g>
                                     )}
@@ -228,7 +228,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
                                             onPointerDown={(e) => { e.stopPropagation(); onRenameFrame?.(); }}
                                         >
-                                            <rect x={canGroup || canUngroup ? "65" : "-45"} y="0" width="55" height="24" rx="4" fill="#0B0C10" stroke="#eab308" strokeWidth="1" />
+                                            <rect x={canGroup || canUngroup ? "65" : "-45"} y="0" width="55" height="24" rx="4" className="svg-action-btn-bg" fill="#0B0C10" stroke="#eab308" strokeWidth="1" />
                                             <text x={canGroup || canUngroup ? "92.5" : "-17.5"} y="16" fill="#eab308" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>RENAME</text>
                                         </g>
                                     )}
@@ -239,7 +239,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
                                             onPointerDown={(e) => { e.stopPropagation(); onAssignGuests?.(); }}
                                         >
-                                            <rect x={canGroup || canUngroup ? (canRenameFrame ? "125" : "65") : (canRenameFrame ? "15" : "-45")} y="0" width="85" height="24" rx="4" fill="#0B0C10" stroke="#a855f7" strokeWidth="1" />
+                                            <rect x={canGroup || canUngroup ? (canRenameFrame ? "125" : "65") : (canRenameFrame ? "15" : "-45")} y="0" width="85" height="24" rx="4" className="svg-action-btn-bg" fill="#0B0C10" stroke="#a855f7" strokeWidth="1" />
                                             <text x={canGroup || canUngroup ? (canRenameFrame ? "167.5" : "107.5") : (canRenameFrame ? "57.5" : "-2.5")} y="16" fill="#a855f7" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>ASSIGN GUESTS</text>
                                         </g>
                                     )}

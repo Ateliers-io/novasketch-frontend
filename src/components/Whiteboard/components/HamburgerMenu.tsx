@@ -68,6 +68,9 @@ interface HamburgerMenuProps {
 
     /** Timeline replay */
     onOpenReplay?: () => void;
+
+    /** Board's room ID passed to LiveCollaborationMenu for the invite link */
+    roomId?: string;
 }
 
 // ─── Compute bounding box of all content ─────────────────────
@@ -603,7 +606,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 id: 'collaboration',
                 label: 'Live collaboration',
                 icon: <Users size={16} />,
-                customContent: <LiveCollaborationMenu roomId="c8589ed6-mock" theme={theme} />
+                customContent: <LiveCollaborationMenu roomId={roomId ?? ''} theme={theme} />
             },
             {
                 id: 'analyze-ai',

@@ -465,6 +465,7 @@ export default function Whiteboard({
     if (typeof updater === 'function') {
       const newShapes = updater(shapesRef.current);
       syncSetShapes(newShapes);
+      // eslint-disable-next-line react-hooks/immutability
       shapesRef.current = newShapes;
     } else {
       syncSetShapes(updater);
@@ -476,6 +477,7 @@ export default function Whiteboard({
     if (typeof updater === 'function') {
       const newTexts = updater(textAnnotationsRef.current);
       syncSetTexts(newTexts);
+      // eslint-disable-next-line react-hooks/immutability
       textAnnotationsRef.current = newTexts;
     } else {
       syncSetTexts(updater);

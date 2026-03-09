@@ -135,11 +135,11 @@ export function useKeyboardShortcuts({
                 if (e.key === 'r') setActiveTool(ToolType.RECTANGLE);
                 if (e.key === 'c') setActiveTool(ToolType.CIRCLE);
                 if (e.key === 'l') setActiveTool(ToolType.LINE);
+                if (e.key === 'f') setActiveTool(ToolType.FRAME);
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shapes, lines, textAnnotations, selectedShapeIds, selectedLineIds, selectedTextIds, activeTextInput, performUndo, performRedo, isLocked]);
 }

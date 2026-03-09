@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Copy, Users, Check } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
@@ -231,12 +231,8 @@ const AttributionFooter: React.FC<{ isLight: boolean }> = ({ isLight }) => {
 const LiveCollaborationMenu: React.FC<LiveCollaborationMenuProps> = ({ roomId, theme = 'dark' }) => {
     const [isSessionActive, setIsSessionActive] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [currentOrigin, setCurrentOrigin] = useState('https://novasketch.app');
+    const currentOrigin = window.location.origin;
     const qrRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        setCurrentOrigin(window.location.origin);
-    }, []);
 
     const inviteLink = `${currentOrigin}/board/${roomId}`;
     const isLight = theme === 'light';

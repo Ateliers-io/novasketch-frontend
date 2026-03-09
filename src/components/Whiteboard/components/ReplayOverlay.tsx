@@ -86,7 +86,7 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         return () => document.removeEventListener('keydown', handler);
     }, [onClose]);
 
-    // ─── Controls ───
+    // --- Controls ---
     const handlePlayPause = useCallback(() => {
         const engine = engineRef.current;
         if (!engine) return;
@@ -124,7 +124,7 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         }
     }, [onApplyToLive, onClose]);
 
-    // ─── Video Export ───
+    // --- Video Export ---
     const handleExportVideo = useCallback(() => {
         const engine = engineRef.current;
         const area = canvasAreaRef.current;
@@ -203,14 +203,15 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         }, 200);
     }, [totalSnapshots, sessionId, replayState?.bgColor]);
 
-    // ─── Timestamp formatting ───
+    // --- Timestamp formatting ---
+    const replayTimestamp = replayState?.timestamp;
     const formattedTimestamp = useMemo(() => {
-        if (!replayState?.timestamp) return '--:--';
-        const d = new Date(replayState.timestamp);
+        if (!replayTimestamp) return '--:--';
+        const d = new Date(replayTimestamp);
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }, [replayState?.timestamp]);
+    }, [replayTimestamp]);
 
-    // ─── Render ───
+    // --- Render ---
     if (loading) {
         return (
             <div className="replay-overlay">

@@ -33,6 +33,8 @@ import {
   Position,
 } from '../../types/shapes';
 import SVGShapeRenderer from './SVGShapeRenderer';
+import { findNearestAnchorPoint, getAnchorPoints, computeAnchorPosition, AnchorPoint } from '../../utils/connectorUtils';
+import { AnchorType, ConnectionRef } from '../../types/shapes';
 import {
   getShapeBoundingBox,
   getTransformedBoundingBox,
@@ -543,6 +545,13 @@ export default function Whiteboard({
   // Shape Creation
   const [dragStart, setDragStart] = useState<Position | null>(null);
   const [previewShape, setPreviewShape] = useState<Shape | null>(null);
+
+  // Smart Connectors: snap state while drawing a line/arrow
+  const [connectorSnapState, setConnectorSnapState] = useState<{
+    start?: { shapeId: string; anchorType: AnchorType; position: Position };
+    end?: { shapeId: string; anchorType: AnchorType; position: Position };
+  } | null>(null);
+  const [connectorAnchorOverlays, setConnectorAnchorOverlays] = useState<{ shape: Shape; anchors: AnchorPoint[] }[]>([]);
 
   // Dragging State Snapshot (for History)
   const [initialDragState, setInitialDragState] = useState<{
@@ -1772,10 +1781,24 @@ export default function Whiteboard({
       setPreviewShape(createEllipse(startX, startY, 0, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
     } else if (activeTool === ToolType.LINE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createLine(startX, startY, startX, startY, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
+      // Smart Connectors: snap start point to nearest anchor
+      const snapStart = findNearestAnchorPoint({ x: startX, y: startY }, shapes, 40);
+      const sx = snapStart ? snapStart.anchor.position.x : startX;
+      const sy = snapStart ? snapStart.anchor.position.y : startY;
+      setPreviewShape(createLine(sx, sy, sx, sy, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
+      setConnectorSnapState(snapStart
+        ? { start: { shapeId: snapStart.shape.id, anchorType: snapStart.anchor.type, position: snapStart.anchor.position } }
+        : null);
     } else if (activeTool === ToolType.ARROW) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
-      setPreviewShape(createArrow(startX, startY, startX, startY, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
+      // Smart Connectors: snap start point to nearest anchor
+      const snapStart = findNearestAnchorPoint({ x: startX, y: startY }, shapes, 40);
+      const sx = snapStart ? snapStart.anchor.position.x : startX;
+      const sy = snapStart ? snapStart.anchor.position.y : startY;
+      setPreviewShape(createArrow(sx, sy, sx, sy, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: 'none', hasFill: false, strokeDashArray: dashArr } }));
+      setConnectorSnapState(snapStart
+        ? { start: { shapeId: snapStart.shape.id, anchorType: snapStart.anchor.type, position: snapStart.anchor.position } }
+        : null);
     } else if (activeTool === ToolType.TRIANGLE) {
       const dashArr = getStrokeDashArray(strokeStyle, brushSize);
       setPreviewShape(createTriangle(startX, startY, 0, { style: { stroke: strokeColor, strokeWidth: brushSize, fill: fillColor, hasFill: true, strokeDashArray: dashArr } }));
@@ -2418,6 +2441,42 @@ export default function Whiteboard({
             return t;
           }));
         }
+
+        // 4. Smart Connectors: re-position endpoints of lines attached to moved shapes
+        if (selectedShapeIds.size > 0) {
+          setShapes(prev => prev.map(s => {
+            if (selectedShapeIds.has(s.id)) return s; // the moved shape itself is handled above
+            if (!isLine(s) && !isArrow(s)) return s;
+            const ls = s as LineShape;
+            let updated: any = { ...s };
+            let changed = false;
+            if (ls.startConnection && selectedShapeIds.has(ls.startConnection.shapeId)) {
+              const initShape = initialDragState.shapes.get(ls.startConnection.shapeId);
+              if (initShape) {
+                const moved = {
+                  ...initShape,
+                  position: { x: initShape.position.x + totalDx, y: initShape.position.y + totalDy },
+                  ...(isTriangle(initShape) ? { points: (initShape as TriangleShape).points.map((p: Position) => ({ x: p.x + totalDx, y: p.y + totalDy })) } : {}),
+                } as Shape;
+                const pos = computeAnchorPosition(moved, ls.startConnection.anchorType);
+                if (pos) { updated.startPoint = pos; updated.position = pos; changed = true; }
+              }
+            }
+            if (ls.endConnection && selectedShapeIds.has(ls.endConnection.shapeId)) {
+              const initShape = initialDragState.shapes.get(ls.endConnection.shapeId);
+              if (initShape) {
+                const moved = {
+                  ...initShape,
+                  position: { x: initShape.position.x + totalDx, y: initShape.position.y + totalDy },
+                  ...(isTriangle(initShape) ? { points: (initShape as TriangleShape).points.map((p: Position) => ({ x: p.x + totalDx, y: p.y + totalDy })) } : {}),
+                } as Shape;
+                const pos = computeAnchorPosition(moved, ls.endConnection.anchorType);
+                if (pos) { updated.endPoint = pos; changed = true; }
+              }
+            }
+            return changed ? (updated as Shape) : s;
+          }));
+        }
       });
 
       lastPointerPosRef.current = { x, y };
@@ -2486,15 +2545,31 @@ export default function Whiteboard({
           radiusY,
         } as EllipseShape);
       } else if (activeTool === ToolType.LINE || activeTool === ToolType.ARROW) {
+        // Smart Connectors: snap end point to nearest anchor
+        const SNAP_THRESHOLD = 40;
+        const snapEnd = findNearestAnchorPoint({ x, y }, shapes, SNAP_THRESHOLD, previewShape?.id);
+        const endPt = snapEnd ? snapEnd.anchor.position : { x, y };
+        const startPt = connectorSnapState?.start?.position ?? { x: dragStart.x, y: dragStart.y };
         setPreviewShape({
           ...(previewShape as any),
-          startPoint: { x: dragStart.x, y: dragStart.y },
-          endPoint: { x, y },
-          controlPoint: { x: (dragStart.x + x) / 2, y: (dragStart.y + y) / 2 },
+          startPoint: startPt,
+          endPoint: endPt,
+          controlPoint: { x: (startPt.x + endPt.x) / 2, y: (startPt.y + endPt.y) / 2 },
           lineType: currentLineType,
           arrowAtStart: currentArrowAtStart,
           arrowAtEnd: currentArrowAtEnd,
         });
+        // Update end snap state
+        if (snapEnd) {
+          setConnectorSnapState(prev => ({ ...prev, end: { shapeId: snapEnd.shape.id, anchorType: snapEnd.anchor.type, position: snapEnd.anchor.position } }));
+        } else {
+          setConnectorSnapState(prev => prev ? { ...prev, end: undefined } : null);
+        }
+        // Show anchor overlays for all snapable shapes
+        const overlays = shapes
+          .map(s => ({ shape: s, anchors: getAnchorPoints(s) }))
+          .filter(o => o.anchors.length > 0);
+        setConnectorAnchorOverlays(overlays);
       } else if (activeTool === ToolType.TRIANGLE) {
         const size = Math.max(Math.abs(width), Math.abs(height));
         const h = (Math.sqrt(3) / 2) * size;
@@ -3002,6 +3077,18 @@ export default function Whiteboard({
         // Task 5.5: Snap shape to grid on creation
         let newShape = snapShapeToGrid(previewShape);
 
+        // Smart Connectors: attach ConnectionRef to start/end of line/arrow
+        if ((isLine(newShape) || isArrow(newShape)) && connectorSnapState) {
+          if (connectorSnapState.start) {
+            (newShape as LineShape).startConnection = { shapeId: connectorSnapState.start.shapeId, anchorType: connectorSnapState.start.anchorType };
+          }
+          if (connectorSnapState.end) {
+            (newShape as LineShape).endConnection = { shapeId: connectorSnapState.end.shapeId, anchorType: connectorSnapState.end.anchorType };
+          }
+        }
+        setConnectorSnapState(null);
+        setConnectorAnchorOverlays([]);
+
         const bbox = getShapeBoundingBox(newShape);
         const targetFrame = getTargetFrame(bbox.centerX, bbox.centerY);
 
@@ -3041,6 +3128,9 @@ export default function Whiteboard({
         }
       }
       setPreviewShape(null);
+      // Smart Connectors: always clear snap state when shape creation ends
+      setConnectorSnapState(null);
+      setConnectorAnchorOverlays([]);
     }
 
     // Handle Pen/Highlighter Stroke
@@ -3621,6 +3711,8 @@ export default function Whiteboard({
           height={dimensions.height}
           selectedShapeIds={selectedShapeIds}
           transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
+          anchorOverlays={connectorAnchorOverlays}
+          snapTargetAnchor={connectorSnapState?.end ? { shapeId: connectorSnapState.end.shapeId, anchorType: connectorSnapState.end.anchorType } : null}
         />
       </div>
 

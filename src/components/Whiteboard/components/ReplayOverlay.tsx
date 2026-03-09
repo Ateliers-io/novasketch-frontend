@@ -168,13 +168,13 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         // Render each frame by serializing the SVG to the offscreen canvas
         engine.seekTo(0);
 
-        const renderFrame = () => {
+        const renderFrame = (bgColor: string) => {
             const svgData = new XMLSerializer().serializeToString(svgEl);
             const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
             const imgUrl = URL.createObjectURL(svgBlob);
             const img = new Image();
             img.onload = () => {
-                ctx.fillStyle = replayState?.bgColor || '#0B0C10';
+                ctx.fillStyle = bgColor;
                 ctx.fillRect(0, 0, offscreen.width, offscreen.height);
                 ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
                 URL.revokeObjectURL(imgUrl);
@@ -182,26 +182,42 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
             img.src = imgUrl;
         };
 
-        // Override state change to also render to offscreen canvas
-        const origOnState = engine['onStateChange'];
-        engine['onStateChange'] = (state: ReplayState) => {
-            setReplayState(state);
-            setTimeout(renderFrame, 50);
-        };
+        // Override engine callbacks temporarily to also render frames to the offscreen canvas
+        engine.onUpdate({
+            onStateChange: (state: ReplayState) => {
+                setReplayState(state);
+                setTimeout(() => renderFrame(state.bgColor || '#0B0C10'), 50);
+            },
+            onIndexChange: (idx, total) => {
+                setCurrentIndex(idx);
+                setTotalSnapshots(total);
+            },
+            onPlayStateChange: (playing) => {
+                setIsPlaying(playing);
+                if (!playing) {
+                    // Restore normal interactive callbacks
+                    engine.onUpdate({
+                        onStateChange: setReplayState,
+                        onIndexChange: (idx: number, total: number) => {
+                            setCurrentIndex(idx);
+                            setTotalSnapshots(total);
+                        },
+                        onPlayStateChange: (isNowPlaying: boolean) => {
+                            setIsPlaying(isNowPlaying);
+                            if (!isNowPlaying && mediaRecorderRef.current?.state === 'recording') {
+                                mediaRecorderRef.current.stop();
+                            }
+                        },
+                    });
+                    if (recorder.state === 'recording') {
+                        setTimeout(() => recorder.stop(), 200);
+                    }
+                }
+            },
+        });
 
         engine.play();
-
-        // Restore original handler when done
-        const checkDone = setInterval(() => {
-            if (!engine.isPlaying()) {
-                engine['onStateChange'] = origOnState;
-                clearInterval(checkDone);
-                if (recorder.state === 'recording') {
-                    setTimeout(() => recorder.stop(), 200);
-                }
-            }
-        }, 200);
-    }, [totalSnapshots, sessionId, replayState?.bgColor]);
+    }, [totalSnapshots, sessionId]);
 
     // --- Timestamp formatting ---
     const replayTimestamp = replayState?.timestamp;

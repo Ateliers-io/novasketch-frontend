@@ -48,6 +48,7 @@ export enum ToolType {
     LINE = 'line',
     ARROW = 'arrow',
     TRIANGLE = 'triangle',
+    FRAME = 'frame',
     TEXT = 'text',
     FILL_BUCKET = 'fill_bucket',
     HAND = 'hand',

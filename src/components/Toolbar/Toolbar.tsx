@@ -31,6 +31,7 @@ import {
     Hand,
     Grid3x3,
     ImageIcon,
+    LayoutTemplate,
 } from 'lucide-react';
 import { ToolType, BrushType, StrokeStyle } from '../../types/shapes';
 import { GridConfig, GridSnapType, GridAppearance } from '../../types/grid';
@@ -289,7 +290,7 @@ export default function Toolbar({
         }
     }, [activeTool]);
 
-    const isShapeTool = [ToolType.RECTANGLE, ToolType.CIRCLE, ToolType.ELLIPSE, ToolType.LINE, ToolType.ARROW, ToolType.TRIANGLE].includes(activeTool as ToolType);
+    const isShapeTool = [ToolType.RECTANGLE, ToolType.CIRCLE, ToolType.ELLIPSE, ToolType.LINE, ToolType.ARROW, ToolType.TRIANGLE, ToolType.FRAME].includes(activeTool as ToolType);
     const isBrushTool = [ToolType.PEN, ToolType.HIGHLIGHTER].includes(activeTool as ToolType);
     const isDrawMode = isShapeTool || isBrushTool;
     const isTextMode = activeTool === 'text';
@@ -472,6 +473,7 @@ export default function Toolbar({
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>
                     </button>
                     <ToolButton icon={Triangle} label="Triangle" isActive={activeTool === ToolType.TRIANGLE} onClick={() => onToolChange(ToolType.TRIANGLE)} />
+                    <ToolButton icon={LayoutTemplate} label="Frame (F)" isActive={activeTool === ToolType.FRAME} onClick={() => onToolChange(ToolType.FRAME)} />
                     <ToolButton icon={Slash} label="Line (L)" isActive={activeTool === ToolType.LINE} onClick={() => onToolChange(ToolType.LINE)} />
                     <ToolButton icon={ArrowRight} label="Arrow" isActive={activeTool === ToolType.ARROW} onClick={() => onToolChange(ToolType.ARROW)} />
                 </ToolSection>

@@ -355,6 +355,7 @@ const SVGFrame = ({
                 x={-2} y={-10}
                 width={(shape.name || 'FRAME').length * 6 + 4}
                 height={12}
+                className="svg-label-bg"
                 fill="#0B0C10"
                 opacity={0.8}
                 rx={2}

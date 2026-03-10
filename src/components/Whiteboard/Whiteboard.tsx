@@ -46,8 +46,6 @@ import {
 import Konva from 'konva';
 import { useSync } from '../../services/useSync';
 import { StrokeLine } from '../../services/sync.service';
-
-// -- Extracted modules --
 import { TextAnnotation, Action } from './types';
 import {
   distSq,
@@ -84,7 +82,6 @@ const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
 import { useAuth } from '../../contexts';
 import { SessionInfo, toggleSessionLock } from '../../services/session.service';
 
-// magical constants.
 const DEFAULT_STROKE_COLOR = '#3B82F6';
 
 // Helper functions for capturing the canvas to SVG/PNG
@@ -3526,8 +3523,6 @@ export default function Whiteboard({
           </div>
         </div>
       )}
-
-      {/* Draggable Lock Session Toggle — Moved to Hamburger Menu */}
 
       {/* Top Bar: Board Name + Toolbar */}
       <div className="fixed top-4 left-[72px] z-50 flex items-center gap-55">

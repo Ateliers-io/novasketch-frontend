@@ -431,8 +431,8 @@ export default function Toolbar({
 
                         {/* Brush Dropdown Panel */}
                         {showBrushMenu && (
-                            <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 w-[280px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden z-[200]"
-                                style={{ animation: 'fadeIn 150ms ease-out' }}>
+                            <div className="toolbar-dropdown w-[280px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden z-[9999]"
+                                style={{ ...getDropdownStyle(brushMenuRef), animation: 'fadeIn 150ms ease-out' }}>
                                 <div className="px-2 pt-2 pb-1">
                                     <div className="text-[10px] font-semibold uppercase text-[#4a5b6a] tracking-wider px-2 mb-1">Brush Type</div>
                                 </div>
@@ -478,8 +478,8 @@ export default function Toolbar({
                             onClick={() => { onToolChange('eraser'); setShowEraserMenu(!showEraserMenu); }} />
 
                         {showEraserMenu && (
-                            <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 w-44 p-2.5 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-2.5 z-[200]"
-                                style={{ animation: 'fadeIn 150ms ease-out' }}>
+                            <div className="toolbar-dropdown w-44 p-2.5 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-2.5 z-[9999]"
+                                style={{ ...getDropdownStyle(eraserMenuRef), animation: 'fadeIn 150ms ease-out' }}>
                                 <div className="flex gap-1.5 p-0.5 bg-[#0d1117] rounded-lg">
                                     <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'partial' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
                                         onClick={() => onEraserModeChange('partial')}>
@@ -534,8 +534,8 @@ export default function Toolbar({
                         </button>
                     </ToolSection>
                     {showShapesMenu && (
-                        <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[200]"
-                            style={{ animation: 'fadeIn 150ms ease-out' }}>
+                        <div className="toolbar-dropdown p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[9999]"
+                            style={{ ...getDropdownStyle(shapesMenuRef), animation: 'fadeIn 150ms ease-out' }}>
                             <div className="grid grid-cols-4 gap-1">
                                 {SHAPE_ITEMS.map((shape) => (
                                     <button
@@ -570,8 +570,8 @@ export default function Toolbar({
                             </ToolSection>
 
                             {showStrokeStyleMenu && (
-                                <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 w-40 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-1.5 z-[200]"
-                                    style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                <div className="toolbar-dropdown w-40 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-1.5 z-[9999]"
+                                    style={{ ...getDropdownStyle(strokeStyleRef), animation: 'fadeIn 150ms ease-out' }}>
                                     {([
                                         { style: 'solid' as StrokeStyle, label: 'Solid', dash: undefined },
                                         { style: 'dashed' as StrokeStyle, label: 'Dashed', dash: '8 4' },
@@ -613,8 +613,8 @@ export default function Toolbar({
                             </ToolSection>
 
                             {showLineStyleMenu && (
-                                <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-2 z-[200] flex flex-col gap-3"
-                                    style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                <div className="toolbar-dropdown w-48 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-2 z-[9999] flex flex-col gap-3"
+                                    style={{ ...getDropdownStyle(lineStyleRef), animation: 'fadeIn 150ms ease-out' }}>
 
                                     {/* Line Styles */}
                                     <div>
@@ -734,8 +734,8 @@ export default function Toolbar({
                                     <ChevronDown size={7} className="absolute -bottom-0.5 -right-0.5 opacity-60" style={{ color: 'var(--ns-toolbar-muted)' }} />
                                 </button>
                                 {showColorMenu && (
-                                    <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-2 p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[200]"
-                                        style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                    <div className="toolbar-dropdown p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[9999]"
+                                        style={{ ...getDropdownStyle(colorMenuRef), animation: 'fadeIn 150ms ease-out' }}>
                                         <div className="grid grid-cols-3 gap-1.5">
                                             {/* No fill */}
                                             <button
@@ -848,8 +848,8 @@ export default function Toolbar({
                         </button>
 
                         {showGridMenu && (
-                            <div className="absolute top-full toolbar-dropdown left-1/2 -translate-x-1/2 mt-3 w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[200] overflow-hidden transition-colors"
-                                style={{ animation: 'fadeIn 150ms ease-out', background: 'var(--ns-panel-bg, #151a1f)', border: '1px solid var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
+                            <div className="toolbar-dropdown w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[9999] overflow-hidden transition-colors"
+                                style={{ ...getDropdownStyle(gridMenuRef, 12), animation: 'fadeIn 150ms ease-out', background: 'var(--ns-panel-bg, #151a1f)', border: '1px solid var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
 
                                 <div className="px-3 py-2 flex justify-between items-center transition-colors border-b" style={{ background: 'var(--ns-toolbar-hover, #1e262d)', borderColor: 'var(--ns-separator, #2a333b)' }}>
                                     <span className="text-[11px] font-bold" style={{ color: 'var(--ns-toolbar-text, #dde3e8)' }}>Grid Options</span>

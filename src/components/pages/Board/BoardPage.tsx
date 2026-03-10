@@ -87,19 +87,19 @@ export const BoardPage = () => {
             <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[#0B0C10]">
                 {/* Subtle background glow */}
                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#66FCF1] rounded-full mix-blend-overlay filter blur-[180px] opacity-[0.06]" />
+                    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#3B82F6] rounded-full mix-blend-overlay filter blur-[180px] opacity-[0.06]" />
                 </div>
 
                 {/* Spinner */}
                 <div className="relative z-10 flex flex-col items-center gap-6">
                     {/* Animated logo */}
                     <div className="relative">
-                        <div className="w-16 h-16 rounded-2xl bg-[#1F2833] border border-[#66FCF1]/20 flex items-center justify-center shadow-lg shadow-[#66FCF1]/10">
-                            <Sparkles className="w-7 h-7 text-[#66FCF1] animate-pulse" />
+                        <div className="w-16 h-16 rounded-2xl bg-[#1F2833] border border-[#3B82F6]/20 flex items-center justify-center shadow-lg shadow-[#3B82F6]/10">
+                            <Sparkles className="w-7 h-7 text-[#3B82F6] animate-pulse" />
                         </div>
                         {/* Orbiting ring */}
                         <div className="absolute -inset-3">
-                            <div className="w-full h-full border-2 border-transparent border-t-[#66FCF1] rounded-full animate-spin" style={{ animationDuration: '1.5s' }} />
+                            <div className="w-full h-full border-2 border-transparent border-t-[#3B82F6] rounded-full animate-spin" style={{ animationDuration: '1.5s' }} />
                         </div>
                     </div>
 
@@ -124,7 +124,7 @@ export const BoardPage = () => {
                         {[0, 1, 2].map((i) => (
                             <div
                                 key={i}
-                                className="w-2 h-2 rounded-full bg-[#66FCF1]"
+                                className="w-2 h-2 rounded-full bg-[#3B82F6]"
                                 style={{
                                     animation: 'pulse 1.2s ease-in-out infinite',
                                     animationDelay: `${i * 0.2}s`,

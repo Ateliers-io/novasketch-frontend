@@ -72,11 +72,11 @@ const ShareLinkSection: React.FC<{
     handleCopy: () => void;
 }> = ({ inviteLink, copied, isLight, handleCopy }) => {
     let btnBg = isLight ? '#F1F5F9' : '#2A3441';
-    let btnColor = isLight ? '#1A3C40' : '#c5c6c7';
+    let btnColor = isLight ? '#1E293B' : '#c5c6c7';
     let btnBorder = isLight ? '1px solid #E6EAF0' : 'none';
 
     if (copied) {
-        btnBg = isLight ? '#2A9D8F' : '#45A29E';
+        btnBg = isLight ? '#3B82F6' : '#2563EB';
         btnColor = isLight ? '#ffffff' : '#0B0C10';
         btnBorder = isLight ? '1px solid transparent' : 'none';
     }
@@ -84,7 +84,7 @@ const ShareLinkSection: React.FC<{
     const sessionLabelColor = isLight ? '#5B7F82' : '#c5c6c7';
     const linkBg = isLight ? '#ffffff' : 'rgba(0,0,0,0.4)';
     const linkBorderColor = isLight ? '#E6EAF0' : '#1F2833';
-    const linkTextColor = isLight ? '#1A3C40' : '#c5c6c7';
+    const linkTextColor = isLight ? '#1E293B' : '#c5c6c7';
 
     return (
         <div className="flex flex-col gap-1.5">
@@ -206,7 +206,7 @@ const StartSessionButton: React.FC<{
             onClick={onStart}
             className="w-full py-2.5 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
             style={{
-                backgroundColor: isLight ? '#2A9D8F' : '#66FCF1',
+                backgroundColor: isLight ? '#3B82F6' : '#3B82F6',
                 color: isLight ? '#ffffff' : '#0B0C10',
                 boxShadow: isLight ? '0 4px 12px rgba(42,157,143,0.3)' : '0 0 10px rgba(102,252,241,0.2)'
             }}

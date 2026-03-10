@@ -10,7 +10,7 @@ import { PageNotFound } from './components/pages/NotFound/PageNotFound';
 // const LoadingScreen = () => (
 //   <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[#0B0C10]">
 //     <div className="relative">
-//       <div className="w-10 h-10 border-3 border-gray-700 border-t-[#66FCF1] rounded-full animate-spin" />
+//       <div className="w-10 h-10 border-3 border-gray-700 border-t-[#3B82F6] rounded-full animate-spin" />
 //     </div>
 //     <p className="mt-6 text-gray-400 text-sm">
 //       Loading...

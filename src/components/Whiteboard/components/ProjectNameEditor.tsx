@@ -16,7 +16,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
     const inputRef = useRef<HTMLInputElement>(null);
 
     const isDark = theme === 'dark';
-    const textColor = isDark ? '#fff' : '#1A3C40';
+    const textColor = isDark ? '#fff' : '#1E293B';
     const bgColor = isDark ? '#1F2833' : 'rgba(248,250,251,0.96)';
 
     useEffect(() => {
@@ -59,7 +59,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
     if (!isOwner) {
         return (
             <div className={`flex items-center px-4 py-2 rounded-xl backdrop-blur-md font-semibold text-sm shadow-sm transition-colors border max-w-[200px] sm:max-w-xs overflow-hidden text-ellipsis`}
-                style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.18)' }}>
+                style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.18)' }}>
                 {name}
             </div>
         );
@@ -78,7 +78,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
                     style={{
                         backgroundColor: isDark ? '#12141D' : '#fff',
                         color: textColor,
-                        borderColor: isDark ? '#66FCF1' : '#2A9D8F'
+                        borderColor: isDark ? '#3B82F6' : '#3B82F6'
                     }}
                 />
             </div>
@@ -88,7 +88,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
     return (
         <div
             className={`group flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-md font-semibold text-sm shadow-sm cursor-pointer border transition-all hover:scale-[1.02] active:scale-95 max-w-[200px] sm:max-w-xs`}
-            style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.18)' }}
+            style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.18)' }}
             onClick={() => {
                 setTempName(name);
                 setIsEditing(true);
@@ -96,7 +96,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
             title="Edit project name"
         >
             <span className="truncate flex-1">{name}</span>
-            <Edit2 size={12} className={`opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ${isDark ? 'text-[#66FCF1]' : 'text-[#2A9D8F]'}`} />
+            <Edit2 size={12} className={`opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ${isDark ? 'text-[#3B82F6]' : 'text-[#3B82F6]'}`} />
         </div>
     );
 };

@@ -27,14 +27,14 @@ export const PageNotFound = () => {
             {/* Background Glow Effects */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-red-500 rounded-full mix-blend-overlay filter blur-[180px] opacity-[0.04]" />
-                <div className="absolute bottom-1/3 right-1/4 w-[350px] h-[350px] bg-[#66FCF1] rounded-full mix-blend-overlay filter blur-[150px] opacity-[0.04]" />
+                <div className="absolute bottom-1/3 right-1/4 w-[350px] h-[350px] bg-[#3B82F6] rounded-full mix-blend-overlay filter blur-[150px] opacity-[0.04]" />
             </div>
 
             {/* Floating Grid Background */}
             <div
                 className="absolute inset-0 opacity-[0.03] pointer-events-none"
                 style={{
-                    backgroundImage: 'radial-gradient(circle, #66FCF1 1px, transparent 1px)',
+                    backgroundImage: 'radial-gradient(circle, #3B82F6 1px, transparent 1px)',
                     backgroundSize: '32px 32px',
                 }}
             />
@@ -55,7 +55,7 @@ export const PageNotFound = () => {
                 </div>
 
                 {/* 404 Label */}
-                <span className="text-6xl font-bold text-[#66FCF1]/20 mb-2 font-mono">404</span>
+                <span className="text-6xl font-bold text-[#3B82F6]/20 mb-2 font-mono">404</span>
 
                 {/* Heading */}
                 <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
@@ -70,17 +70,17 @@ export const PageNotFound = () => {
 
                 {/* URL Display */}
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#1F2833] border border-white/10 mb-8">
-                    <Search className="w-3.5 h-3.5 text-[#45A29E] flex-shrink-0" />
+                    <Search className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0" />
                     <span className="text-xs font-mono text-red-400 break-all">
                         {location.pathname}
                     </span>
                 </div>
 
                 {/* Hint */}
-                <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-[#66FCF1]/5 border border-[#66FCF1]/10 mb-10 text-left w-full">
-                    <Sparkles className="w-4 h-4 text-[#66FCF1] flex-shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-[#3B82F6]/5 border border-[#3B82F6]/10 mb-10 text-left w-full">
+                    <Sparkles className="w-4 h-4 text-[#3B82F6] flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-[#8b9bb4] leading-relaxed">
-                        <span className="text-[#66FCF1] font-medium">Tip:</span>{' '}
+                        <span className="text-[#3B82F6] font-medium">Tip:</span>{' '}
                         Valid pages include{' '}
                         <span className="font-mono text-gray-400">/</span>,{' '}
                         <span className="font-mono text-gray-400">/home</span>,{' '}
@@ -91,7 +91,7 @@ export const PageNotFound = () => {
 
                 <button
                     onClick={() => navigate(isAuthenticated ? '/home' : '/')}
-                    className="group h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#66FCF1]/20"
+                    className="group h-12 px-8 rounded-xl bg-[#3B82F6] hover:bg-white text-black font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#3B82F6]/20"
                 >
                     {isAuthenticated ? (
                         <>
@@ -109,7 +109,7 @@ export const PageNotFound = () => {
                 {/* Back Link */}
                 <button
                     onClick={() => navigate(-1)}
-                    className="mt-8 text-sm text-[#45A29E] hover:text-[#66FCF1] transition-colors flex items-center gap-1.5"
+                    className="mt-8 text-sm text-[#2563EB] hover:text-[#3B82F6] transition-colors flex items-center gap-1.5"
                 >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     Go back

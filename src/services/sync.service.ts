@@ -611,7 +611,7 @@ class SyncService {
                     backgroundVisible: true,
                     padding: padding,
                     style: {
-                        stroke: '#66FCF1',
+                        stroke: '#3B82F6',
                         strokeWidth: 1,
                         fill: 'rgba(102, 252, 241, 0.05)',
                         hasFill: true,

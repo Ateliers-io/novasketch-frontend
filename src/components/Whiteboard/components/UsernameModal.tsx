@@ -47,7 +47,7 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ onSubmit }) => {
         {/* Top neon border accent */}
         <div
           className="absolute top-0 inset-x-0 h-[1px]"
-          style={{ background: 'linear-gradient(90deg, transparent, #66FCF1 50%, transparent)' }}
+          style={{ background: 'linear-gradient(90deg, transparent, #3B82F6 50%, transparent)' }}
         />
 
         <div className="flex flex-col items-center text-center px-8 py-10 gap-6">
@@ -61,7 +61,7 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ onSubmit }) => {
               boxShadow: '0 0 24px rgba(102,252,241,0.18)',
             }}
           >
-            <User className="w-7 h-7" style={{ color: '#66FCF1' }} />
+            <User className="w-7 h-7" style={{ color: '#3B82F6' }} />
           </div>
 
           {/* Heading */}
@@ -103,7 +103,7 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ onSubmit }) => {
             style={
               isValid
                 ? {
-                    background: '#66FCF1',
+                    background: '#3B82F6',
                     color: '#0B0C10',
                     boxShadow: '0 0 20px rgba(102,252,241,0.3)',
                   }

@@ -32,9 +32,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, session
 
     const isDark = theme === 'dark';
     const bgColor = isDark ? '#12141D' : '#F8FAFB';
-    const textColor = isDark ? '#fff' : '#1A3C40';
+    const textColor = isDark ? '#fff' : '#1E293B';
     const borderColor = isDark ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.2)';
-    const accentColor = isDark ? '#66FCF1' : '#2A9D8F';
+    const accentColor = isDark ? '#3B82F6' : '#3B82F6';
 
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -68,7 +68,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, session
                         value={fullUrl}
                         size={180}
                         bgColor="#ffffff"
-                        fgColor={isDark ? '#0B0C10' : '#1A3C40'}
+                        fgColor={isDark ? '#0B0C10' : '#1E293B'}
                         level="Q"
                     />
                 </div>
@@ -84,7 +84,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, session
                             className={`flex-1 px-4 py-3 text-sm font-mono focus:outline-none`}
                             style={{
                                 backgroundColor: isDark ? '#0B0C10' : '#fff',
-                                color: isDark ? '#c5c6c7' : '#1A3C40'
+                                color: isDark ? '#c5c6c7' : '#1E293B'
                             }}
                         />
                         <button

@@ -64,14 +64,70 @@ function anchorPointsFromBox(
 // --- Public API ---
 
 /**
- * Return all 9 connection anchor points for a shape.
+ * Return all connection anchor points for a shape.
  *
- * Lines and arrows cannot be connection targets (to prevent circular
- * attachment), so they return an empty array.
+ * For circles and ellipses, anchors lie on the perimeter (not bounding box corners).
+ * For triangles, anchors are placed at vertices, edge midpoints, and centroid.
+ * For other shapes, the bounding box corners/midpoints are used.
+ *
+ * Lines and arrows cannot be connection targets, so they return an empty array.
  */
 export function getAnchorPoints(shape: Shape): AnchorPoint[] {
     if (shape.type === ShapeType.LINE || shape.type === ShapeType.ARROW) {
         return [];
+    }
+
+    if (shape.type === ShapeType.CIRCLE) {
+        const cx = shape.position.x;
+        const cy = shape.position.y;
+        const r = shape.radius * Math.max(Math.abs(shape.transform.scaleX), Math.abs(shape.transform.scaleY));
+        const D = Math.SQRT1_2; // cos(45°) ≈ 0.7071
+        return [
+            { type: 'top-left',     position: { x: cx - r * D, y: cy - r * D } },
+            { type: 'top',          position: { x: cx, y: cy - r } },
+            { type: 'top-right',    position: { x: cx + r * D, y: cy - r * D } },
+            { type: 'left',         position: { x: cx - r, y: cy } },
+            { type: 'center',       position: { x: cx, y: cy } },
+            { type: 'right',        position: { x: cx + r, y: cy } },
+            { type: 'bottom-left',  position: { x: cx - r * D, y: cy + r * D } },
+            { type: 'bottom',       position: { x: cx, y: cy + r } },
+            { type: 'bottom-right', position: { x: cx + r * D, y: cy + r * D } },
+        ];
+    }
+
+    if (shape.type === ShapeType.ELLIPSE) {
+        const cx = shape.position.x;
+        const cy = shape.position.y;
+        const rx = shape.radiusX * Math.abs(shape.transform.scaleX);
+        const ry = shape.radiusY * Math.abs(shape.transform.scaleY);
+        const rot = (shape.transform.rotation || 0) * Math.PI / 180;
+        const cosR = Math.cos(rot);
+        const sinR = Math.sin(rot);
+        // 8 points on the ellipse perimeter at 45° increments, plus center
+        const angles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4];
+        const types: AnchorType[] = ['right', 'bottom-right', 'bottom', 'bottom-left', 'left', 'top-left', 'top', 'top-right'];
+        const anchors: AnchorPoint[] = types.map((type, i) => {
+            const lx = rx * Math.cos(angles[i]);
+            const ly = ry * Math.sin(angles[i]);
+            return { type, position: { x: cx + lx * cosR - ly * sinR, y: cy + lx * sinR + ly * cosR } };
+        });
+        anchors.push({ type: 'center', position: { x: cx, y: cy } });
+        return anchors;
+    }
+
+    if (shape.type === ShapeType.TRIANGLE) {
+        const [p0, p1, p2] = shape.points;
+        const cx = (p0.x + p1.x + p2.x) / 3;
+        const cy = (p0.y + p1.y + p2.y) / 3;
+        return [
+            { type: 'top',          position: p0 },
+            { type: 'bottom-left',  position: p1 },
+            { type: 'bottom-right', position: p2 },
+            { type: 'left',         position: { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 } },
+            { type: 'bottom',       position: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 } },
+            { type: 'right',        position: { x: (p2.x + p0.x) / 2, y: (p2.y + p0.y) / 2 } },
+            { type: 'center',       position: { x: cx, y: cy } },
+        ];
     }
 
     const { minX, minY, maxX, maxY } = getShapeBoundingBox(shape);
@@ -81,7 +137,8 @@ export function getAnchorPoints(shape: Shape): AnchorPoint[] {
 /**
  * Compute the canvas position of a single named anchor on a shape.
  *
- * Useful for updating a line endpoint after the attached shape moves.
+ * Uses getAnchorPoints for shape-specific positioning (circles, ellipses,
+ * triangles on perimeter; rectangles/frames on bounding box).
  * Returns `null` when called on line/arrow shapes.
  */
 export function computeAnchorPosition(shape: Shape, anchorType: AnchorType): Position | null {
@@ -89,22 +146,13 @@ export function computeAnchorPosition(shape: Shape, anchorType: AnchorType): Pos
         return null;
     }
 
-    const { minX, minY, maxX, maxY } = getShapeBoundingBox(shape);
-    const midX = (minX + maxX) / 2;
-    const midY = (minY + maxY) / 2;
+    const anchors = getAnchorPoints(shape);
+    const match = anchors.find(a => a.type === anchorType);
+    if (match) return match.position;
 
-    switch (anchorType) {
-        case 'top-left':     return { x: minX, y: minY };
-        case 'top':          return { x: midX, y: minY };
-        case 'top-right':    return { x: maxX, y: minY };
-        case 'left':         return { x: minX, y: midY };
-        case 'center':       return { x: midX, y: midY };
-        case 'right':        return { x: maxX, y: midY };
-        case 'bottom-left':  return { x: minX, y: maxY };
-        case 'bottom':       return { x: midX, y: maxY };
-        case 'bottom-right': return { x: maxX, y: maxY };
-        default:             return { x: midX, y: midY };
-    }
+    // Fallback: center
+    const center = anchors.find(a => a.type === 'center');
+    return center ? center.position : null;
 }
 
 /**

@@ -133,7 +133,7 @@ const ProductPreview = () => {
         {/* Sidebar */}
         <div className="w-14 border-r border-gray-700/50 bg-[#12141a] flex flex-col items-center py-4 gap-3">
           {[MousePointer2, Pencil, Layers, Share2].map((Icon, i) => (
-            <div key={i} className={`p-2.5 rounded-lg transition-all ${i === 1 ? 'bg-[#66FCF1] text-black' : 'text-gray-500 hover:bg-gray-700/50 hover:text-gray-300'}`}>
+            <div key={i} className={`p-2.5 rounded-lg transition-all ${i === 1 ? 'bg-[#3B82F6] text-black' : 'text-gray-500 hover:bg-gray-700/50 hover:text-gray-300'}`}>
               <Icon size={18} />
             </div>
           ))}
@@ -146,8 +146,8 @@ const ProductPreview = () => {
         }}>
 
           {/* Sample Elements */}
-          <div className="canvas-elem absolute top-[15%] left-[10%] w-52 h-36 border-2 border-[#66FCF1] rounded-xl bg-[#66FCF1]/5 flex items-center justify-center p-4">
-            <span className="text-[#66FCF1] text-sm font-medium text-center">User Research Findings</span>
+          <div className="canvas-elem absolute top-[15%] left-[10%] w-52 h-36 border-2 border-[#3B82F6] rounded-xl bg-[#3B82F6]/5 flex items-center justify-center p-4">
+            <span className="text-[#3B82F6] text-sm font-medium text-center">User Research Findings</span>
           </div>
 
           <div className="canvas-elem absolute top-[45%] left-[35%] w-28 h-28 border-2 border-pink-400 rounded-full bg-pink-400/10 flex items-center justify-center">
@@ -160,14 +160,14 @@ const ProductPreview = () => {
 
           {/* Connection Lines */}
           <svg className="absolute inset-0 pointer-events-none">
-            <path d="M 250 130 Q 320 200 350 260" fill="none" stroke="#66FCF1" strokeWidth="2" strokeDasharray="6,4" opacity="0.5" />
+            <path d="M 250 130 Q 320 200 350 260" fill="none" stroke="#3B82F6" strokeWidth="2" strokeDasharray="6,4" opacity="0.5" />
             <path d="M 400 310 Q 480 340 550 360" fill="none" stroke="#ec4899" strokeWidth="2" opacity="0.5" />
           </svg>
 
           {/* Live Cursors */}
           <div className="live-cursor absolute top-[25%] left-[25%] pointer-events-none z-20">
-            <MousePointer2 className="w-4 h-4 fill-[#66FCF1] text-[#66FCF1] transform -rotate-12" />
-            <span className="ml-3 px-2 py-0.5 bg-[#66FCF1] text-black text-[10px] font-semibold rounded-full">Alex</span>
+            <MousePointer2 className="w-4 h-4 fill-[#3B82F6] text-[#3B82F6] transform -rotate-12" />
+            <span className="ml-3 px-2 py-0.5 bg-[#3B82F6] text-black text-[10px] font-semibold rounded-full">Alex</span>
           </div>
 
           <div className="live-cursor absolute top-[55%] left-[45%] pointer-events-none z-20">
@@ -198,8 +198,8 @@ const FEATURES = [
     title: "Infinite Canvas",
     desc: "Unlimited space for your ideas. Zoom, pan, and navigate freely across an endless creative workspace.",
     icon: Layers,
-    color: "text-[#66FCF1]",
-    bg: "bg-[#66FCF1]/10"
+    color: "text-[#3B82F6]",
+    bg: "bg-[#3B82F6]/10"
   },
   {
     id: 2,
@@ -321,7 +321,7 @@ export const Landing = () => {
 
       {/* Gradient Overlays */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-[#66FCF1] rounded-full mix-blend-overlay filter blur-[150px] opacity-[0.05]" />
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-[#3B82F6] rounded-full mix-blend-overlay filter blur-[150px] opacity-[0.05]" />
         <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-pink-500 rounded-full mix-blend-overlay filter blur-[150px] opacity-[0.05]" />
       </div>
 
@@ -329,7 +329,7 @@ export const Landing = () => {
       <nav className="fixed top-0 w-full z-50 bg-[#0B0C10]/80 backdrop-blur-lg border-b border-gray-800/50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-[#66FCF1]" />
+            <Sparkles className="w-6 h-6 text-[#3B82F6]" />
             <span className="font-bold text-xl text-white">NovaSketch</span>
           </div>
           <div className="flex items-center gap-4">
@@ -341,7 +341,7 @@ export const Landing = () => {
             </button>
             <button
               onClick={() => navigate('/auth')}
-              className="px-5 py-2 rounded-lg bg-[#66FCF1] hover:bg-[#45A29E] text-black text-sm font-semibold transition-all"
+              className="px-5 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-black text-sm font-semibold transition-all"
             >
               Get Started
             </button>
@@ -353,14 +353,14 @@ export const Landing = () => {
 
         {/* --- HERO SECTION --- */}
         <section className="mb-24 text-center">
-          <div className="hero-element inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#66FCF1]/30 bg-[#66FCF1]/10 mb-8">
-            <Zap className="w-4 h-4 text-[#66FCF1]" />
-            <span className="text-sm text-[#66FCF1] font-medium">Collaborative Whiteboard for Teams</span>
+          <div className="hero-element inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#3B82F6]/30 bg-[#3B82F6]/10 mb-8">
+            <Zap className="w-4 h-4 text-[#3B82F6]" />
+            <span className="text-sm text-[#3B82F6] font-medium">Collaborative Whiteboard for Teams</span>
           </div>
 
           <h1 className="hero-element text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
             Sketch Ideas,<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#66FCF1] to-pink-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#3B82F6] to-pink-400">
               Together
             </span>
           </h1>
@@ -374,7 +374,7 @@ export const Landing = () => {
             <button
               onClick={handleCreateBoard}
               disabled={isCreating}
-              className="group h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold flex items-center gap-2 transition-all shadow-lg shadow-[#66FCF1]/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="group h-12 px-8 rounded-xl bg-[#3B82F6] hover:bg-white text-black font-semibold flex items-center gap-2 transition-all shadow-lg shadow-[#3B82F6]/20 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isCreating ? (
                 <>
@@ -434,7 +434,7 @@ export const Landing = () => {
           <button
             onClick={handleCreateBoard}
             disabled={isCreating}
-            className="h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold transition-all shadow-lg shadow-[#66FCF1]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+            className="h-12 px-8 rounded-xl bg-[#3B82F6] hover:bg-white text-black font-semibold transition-all shadow-lg shadow-[#3B82F6]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
           >
             {isCreating ? (
               <>

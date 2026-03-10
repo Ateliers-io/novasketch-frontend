@@ -159,13 +159,13 @@ describe('Stroke Component', () => {
         it('should use fill with the line color (not stroke)', () => {
             const line = makeStrokeLine({
                 brushType: BrushType.MAGIC_PENCIL,
-                color: '#66FCF1',
+                color: '#3B82F6',
             });
 
             const { container } = render(<Stroke line={line} />);
 
             const konvaPath = container.querySelector('konva-path');
-            expect(konvaPath?.getAttribute('fill')).toBe('#66FCF1');
+            expect(konvaPath?.getAttribute('fill')).toBe('#3B82F6');
         });
 
         it('should pass opacity to the Path', () => {

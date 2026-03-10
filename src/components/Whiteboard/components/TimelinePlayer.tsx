@@ -130,7 +130,7 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({ state, width = 1
                         onToolLockChange={() => { }}
                         brushSize={5}
                         onBrushSizeChange={() => { }}
-                        strokeColor="#66FCF1"
+                        strokeColor="#3B82F6"
                         onColorChange={() => { }}
                         fillColor="transparent"
                         onFillColorChange={() => { }}

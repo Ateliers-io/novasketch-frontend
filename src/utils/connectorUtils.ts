@@ -109,7 +109,11 @@ export function getAnchorPoints(shape: Shape): AnchorPoint[] {
         const anchors: AnchorPoint[] = types.map((type, i) => {
             const lx = rx * Math.cos(angles[i]);
             const ly = ry * Math.sin(angles[i]);
-            return { type, position: { x: cx + lx * cosR - ly * sinR, y: cy + lx * sinR + ly * cosR } };
+            const px = cx + lx * cosR - ly * sinR;
+            const py = cy + lx * sinR + ly * cosR;
+            // Round to avoid floating-point noise from cos(π/2) etc.
+            const round = (v: number) => Math.round(v * 1e10) / 1e10;
+            return { type, position: { x: round(px), y: round(py) } };
         });
         anchors.push({ type: 'center', position: { x: cx, y: cy } });
         return anchors;
@@ -117,17 +121,11 @@ export function getAnchorPoints(shape: Shape): AnchorPoint[] {
 
     if (shape.type === ShapeType.TRIANGLE) {
         const [p0, p1, p2] = shape.points;
-        const cx = (p0.x + p1.x + p2.x) / 3;
-        const cy = (p0.y + p1.y + p2.y) / 3;
-        return [
-            { type: 'top',          position: p0 },
-            { type: 'bottom-left',  position: p1 },
-            { type: 'bottom-right', position: p2 },
-            { type: 'left',         position: { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 } },
-            { type: 'bottom',       position: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 } },
-            { type: 'right',        position: { x: (p2.x + p0.x) / 2, y: (p2.y + p0.y) / 2 } },
-            { type: 'center',       position: { x: cx, y: cy } },
-        ];
+        const minX = Math.min(p0.x, p1.x, p2.x);
+        const minY = Math.min(p0.y, p1.y, p2.y);
+        const maxX = Math.max(p0.x, p1.x, p2.x);
+        const maxY = Math.max(p0.y, p1.y, p2.y);
+        return anchorPointsFromBox(minX, minY, maxX, maxY);
     }
 
     const { minX, minY, maxX, maxY } = getShapeBoundingBox(shape);

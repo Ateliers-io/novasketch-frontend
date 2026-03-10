@@ -17,6 +17,8 @@ import { getSmoothedStroke, getSvgPathFromStroke } from '../ai/strokeSmoother';
 vi.mock('react-konva', () => ({
     Line: (props: Record<string, unknown>) => React.createElement('konva-line', props),
     Path: (props: Record<string, unknown>) => React.createElement('konva-path', props),
+    Shape: (props: Record<string, unknown>) => React.createElement('konva-shape', props),
+    Group: ({ children, ...props }: Record<string, unknown>) => React.createElement('konva-group', props, children as React.ReactNode),
 }));
 
 // Mock the stroke smoother
@@ -114,10 +116,10 @@ describe('Stroke Component', () => {
             expect(konvaLine?.getAttribute('shadowcolor')).toBe('#FF00FF');
         });
 
-        it('should render Line for CALLIGRAPHY brush', () => {
+        it('should render Shape for CALLIGRAPHY brush', () => {
             const line = makeStrokeLine({ brushType: BrushType.CALLIGRAPHY });
             const { container } = render(<Stroke line={line} />);
-            expect(container.querySelector('konva-line')).toBeTruthy();
+            expect(container.querySelector('konva-shape')).toBeTruthy();
         });
 
         it('should render Line for MARKER brush', () => {

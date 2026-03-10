@@ -4043,17 +4043,19 @@ export default function Whiteboard({
 
             return (
               <svg className="absolute inset-0 z-40 pointer-events-none overflow-visible" width={dimensions.width} height={dimensions.height}>
-                {/* Mid/Bend Handle */}
-                <circle
-                  cx={cpX}
-                  cy={cpY}
-                  r={6}
-                  fill="#ffffff"
-                  stroke="#3B82F6"
-                  strokeWidth={2}
-                  style={{ pointerEvents: 'auto', cursor: 'grab' }}
-                  data-bend-handle={ls.id}
-                />
+                {/* Mid/Bend Handle — hidden for straight lines since they have no curve to control */}
+                {ls.lineType !== 'straight' && (
+                  <circle
+                    cx={cpX}
+                    cy={cpY}
+                    r={6}
+                    fill="#ffffff"
+                    stroke="#3B82F6"
+                    strokeWidth={2}
+                    style={{ pointerEvents: 'auto', cursor: 'grab' }}
+                    data-bend-handle={ls.id}
+                  />
+                )}
                 {/* Start Handle */}
                 <circle
                   cx={stX}

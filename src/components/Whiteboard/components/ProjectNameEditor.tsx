@@ -7,9 +7,10 @@ interface ProjectNameEditorProps {
     initialName: string;
     isOwner: boolean;
     theme?: 'light' | 'dark';
+    onNameChange?: (name: string) => void;
 }
 
-export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId, initialName, isOwner, theme = 'dark' }) => {
+export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId, initialName, isOwner, theme = 'dark', onNameChange }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(initialName || 'Untitled Board');
     const [tempName, setTempName] = useState(name);
@@ -20,7 +21,6 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
     const bgColor = isDark ? '#1F2833' : 'rgba(248,250,251,0.96)';
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setName(initialName || 'Untitled Board');
     }, [initialName]);
 
@@ -39,6 +39,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
         }
         setName(tempName);
         setIsEditing(false);
+        onNameChange?.(tempName);
         try {
             await updateSessionName(sessionId, tempName);
         } catch (error) {

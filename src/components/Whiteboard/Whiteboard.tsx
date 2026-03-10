@@ -323,6 +323,8 @@ export default function Whiteboard({
     isLocked,
     setIsLocked,
     setSessionLocked,
+    boardName: syncBoardName,
+    setBoardName: syncSetBoardName,
     batch,
     hasPendingChanges,
     groupIntoFrame,
@@ -4287,20 +4289,21 @@ export default function Whiteboard({
 
       {/* Standalone Clear Canvas Button - Moved to HamburgerMenu */}
 
-      {/* Task 3.1.3: Remote collaborator cursors — always visible on top */}
+      {/* Remote collaborator cursors: always visible on top */}
       <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
 
       {/* Project Name Editor */}
-      <div className="fixed top-4 left-16 xl:left-20 z-50 hidden lg:block">
+      <div className="fixed top-[52px] left-4 xl:left-5 z-50 hidden lg:block">
         <ProjectNameEditor
           sessionId={roomId}
-          initialName={sessionInfo?.name || 'Untitled Board'}
+          initialName={syncBoardName || sessionInfo?.name || 'Untitled Board'}
           isOwner={isOwner}
           theme={theme}
+          onNameChange={syncSetBoardName}
         />
       </div>
 
-      {/* Hamburger Menu — top-left */}
+      {/* Hamburger Menu: top-left */}
       <HamburgerMenu
         stageRef={stageRef}
         lines={lines}

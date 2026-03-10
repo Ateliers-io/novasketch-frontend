@@ -23,13 +23,15 @@ interface UseSyncResult {
     isConnected: boolean;
     isSynced: boolean;
     isLoading: boolean;
-    // Task 3.4.3-A: True when local edits haven't been confirmed by the server yet
+    // True when local edits haven't been confirmed by the server yet
     hasPendingChanges: boolean;
 
     // Session 
     isLocked: boolean;
     setIsLocked: (locked: boolean) => void;
     setSessionLocked: (locked: boolean) => void;
+    boardName: string;
+    setBoardName: (name: string) => void;
 
     // Line operations
     addLine: (line: StrokeLine) => void;
@@ -66,11 +68,11 @@ interface UseSyncResult {
     // Clear
     clearAll: () => void;
 
-    // Awareness / presence (Task 3.1.3: includes cursor position for remote users)
+    // Awareness / presence (includes cursor position for remote users)
     users: { id: string; name: string; color: string; cursor?: { x: number; y: number } }[];
     updateUserMetadata: (metadata: { id: string; name: string; color: string }) => void;
 
-    // Task 3.1.1: Live cursor broadcasting
+    // Live cursor broadcasting
     updateCursorPosition: (x: number, y: number) => void;
 }
 
@@ -84,8 +86,11 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
     const [isSynced, setIsSynced] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Task 1.5.1: Listen to session locked state
+    // Listen to session locked state
     const [isLocked, setIsLocked] = useState(initialLocked);
+
+    // Board name synced via Yjs yMeta
+    const [boardName, setBoardNameState] = useState('');
 
     // If the prop changes from a parent fetch, update local state
     useEffect(() => {
@@ -95,10 +100,10 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
 
-    // Task 1.3.3-B / 3.1.3: Live list of connected collaborators (with cursor positions)
+    // Live list of connected collaborators (with cursor positions)
     const [users, setUsers] = useState<{ id: string; name: string; color: string; cursor?: { x: number; y: number } }[]>([]);
 
-    // Task 3.4.3-A: Track whether local edits are buffered and unconfirmed
+    // Track whether local edits are buffered and unconfirmed
     const [hasPendingChanges, setHasPendingChanges] = useState(false);
 
     const serviceRef = useRef<SyncService | null>(null);
@@ -127,7 +132,7 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
                 setIsSynced(synced);
                 if (synced) setIsLoading(false);
             },
-            // Task 1.3.3-B: update React state whenever awareness changes
+            // Update React state whenever awareness changes
             onAwarenessUpdate: (updatedUsers) => {
                 setUsers(updatedUsers);
             },
@@ -137,18 +142,22 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
                     setIsLocked(true);
                 }
             },
-            // Task 1.5 fix: Real-time lock sync via Yjs yMeta map
+            // Real-time lock sync via Yjs yMeta map
             onLockChange: (locked) => {
                 console.log(`[useSync] Lock state changed via Yjs: ${locked}`);
                 setIsLocked(locked);
             },
-            // Direct callback from UndoManager stack events — most reliable way to keep
+            // Real-time board name sync via Yjs yMeta
+            onBoardNameChange: (name) => {
+                setBoardNameState(name);
+            },
+            // Direct callback from UndoManager stack events to update React state, so
             // the undo/redo buttons accurate for ALL users including guests.
             onUndoRedoChange: (canUndoVal, canRedoVal) => {
                 setCanUndo(canUndoVal);
                 setCanRedo(canRedoVal);
             },
-            // Task 3.4.3-A: Track pending local changes for visual indicator
+            // Track pending local changes for visual indicator
             onPendingChange: (hasPending) => {
                 setHasPendingChanges(hasPending);
             },
@@ -279,19 +288,23 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         updateUndoRedoState();
     }, [updateUndoRedoState]);
 
-    // Task 1.3.3-B: Broadcast user identity via Yjs awareness
+    // Broadcast user identity via Yjs awareness
     const updateUserMetadata = useCallback((metadata: { id: string; name: string; color: string }) => {
         serviceRef.current?.updateUserMetadata(metadata);
     }, []);
 
-    // Task 3.1.1: Broadcast cursor position to all collaborators
+    // Broadcast cursor position to all collaborators
     const updateCursorPosition = useCallback((x: number, y: number) => {
         serviceRef.current?.updateCursorPosition(x, y);
     }, []);
 
-    // Task 1.5 fix: Write lock state to Yjs yMeta for real-time broadcast
+    // Write lock state to Yjs yMeta for real-time broadcast
     const setSessionLocked = useCallback((locked: boolean) => {
         serviceRef.current?.setSessionLocked(locked);
+    }, []);
+
+    const setBoardName = useCallback((name: string) => {
+        serviceRef.current?.setBoardName(name);
     }, []);
 
     return {
@@ -330,5 +343,7 @@ export function useSync({ roomId, wsUrl, initialLocked = false }: UseSyncOptions
         isLocked,
         setIsLocked,
         setSessionLocked,
+        boardName,
+        setBoardName,
     };
 }

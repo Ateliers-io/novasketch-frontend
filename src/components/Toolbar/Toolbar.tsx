@@ -134,7 +134,6 @@ const SHAPE_ITEMS: { type: ToolType; label: string; icon: any | null }[] = [
     { type: ToolType.CIRCLE, label: 'Circle', icon: Circle },
     { type: ToolType.ELLIPSE, label: 'Ellipse', icon: null },
     { type: ToolType.TRIANGLE, label: 'Triangle', icon: Triangle },
-    { type: ToolType.FRAME, label: 'Frame', icon: LayoutTemplate },
     { type: ToolType.LINE, label: 'Line', icon: Slash },
     { type: ToolType.ARROW, label: 'Arrow', icon: ArrowRight },
 ];
@@ -559,6 +558,7 @@ export default function Toolbar({
 
                     <ToolButton icon={Type} label="Text (T)" isActive={activeTool === 'text'} onClick={() => onToolChange('text')} />
                     <ToolButton icon={ImageIcon} label="Image (I)" isActive={activeTool === ToolType.IMAGE} onClick={() => { onToolChange(ToolType.IMAGE); onImageUpload?.(); }} />
+                    <ToolButton icon={LayoutTemplate} label="Frame (F)" isActive={activeTool === ToolType.FRAME} onClick={() => onToolChange(ToolType.FRAME)} />
                 </ToolSection>
 
                 <Separator />

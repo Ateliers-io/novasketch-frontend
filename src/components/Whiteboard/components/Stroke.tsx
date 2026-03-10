@@ -4,12 +4,12 @@
  * Render strategy by brush type:
  * - MAGIC_PENCIL      -> Konva <Path /> via `perfect-freehand` (variable-width filled polygon)
  * - CALLIGRAPHY /
- *   CALLIGRAPHY_PEN   - Konva <Shape sceneFunc> — angle-based variable-width polygon per segment,
+ *   CRAYON            - Konva <Shape sceneFunc> — angle-based variable-width polygon per segment,
  *                        simulating a flat nib whose stoke width varies with direction.
  * - AIRBRUSH          -> Konva <Shape sceneFunc> — scatter dots sprayed around each point,
  *                        producing a realistic spray-paint cloud effect.
  * - OIL_BRUSH         -> Konva <Group> of three layered <Line>s (wide base → narrow highlight)
- * - CRAYON            -> Konva <Group> of three <Line>s with staggered dash arrays for waxy texture
+ * - CALLIGRAPHY_PEN   -> Konva <Group> of three <Line>s with staggered dash arrays for waxy texture
  * - All others        -> Konva <Line /> with brush-specific props from getBrushProperties()
  *
  * The raw `points` flat-array [x1, y1, x2, y2, …] stored in Yjs is NEVER mutated — all
@@ -33,7 +33,7 @@ interface StrokeProps {
 // angle, minimum (thin) when moving parallel to it.
 function CalligraphyStroke({ line }: StrokeProps) {
   const { points, color, strokeWidth = 8, opacity = 1 } = line;
-  const isPen = line.brushType === BrushType.CALLIGRAPHY_PEN;
+  const isPen = line.brushType === BrushType.CRAYON;
   const maxW = isPen ? strokeWidth * 1.5 : strokeWidth * 3;
   const minW = isPen ? strokeWidth * 0.2  : strokeWidth * 0.25;
   const PEN_ANGLE = -Math.PI / 4; // 45 degree nib bearing
@@ -193,8 +193,8 @@ export default function Stroke({ line }: StrokeProps) {
     return <Path data={pathData} fill={line.color} opacity={line.opacity ?? 1} />;
   }
 
-  // --- CALLIGRAPHY / CALLIGRAPHY_PEN: angle-based nib ---
-  if (line.brushType === BrushType.CALLIGRAPHY || line.brushType === BrushType.CALLIGRAPHY_PEN) {
+  // --- CALLIGRAPHY / CRAYON: angle-based nib ---
+  if (line.brushType === BrushType.CALLIGRAPHY || line.brushType === BrushType.CRAYON) {
     return <CalligraphyStroke line={line} />;
   }
 
@@ -208,8 +208,8 @@ export default function Stroke({ line }: StrokeProps) {
     return <OilBrushStroke line={line} />;
   }
 
-  // --- CRAYON: waxy multi-layer texture ---
-  if (line.brushType === BrushType.CRAYON) {
+  // --- CALLIGRAPHY_PEN: waxy multi-layer texture ---
+  if (line.brushType === BrushType.CALLIGRAPHY_PEN) {
     return <CrayonStroke line={line} />;
   }
 

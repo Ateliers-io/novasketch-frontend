@@ -528,6 +528,11 @@ export default function Whiteboard({
 
   // Resizing State
   const [isResizing, setIsResizing] = useState(false);
+
+  // Track which frame the user has "entered" (double-click is edit mode).
+  // When activeFrameId is set, findElementAtPoint returns individual children of that frame
+  // instead of always returning the frame itself.
+  const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [initialResizeState, setInitialResizeState] = useState<{
     box: BoundingBox;
@@ -940,7 +945,9 @@ export default function Whiteboard({
       const ty = (y - m.y) / m.sy;
 
       if (tx >= t.x && tx <= t.x + w && ty >= t.y && ty <= t.y + h) {
-        if (t.parentId) return { id: t.parentId, type: 'shape' };
+        // If this text lives in the currently active (entered) frame,
+        // return the text itself so the user can select/edit it directly.
+        if (t.parentId && t.parentId !== activeFrameId) return { id: t.parentId, type: 'shape' };
         return { id: t.id, type: 'text' };
       }
     }
@@ -961,7 +968,9 @@ export default function Whiteboard({
       const ty = (y - m.y) / m.sy;
 
       if (tx >= minX - buf && tx <= maxX + buf && ty >= minY - buf && ty <= maxY + buf) {
-        if (l.parentId) return { id: l.parentId, type: 'shape' };
+        // If this freehand line lives in the currently active frame,
+        // return it directly so the user can select/edit it.
+        if (l.parentId && l.parentId !== activeFrameId) return { id: l.parentId, type: 'shape' };
         return { id: l.id, type: 'line' };
       }
     }
@@ -974,8 +983,11 @@ export default function Whiteboard({
       const ty = (y - m.y) / m.sy;
 
       if (isPointInShape(s, tx, ty, 5 / Math.max(m.sx, m.sy))) {
-        // Epic 7.5.3: Selection logic - clicking a child selects the Frame
+        // Clicking a child selects the parent Frame.
+        // If the child belongs to the currently active (entered) frame,
+        // return the child directly so the user can individually select/drag it.
         if (s.parentId) {
+          if (s.parentId === activeFrameId) return { id: s.id, type: 'shape' };
           // Find the top-level parent (Frame)
           let currentParentId = s.parentId;
           for (let depth = 0; depth < 5; depth++) {
@@ -1333,12 +1345,61 @@ export default function Whiteboard({
 
     const { x, y } = getPointerPos(e);
     const clickedItem = findElementAtPoint(x, y);
+
+    // Double-clicking a frame enters edit mode.
+    // Only the frame owner or assigned participants may enter.
+    if (clickedItem && clickedItem.type === 'shape') {
+      const clickedShape = shapes.find(s => s.id === clickedItem.id);
+      if (clickedShape && isFrame(clickedShape)) {
+        const frame = clickedShape as FrameShape;
+        const hasAccess = (frame as any).ownerId === user?.id ||
+          (frame as any).assignedUserIds?.includes(user?.id || '');
+        if (hasAccess) {
+          setActiveFrameId(frame.id);
+          // Also check if a text child is directly under the cursor so we can
+          // open it for editing in the same gesture (avoids requiring a second double-click).
+          const frameRelX = x - frame.position.x;
+          const frameRelY = y - frame.position.y;
+          const textChild = textAnnotations.find(t => {
+            if (t.parentId !== frame.id) return false;
+            const w = t.text.length * (t.fontSize * 0.6);
+            const h = t.fontSize * 1.2;
+            return frameRelX >= t.x && frameRelX <= t.x + w &&
+                   frameRelY >= t.y && frameRelY <= t.y + h;
+          });
+          if (textChild) {
+            setEditingTextId(textChild.id);
+            setActiveTextInput({
+              x: textChild.x + frame.position.x,
+              y: textChild.y + frame.position.y,
+            });
+            setTextInputValue(textChild.text);
+            setFontStyles({
+              family: textChild.fontFamily,
+              size: textChild.fontSize,
+              bold: textChild.fontWeight === 'bold',
+              italic: textChild.fontStyle === 'italic',
+              underline: textChild.textDecoration === 'underline',
+              textAlign: textChild.textAlign || 'left' as 'left' | 'center' | 'right'
+            });
+            setStrokeColor(textChild.color);
+          }
+        }
+        return;
+      }
+    }
+
     if (clickedItem && clickedItem.type === 'text') {
       const text = textAnnotations.find(t => t.id === clickedItem.id);
       if (text) {
         // hydrate the modal state with existing text props so they don't reset to defaults.
         setEditingTextId(text.id);
-        setActiveTextInput({ x: text.x, y: text.y });
+        // text.x/y are frame-relative for frame-child texts.
+        // FloatingInput lives inside the CSS-transformed overlay and expects world coords.
+        const editParentFrame = text.parentId ? shapes.find(s => s.id === text.parentId) : null;
+        const editWorldX = editParentFrame ? text.x + (editParentFrame as any).position.x : text.x;
+        const editWorldY = editParentFrame ? text.y + (editParentFrame as any).position.y : text.y;
+        setActiveTextInput({ x: editWorldX, y: editWorldY });
         setTextInputValue(text.text);
 
         setFontStyles({
@@ -1620,6 +1681,23 @@ export default function Whiteboard({
       const clickedItem = findElementAtPoint(x, y);
       const nativeEvent = 'nativeEvent' in e ? e.nativeEvent : (e as any).evt;
       const isShiftClick = nativeEvent?.shiftKey || false;
+
+      // Exit frame edit mode if the click is outside the active frame.
+      if (activeFrameId) {
+        const activeFrame = shapes.find(s => s.id === activeFrameId);
+        if (activeFrame && isFrame(activeFrame)) {
+          const f = activeFrame as FrameShape;
+          const scaleX = f.transform?.scaleX || 1;
+          const scaleY = f.transform?.scaleY || 1;
+          const insideFrame = x >= f.position.x && x <= f.position.x + f.width * scaleX &&
+                              y >= f.position.y && y <= f.position.y + f.height * scaleY;
+          if (!insideFrame) {
+            setActiveFrameId(null);
+          }
+        } else {
+          setActiveFrameId(null);
+        }
+      }
 
       if (clickedItem) {
         if (isShiftClick) {
@@ -3128,6 +3206,15 @@ export default function Whiteboard({
               x: (newShape as LineShape).endPoint.x - targetFrame.position.x,
               y: (newShape as LineShape).endPoint.y - targetFrame.position.y
             };
+            // ControlPoint must also be converted to frame-relative coords,
+            // otherwise the bezier offset calculation (controlPoint - midPoint) produces
+            // a wildly distorted curve when start/end are frame-relative but controlPoint is not.
+            if ((newShape as LineShape).controlPoint) {
+              (newShape as LineShape).controlPoint = {
+                x: (newShape as LineShape).controlPoint!.x - targetFrame.position.x,
+                y: (newShape as LineShape).controlPoint!.y - targetFrame.position.y
+              };
+            }
           } else if (isTriangle(newShape)) {
             (newShape as TriangleShape).points = (newShape as TriangleShape).points.map(p => ({
               x: p.x - targetFrame.position.x,
@@ -3237,13 +3324,17 @@ export default function Whiteboard({
   // Filter Text
   const visibleTextAnnotations = useMemo(() => {
     return textAnnotations.filter(t => {
-      // Approx bbox
+      // Frame-child texts have frame-relative x/y; convert to world coords
+      // before testing visibility so they aren't culled incorrectly.
+      const parentFrame = t.parentId ? shapes.find(s => s.id === t.parentId) : null;
+      const worldX = parentFrame ? t.x + parentFrame.position.x : t.x;
+      const worldY = parentFrame ? t.y + parentFrame.position.y : t.y;
       const w = t.text.length * (t.fontSize || 18) * 0.6;
       const h = (t.fontSize || 18) * 1.2;
-      return !(t.x + w < visibleBounds.minX || t.x > visibleBounds.maxX ||
-        t.y + h < visibleBounds.minY || t.y > visibleBounds.maxY);
+      return !(worldX + w < visibleBounds.minX || worldX > visibleBounds.maxX ||
+        worldY + h < visibleBounds.minY || worldY > visibleBounds.maxY);
     });
-  }, [textAnnotations, visibleBounds]);
+  }, [textAnnotations, visibleBounds, shapes]);
 
   const handleCaptureCanvas = (): Promise<Blob | null> => {
     if (!stageRef.current) return Promise.resolve(null);
@@ -3731,6 +3822,7 @@ export default function Whiteboard({
           transform={{ x: stagePos.x, y: stagePos.y, scale: stageScale }}
           anchorOverlays={connectorAnchorOverlays}
           snapTargetAnchor={connectorSnapState?.end ? { shapeId: connectorSnapState.end.shapeId, anchorType: connectorSnapState.end.anchorType } : null}
+          activeFrameId={activeFrameId}
         />
       </div>
 
@@ -4001,13 +4093,18 @@ export default function Whiteboard({
         {/* Texts */}
         {visibleTextAnnotations.map((t) => {
           if (editingTextId === t.id) return null;
+          // Frame-child texts store x/y relative to their parent frame.
+          // Translate back to world (canvas) coords so the overlay div renders in the right place.
+          const textParentFrame = t.parentId ? shapes.find(s => s.id === t.parentId) : null;
+          const textWorldX = textParentFrame ? t.x + textParentFrame.position.x : t.x;
+          const textWorldY = textParentFrame ? t.y + textParentFrame.position.y : t.y;
           return (
             <div
               key={t.id}
               style={{
                 position: 'absolute',
-                left: t.x,
-                top: t.y,
+                left: textWorldX,
+                top: textWorldY,
                 color: t.color,
                 fontSize: Math.max(1, t.fontSize || 18),
                 fontFamily: getFontFamilyWithFallback(t.fontFamily),

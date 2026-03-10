@@ -31,6 +31,7 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
     onApplyToLive,
 }) => {
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [snapshots, setSnapshots] = useState<any[]>([]);
     const [replayState, setReplayState] = useState<ReplayState | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -65,11 +66,17 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         });
 
         (async () => {
-            const loadedSnapshots = await getSessionHistory(sessionId);
-            setSnapshots(loadedSnapshots);
-            engine.loadSnapshots(loadedSnapshots);
-            setTotalSnapshots(loadedSnapshots.length);
-            setLoading(false);
+            try {
+                const loadedSnapshots = await getSessionHistory(sessionId);
+                setSnapshots(loadedSnapshots);
+                engine.loadSnapshots(loadedSnapshots);
+                setTotalSnapshots(loadedSnapshots.length);
+            } catch (err: any) {
+                console.error('[ReplayOverlay] Failed to load history:', err);
+                setError(err?.response?.data?.error || err?.message || 'Failed to load timeline history');
+            } finally {
+                setLoading(false);
+            }
         })();
 
         return () => {
@@ -141,6 +148,24 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         const ctx = offscreen.getContext('2d');
         if (!ctx) return;
 
+        // Render the first frame before starting the recorder so the
+        // initial capture is not blank.
+        const firstState = engine.seekTo(0);
+        setReplayState(firstState);
+        setCurrentIndex(0);
+        await new Promise(r => setTimeout(r, 250));
+
+        const svgData0 = new XMLSerializer().serializeToString(svgEl);
+        const svgBlob0 = new Blob([svgData0], { type: 'image/svg+xml;charset=utf-8' });
+        const imgUrl0 = URL.createObjectURL(svgBlob0);
+        const img0 = new Image();
+        img0.src = imgUrl0;
+        await img0.decode();
+        ctx.fillStyle = firstState?.bgColor || '#0B0C10';
+        ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+        ctx.drawImage(img0, 0, 0, offscreen.width, offscreen.height);
+        URL.revokeObjectURL(imgUrl0);
+
         const stream = offscreen.captureStream(30);
 
         // Try MP4 first, fall back to WebM
@@ -172,14 +197,17 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         recorder.start();
         setIsRecording(true);
 
-        // Render each snapshot synchronously to ensure no blank frames
-        for (let i = 0; i < totalSnapshots; i++) {
+        // Hold first frame so recorder captures it
+        await new Promise(r => setTimeout(r, 200));
+
+        // Render remaining snapshots
+        for (let i = 1; i < totalSnapshots; i++) {
             const state = engine.seekTo(i);
             setReplayState(state);
             setCurrentIndex(i);
 
-            // Wait for React to render the SVG DOM update
-            await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+            // Give React enough time to flush the SVG DOM update
+            await new Promise(r => setTimeout(r, 200));
 
             // Serialize current SVG to an image and draw to offscreen canvas
             const svgData = new XMLSerializer().serializeToString(svgEl);
@@ -195,12 +223,12 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
             ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
             URL.revokeObjectURL(imgUrl);
 
-            // Hold frame long enough for captureStream to capture (~3 frames at 30fps)
-            await new Promise(r => setTimeout(r, 100));
+            // Hold frame long enough for captureStream to capture (~6 frames at 30fps)
+            await new Promise(r => setTimeout(r, 200));
         }
 
         // Allow final frame to be fully captured before stopping
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 500));
         if (recorder.state === 'recording') {
             recorder.stop();
         }
@@ -251,7 +279,36 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
 
             {/* Canvas area */}
             <div className="replay-canvas-area" ref={canvasAreaRef}>
-                {totalSnapshots === 0 ? (
+                {error ? (
+                    <div className="replay-empty-state">
+                        <span>⚠️</span>
+                        <span>Failed to load timeline history</span>
+                        <span style={{ fontSize: 13, opacity: 0.6 }}>{error}</span>
+                        <button
+                            className="replay-btn replay-btn-primary"
+                            style={{ marginTop: 12 }}
+                            onClick={() => {
+                                setError(null);
+                                setLoading(true);
+                                const engine = engineRef.current;
+                                if (engine) {
+                                    getSessionHistory(sessionId)
+                                        .then(loaded => {
+                                            setSnapshots(loaded);
+                                            engine.loadSnapshots(loaded);
+                                            setTotalSnapshots(loaded.length);
+                                        })
+                                        .catch((err: any) => {
+                                            setError(err?.response?.data?.error || err?.message || 'Failed to load timeline history');
+                                        })
+                                        .finally(() => setLoading(false));
+                                }
+                            }}
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : totalSnapshots === 0 ? (
                     <div className="replay-empty-state">
                         <span>⏳</span>
                         <span>No timeline history available yet.</span>

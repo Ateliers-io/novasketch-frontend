@@ -66,6 +66,7 @@ export enum BrushType {
     NATURAL_PENCIL = 'natural_pencil',
     WATERCOLOUR = 'watercolour',
     MAGIC_PENCIL = 'magic_pencil', // Rendered via perfect-freehand as a variable-width filled polygon
+    SKETCH_RNN = 'sketch_rnn', // AI-assisted sketch completion using Sketch-RNN model
 }
 
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted';

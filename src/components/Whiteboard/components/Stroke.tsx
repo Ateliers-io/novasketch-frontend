@@ -193,6 +193,23 @@ export default function Stroke({ line }: StrokeProps) {
     return <Path data={pathData} fill={line.color} opacity={line.opacity ?? 1} />;
   }
 
+  // --- SKETCH_RNN: AI-completed stroke (rendered like MAGIC_PENCIL) ---
+  if (line.brushType === BrushType.SKETCH_RNN) {
+    const rawPoints: { x: number; y: number }[] = [];
+    for (let i = 0; i + 1 < line.points.length; i += 2) {
+      rawPoints.push({ x: line.points[i], y: line.points[i + 1] });
+    }
+    const outlinePoints = getSmoothedStroke(rawPoints);
+    const pathData = getSvgPathFromStroke(outlinePoints);
+    // Render with a slightly different visual indicator (semi-transparent overlay)
+    return (
+      <Group>
+        <Path data={pathData} fill={line.color} opacity={(line.opacity ?? 1) * 0.7} />
+        <Path data={pathData} stroke={line.color} strokeWidth={1} opacity={0.3} />
+      </Group>
+    );
+  }
+
   // --- CALLIGRAPHY / CRAYON: angle-based nib ---
   if (line.brushType === BrushType.CALLIGRAPHY || line.brushType === BrushType.CRAYON) {
     return <CalligraphyStroke line={line} />;

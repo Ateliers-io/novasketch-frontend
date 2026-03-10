@@ -1,7 +1,7 @@
 /* --- ENGINEERING PALETTE --- */
 :root {
-    --neon-primary: #66FCF1;
-    --neon-secondary: #45A29E;
+    --neon-primary: #3B82F6;
+    --neon-secondary: #2563EB;
     --graphite-surface: #1F2833;
     --alert-coral: #fb7185;
 }
@@ -46,7 +46,7 @@
 }
 
 .action-button:hover rect {
-    fill: #2dd4bf;
+    fill: #3B82F6;
 }
 
 .action-button:hover text {

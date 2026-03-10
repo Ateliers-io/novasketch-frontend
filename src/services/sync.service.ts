@@ -79,7 +79,7 @@ export interface Shape {
     // Ellipse specific
     radiusX?: number;
     radiusY?: number;
-    // Hierarchical/Frame support (Epic 7.5)
+    // Hierarchical/Frame support
     parentId?: string;
     childrenIds?: string[];
     backgroundVisible?: boolean;
@@ -124,15 +124,17 @@ export interface SyncServiceConfig {
     onStateChange: SyncStateChangeHandler;
     onConnectionChange?: (connected: boolean) => void;
     onSyncStatusChange?: (synced: boolean) => void;
-    // Task 1.3.3-B / 3.1.3: notifies React when collaborators or their cursor positions change
+    // Notifies React when collaborators or their cursor positions change
     onAwarenessUpdate?: (users: { id: string; name: string; color: string; cursor?: { x: number; y: number } }[]) => void;
-    // Task 1.5.1: Notifies React for system events like session_locked
+    // Notifies React for system events like session_locked
     onSystemEvent?: (event: any) => void;
-    // Task 1.5 fix: Dedicated callback for lock state changes via Yjs yMeta
+    // Dedicated callback for lock state changes via Yjs yMeta
     onLockChange?: (locked: boolean) => void;
+    // Real-time board name broadcast via Yjs yMeta
+    onBoardNameChange?: (name: string) => void;
     // Notifies React whenever the undo/redo stack changes so buttons update
     onUndoRedoChange?: (canUndo: boolean, canRedo: boolean) => void;
-    // Task 3.4.3-A: Notifies React when local edits are buffered and not yet confirmed by server
+    // Notifies React when local edits are buffered and not yet confirmed by server
     onPendingChange?: (hasPending: boolean) => void;
 }
 
@@ -190,6 +192,9 @@ class SyncService {
             if (event.keysChanged.has('isLocked') && this.config.onLockChange) {
                 this.config.onLockChange(this.yMeta.get('isLocked') === true);
             }
+            if (event.keysChanged.has('boardName') && this.config.onBoardNameChange) {
+                this.config.onBoardNameChange(this.yMeta.get('boardName') || '');
+            }
         });
     }
 
@@ -224,7 +229,7 @@ class SyncService {
 
         // 2. Set up UndoManager BEFORE WebSocket so it's ready to track local transactions
         // from the moment the first remote sync arrives and the user starts drawing.
-        // Task 1.5 fix: Excludes yMeta so Lock/Unlock state and bgColor are NOT undoable.
+        // Excludes yMeta so Lock/Unlock state and bgColor are NOT undoable.
         this.undoManager = new Y.UndoManager([this.yLines, this.yShapes, this.yTexts], {
             trackedOrigins: new Set(['local']),
         });
@@ -250,16 +255,16 @@ class SyncService {
             resyncInterval: 5000,
         });
 
-        // CRITICAL FIX: Register no-op handlers for our custom message types (2-5)
+        // Register no-op handlers for our custom message types (2-5)
         // so y-websocket doesn't misinterpret them as Auth (type 2) or
         // QueryAwareness (type 3), which causes awareness storms with 3+ users.
         const provider = this.wsProvider as any;
-        provider.messageHandlers[2] = () => { }; // Ephemeral/drag — handled elsewhere
-        provider.messageHandlers[3] = () => { }; // Property updates — handled elsewhere
-        provider.messageHandlers[4] = () => { }; // Presence events — handled by custom WS listener
-        provider.messageHandlers[5] = () => { }; // Redis cached state — handled by custom WS listener
+        provider.messageHandlers[2] = () => { }; // Ephemeral/drag - handled elsewhere
+        provider.messageHandlers[3] = () => { }; // Property updates - handled elsewhere
+        provider.messageHandlers[4] = () => { }; // Presence events - handled by custom WS listener
+        provider.messageHandlers[5] = () => { }; // Redis cached state - handled by custom WS listener
 
-        // Task 3.4.3-A: Track local doc mutations for pending-change detection.
+        // Track local doc mutations for pending-change detection.
         // When origin === 'local', show "Syncing..." briefly. If connected, Yjs sends
         // the data almost instantly, so we auto-clear after 1.5s. If disconnected,
         // the pending state persists until reconnection + sync.
@@ -270,7 +275,7 @@ class SyncService {
                 // Clear any existing timer
                 if (this.pendingTimer) clearTimeout(this.pendingTimer);
 
-                // If connected, data is sent instantly — auto-clear after short delay
+                // If connected, data is sent instantly, auto-clear after short delay
                 if (this.wsConnected) {
                     this.pendingTimer = setTimeout(() => {
                         this.config.onPendingChange?.(false);
@@ -287,13 +292,13 @@ class SyncService {
             console.log(`[SyncService] WebSocket ${connected ? 'connected' : 'disconnected'}`);
             this.config.onConnectionChange?.(connected);
 
-            // Task 3.4.3-A: Going offline — cancel auto-clear timer so badge stays pending
+            // Going offline: cancel auto-clear timer so badge stays pending
             if (!connected && this.pendingTimer) {
                 clearTimeout(this.pendingTimer);
                 this.pendingTimer = null;
             }
 
-            // Task 3.4.3-A: Reconnected — auto-clear pending after short delay
+            // Reconnected: auto-clear pending after short delay
             // The sync event doesn't always re-fire on reconnect, so this is the safety net.
             if (connected) {
                 if (this.pendingTimer) clearTimeout(this.pendingTimer);
@@ -330,8 +335,8 @@ class SyncService {
             }
         });
 
-        // Task 1.3.3-B / Fix: Subscribe to awareness changes to track connected users.
-        // Task 3.1.3: Extended to also extract cursor positions for remote cursors.
+        // Subscribe to awareness changes to track connected users.
+        // Extended to also extract cursor positions for remote cursors.
         // Deduplication by name prevents ghost duplicates when a user refreshes.
         this.wsProvider.awareness.on('change', () => {
             if (!this.config.onAwarenessUpdate) return;
@@ -369,7 +374,7 @@ class SyncService {
                     isLocked: this.yMeta.get('isLocked') === true,
                 });
 
-                // Task 3.4.3-A: Server confirmed sync — clear pending state immediately
+                // Server confirmed sync, clear pending state immediately
                 if (this.pendingTimer) {
                     clearTimeout(this.pendingTimer);
                     this.pendingTimer = null;
@@ -405,7 +410,7 @@ class SyncService {
     }
 
     /**
-     * Task 3.1.1: Broadcast cursor position to all collaborators
+     * Broadcast cursor position to all collaborators
      * via the Yjs Awareness protocol. The backend already relays
      * awareness messages (server.js case 1), so no server changes needed.
      */
@@ -535,7 +540,7 @@ class SyncService {
         this.doc.transact(callback, 'local');
     }
 
-    // --- EPIC 7.5: FRAME/GROUP MANAGEMENT ---
+    // --- FRAME/GROUP MANAGEMENT ---
 
     /**
      * Group a set of shape IDs into a new Frame.
@@ -817,6 +822,18 @@ class SyncService {
 
     isConnected(): boolean {
         return this.wsProvider?.wsconnected ?? false;
+    }
+
+    // --- BOARD NAME (via Yjs yMeta for real-time broadcast) ---
+
+    setBoardName(name: string): void {
+        this.doc.transact(() => {
+            this.yMeta.set('boardName', name);
+        }, 'system');
+    }
+
+    getBoardName(): string {
+        return this.yMeta.get('boardName') || '';
     }
 
     // --- SESSION LOCK (via Yjs yMeta for real-time broadcast) ---

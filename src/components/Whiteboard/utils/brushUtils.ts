@@ -11,30 +11,29 @@ export function getBrushProperties(brush: BrushType, size: number, color: string
         case BrushType.CALLIGRAPHY:
             // Actual rendering: angle-based variable-width polygon via sceneFunc in <Stroke />.
             // strokeWidth stored for data consistency; sceneFunc derives min/max width from it.
-            return { lineCap: 'butt', lineJoin: 'miter', tension: 0, opacity: 1, strokeWidth: size * 3 };
+            return { lineCap: 'butt', lineJoin: 'bevel', tension: 0, opacity: 1, strokeWidth: size * 1.5 };
         case BrushType.CALLIGRAPHY_PEN:
             // Actual rendering: multi-layer textured Lines via Group in <Stroke />.
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.2, opacity: 0.8, strokeWidth: size * 1.5 };
+            return { lineCap: 'square', lineJoin: 'round', tension: 0, opacity: 0.8, strokeWidth: size * 1.5 };
         case BrushType.AIRBRUSH:
             // Actual rendering: scatter-dot spray via sceneFunc in <Stroke />.
             // strokeWidth drives the spray radius; opacity controls dot density.
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.4, strokeWidth: size * 2.5 };
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.4, strokeWidth: size * 2.5, shadowBlur: 10, shadowColor: color };
         case BrushType.OIL_BRUSH:
             // Actual rendering: layered semi-transparent Lines via Group in <Stroke />.
-            // No shadowBlur. oil paint is opaque and matte, not glowing.
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.9, strokeWidth: size * 2 };
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.9, strokeWidth: size * 2, shadowBlur: 2, shadowColor: color };
         case BrushType.CRAYON:
             // Thinner nib variant of calligraphy; rendered with angle-based sceneFunc in <Stroke />.
-            return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 1, strokeWidth: size * 1.2 };
+            return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 1, strokeWidth: size * 1.2, dash: [2, 3] };
         case BrushType.MARKER:
             // Wide chisel tip: bold, mostly opaque, flat square cap.
-            return { lineCap: 'square', lineJoin: 'miter', tension: 0.1, opacity: 0.85, strokeWidth: size * 4, globalCompositeOperation: 'source-over' };
+            return { lineCap: 'square', lineJoin: 'miter', tension: 0.1, opacity: 0.85, strokeWidth: size * 4, globalCompositeOperation: 'lighter' };
         case BrushType.NATURAL_PENCIL:
             // Fine graphite: thin, slightly textured via dash.
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.4, opacity: 0.65, strokeWidth: Math.max(1, size * 0.45), dash: [2, 2] };
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.4, opacity: 0.65, strokeWidth: size * 0.6, dash: [0.5, 0.5] };
         case BrushType.WATERCOLOUR:
             // Very wide, very transparent, highly diffuse wash.
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.8, opacity: 0.1, strokeWidth: size * 6, shadowBlur: 30, shadowColor: color };
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.8, opacity: 0.3, strokeWidth: size * 6, shadowBlur: 30, shadowColor: color };
         case BrushType.MAGIC_PENCIL:
             // Rendered by perfect-freehand in <Stroke /> as a filled variable-width polygon.
             // These Konva Line props are stored in Yjs for data consistency but are not used directly.

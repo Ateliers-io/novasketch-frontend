@@ -4154,7 +4154,7 @@ export default function Whiteboard({
                 transform: `rotate(${t.rotation || 0}deg)`,
                 transformOrigin: 'top left',
               }}
-              className="whitespace-pre p-1 select-none origin-top-left"
+              className="whitespace-pre p-5 pl-9 select-none origin-top-left"
             >
               {t.text}
             </div>

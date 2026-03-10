@@ -51,7 +51,7 @@ const PRO_COLORS_DARK = [
 
 const PRO_COLORS_LIGHT = [
     '#bae6fd', '#FFFFFF',
-    // softer, light/pastel theme colors
+    // softer, light theme colors
     '#fca5a5', '#fdba74', '#fde047', '#bef264', '#86efac', '#67e8f9',
     '#93c5fd', '#a5b4fc', '#c4b5fd', '#f0abfc', '#fda4af',
     '#d6d3d1'
@@ -214,14 +214,14 @@ const ToolButton = ({
 );
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-    <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-center select-none leading-none opacity-80" style={{ color: 'var(--ns-section-label)' }}>
+    <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-center select-none opacity-80" style={{ color: 'var(--ns-section-label)' }}>
         {children}
     </div>
 );
 
 const ToolSection = ({ children, label }: { children: React.ReactNode; label: string }) => (
-    <div className="flex flex-col items-center justify-end h-full px-1 pb-[2px] pt-1">
-        <div className="flex items-center gap-[1px] mb-[3px]">
+    <div className="-mt-0.5 flex flex-col items-center justify-end h-full px-1 pb-[2px] pt-1">
+        <div className="mt-1 flex items-center gap-[1px] h-7 mb-[3px]">
             {children}
         </div>
         <SectionLabel>{label}</SectionLabel>
@@ -252,7 +252,7 @@ function DropdownPortal({
             zIndex: 9999,
         });
     }, []);
-    return createPortal(<div style={pos}>{children}</div>, document.body);
+    return createPortal(<div style={pos} data-portal-dropdown>{children}</div>, document.body);
 }
 
 export default function Toolbar({
@@ -309,6 +309,9 @@ export default function Toolbar({
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
+            // Portal dropdowns are rendered in document.body outside all refs.
+            // If the click is inside any portal dropdown, don't close anything.
+            if ((event.target as HTMLElement).closest?.('[data-portal-dropdown]')) return;
             if (eraserMenuRef.current && !eraserMenuRef.current.contains(event.target as Node)) setShowEraserMenu(false);
             if (brushMenuRef.current && !brushMenuRef.current.contains(event.target as Node)) setShowBrushMenu(false);
             if (strokeStyleRef.current && !strokeStyleRef.current.contains(event.target as Node)) setShowStrokeStyleMenu(false);
@@ -363,7 +366,7 @@ export default function Toolbar({
     const redoCursor = canRedo ? 'pointer' : 'not-allowed';
 
     return (
-        <div className="flex-1 min-w-0 relative" data-component="toolbar">
+        <div className="relative" data-component="toolbar">
             <div
                 className="rounded-xl backdrop-blur-2xl transition-all duration-300"
                 style={{
@@ -376,7 +379,7 @@ export default function Toolbar({
             >
             <div
                 ref={scrollContainerRef}
-                className="flex items-stretch gap-0 px-2 py-1 overflow-x-auto"
+                className="flex items-stretch gap-0.5 px-2 py-1 overflow-x-auto"
                 style={{ scrollbarWidth: 'none', color: 'var(--ns-toolbar-text)' }}
             >
 
@@ -509,12 +512,12 @@ export default function Toolbar({
                 <Separator />
 
                 {/* SHAPES */}
-                <div className="relative" ref={shapesMenuRef}>
+                <div className="relative -mt-2" ref={shapesMenuRef}>
                     <ToolSection label="Shapes">
                         <button
                             onClick={() => setShowShapesMenu(!showShapesMenu)}
                             title="Shapes"
-                            className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${isShapeTool || showShapesMenu ? 'shadow-sm' : ''}`}
+                            className={`mt-0.5 relative flex items-center justify-center -mt-11.5 w-7 h-7 rounded-sm transition-all duration-150 ${isShapeTool || showShapesMenu ? 'shadow-sm' : ''}`}
                             style={{
                                 background: isShapeTool ? 'var(--ns-toolbar-active-bg)' : showShapesMenu ? 'var(--ns-toolbar-hover)' : 'transparent',
                                 color: isShapeTool ? 'var(--ns-toolbar-active-text)' : 'var(--ns-toolbar-muted)',
@@ -703,10 +706,10 @@ export default function Toolbar({
                             >
                                 {fillColor === 'transparent' ? (
                                     <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
-                                        <Slash size={10} strokeWidth={2} />
+                                        <Slash size={10} strokeWidth={1} />
                                     </div>
                                 ) : (
-                                    <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
+                                    <div className="absolute inset-1 rounded-full border border-black/20" style={{ background: fillColor }} />
                                 )}
                                 <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                             </div>
@@ -970,14 +973,14 @@ export default function Toolbar({
                     </div>
                 </ToolSection>
 
-                {/* Lock Session Button — only visible if user owns the board */}
+                {/* Lock Session Button: only visible if user owns the board */}
                 {isOwner && onToggleLock && (
                     <>
                         <Separator />
                         <ToolSection label={isLockActive ? 'LOCKED' : 'UNLOCKED'}>
                             <button
                                 onClick={() => onToggleLock()}
-                                className="p-1.5 rounded-lg transition-all duration-200 border group"
+                                className="px-1 py-0.75 ph-1 rounded-lg transition-all duration-200 border group"
                                 style={{
                                     background: isLockActive
                                         ? 'rgba(239,68,68,0.1)'

@@ -6,7 +6,6 @@
  */
 
 import { loadSketchRNNModel, completeSketch, SketchRNNPoint } from './sketchRNN.service';
-import { BrushType } from '../types/shapes';
 
 /**
  * Load default model on app initialization

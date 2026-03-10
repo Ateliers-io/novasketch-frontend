@@ -255,4 +255,88 @@ describe('Stroke Component', () => {
             expect(konvaPath?.getAttribute('data')?.length).toBeGreaterThan(0);
         });
     });
+
+    describe('Sketch-RNN rendering', () => {
+        beforeEach(() => {
+            mockedGetSmoothedStroke.mockClear();
+            mockedGetSvgPathFromStroke.mockClear();
+        });
+
+        it('should render a Group with two Paths for SKETCH_RNN brush', () => {
+            const line = makeStrokeLine({ brushType: BrushType.SKETCH_RNN });
+
+            const { container } = render(<Stroke line={line} />);
+
+            const group = container.querySelector('konva-group');
+            expect(group).toBeTruthy();
+            const paths = group?.querySelectorAll('konva-path');
+            expect(paths?.length).toBe(2);
+        });
+
+        it('should render the fill path with 0.7x opacity', () => {
+            const line = makeStrokeLine({
+                brushType: BrushType.SKETCH_RNN,
+                color: '#FF0000',
+                opacity: 1,
+            });
+
+            const { container } = render(<Stroke line={line} />);
+
+            const paths = container.querySelectorAll('konva-path');
+            const fillPath = paths[0];
+            expect(fillPath?.getAttribute('fill')).toBe('#FF0000');
+            expect(fillPath?.getAttribute('opacity')).toBe('0.7');
+        });
+
+        it('should render the outline path with stroke and low opacity', () => {
+            const line = makeStrokeLine({
+                brushType: BrushType.SKETCH_RNN,
+                color: '#00FF00',
+            });
+
+            const { container } = render(<Stroke line={line} />);
+
+            const paths = container.querySelectorAll('konva-path');
+            const outlinePath = paths[1];
+            expect(outlinePath?.getAttribute('stroke')).toBe('#00FF00');
+            expect(outlinePath?.getAttribute('strokewidth')).toBe('1');
+            expect(outlinePath?.getAttribute('opacity')).toBe('0.3');
+        });
+
+        it('should use default opacity when not specified', () => {
+            const line = makeStrokeLine({
+                brushType: BrushType.SKETCH_RNN,
+                opacity: undefined,
+            });
+
+            const { container } = render(<Stroke line={line} />);
+
+            const fillPath = container.querySelectorAll('konva-path')[0];
+            expect(fillPath?.getAttribute('opacity')).toBe('0.7');
+        });
+
+        it('should call getSmoothedStroke and getSvgPathFromStroke', () => {
+            const line = makeStrokeLine({
+                brushType: BrushType.SKETCH_RNN,
+                points: [0, 0, 10, 10, 20, 5],
+            });
+
+            render(<Stroke line={line} />);
+
+            expect(mockedGetSmoothedStroke).toHaveBeenCalledWith([
+                { x: 0, y: 0 },
+                { x: 10, y: 10 },
+                { x: 20, y: 5 },
+            ]);
+            expect(mockedGetSvgPathFromStroke).toHaveBeenCalled();
+        });
+
+        it('should not render a Konva Line', () => {
+            const line = makeStrokeLine({ brushType: BrushType.SKETCH_RNN });
+
+            const { container } = render(<Stroke line={line} />);
+
+            expect(container.querySelector('konva-line')).toBeNull();
+        });
+    });
 });

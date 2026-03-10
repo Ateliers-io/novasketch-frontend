@@ -64,4 +64,4 @@ async function testSketchRNN() {
 }
 
 // Run the test
-testSketchRNN().catch(console.error);
+await testSketchRNN();

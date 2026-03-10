@@ -1,5 +1,5 @@
 import React, { ButtonHTMLAttributes, ReactNode } from 'react';
-import { Loader2 } from 'lucide-react'; // Ensure you have lucide-react installed
+import { Loader2 } from 'lucide-react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'oauth';
 type ButtonSize = 'sm' | 'md' | 'lg';

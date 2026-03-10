@@ -3529,7 +3529,18 @@ export default function Whiteboard({
 
       {/* Draggable Lock Session Toggle — Moved to Hamburger Menu */}
 
-      <Toolbar
+      {/* Top Bar: Board Name + Toolbar */}
+      <div className="fixed top-4 left-[72px] z-50 flex items-center gap-55">
+        <div className="-mt-7 ml-2 shrink-0 hidden lg:block">
+          <ProjectNameEditor
+            sessionId={roomId}
+            initialName={syncBoardName || sessionInfo?.name || 'Untitled Board'}
+            isOwner={isOwner}
+            theme={theme}
+            onNameChange={syncSetBoardName}
+          />
+        </div>
+        <Toolbar
         theme={theme}
         isSessionLocked={isEffectivelyLocked || !canModifySelection()}
         isLockActive={isLocked}
@@ -3816,7 +3827,8 @@ export default function Whiteboard({
           }
         }}
         onImageUpload={() => setShowImageUpload(true)}
-      />
+        />
+      </div>
 
       {/* Image Upload Modal */}
       <ImageUploadModal
@@ -4291,17 +4303,6 @@ export default function Whiteboard({
 
       {/* Remote collaborator cursors: always visible on top */}
       <RemoteCursors users={users} stagePos={stagePos} stageScale={stageScale} />
-
-      {/* Project Name Editor */}
-      <div className="fixed top-[52px] left-4 xl:left-5 z-50 hidden lg:block">
-        <ProjectNameEditor
-          sessionId={roomId}
-          initialName={syncBoardName || sessionInfo?.name || 'Untitled Board'}
-          isOwner={isOwner}
-          theme={theme}
-          onNameChange={syncSetBoardName}
-        />
-      </div>
 
       {/* Hamburger Menu: top-left */}
       <HamburgerMenu

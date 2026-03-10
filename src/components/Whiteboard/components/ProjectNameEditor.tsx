@@ -97,7 +97,6 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
             title="Edit project name"
         >
             <span className="truncate flex-1">{name}</span>
-            <Edit2 size={12} className={`opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ${isDark ? 'text-[#3B82F6]' : 'text-[#3B82F6]'}`} />
         </div>
     );
 };

@@ -321,7 +321,7 @@ export default function Toolbar({
     const fillOpacity = activeColorMode === 'fill' ? 1 : 0.6;
 
     return (
-        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50" data-component="toolbar">
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-300px)] overflow-x-auto" data-component="toolbar">
             <div
                 className="flex items-stretch gap-0 px-2 py-1 backdrop-blur-2xl rounded-xl transition-all duration-300"
                 style={{

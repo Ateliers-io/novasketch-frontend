@@ -7,6 +7,7 @@ export interface CollaboratorUser {
 
 interface PresenceBadgeProps {
     users: CollaboratorUser[];
+    topOffset?: number;
 }
 
 // Max avatars to show before collapsing into "+N"
@@ -16,7 +17,7 @@ function getInitial(name: string): string {
     return name.trim().charAt(0).toUpperCase();
 }
 
-const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
+const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users, topOffset }) => {
     const [expanded, setExpanded] = useState(false);
 
     const count = users.length;
@@ -47,7 +48,8 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
     return (
         <div
             ref={containerRef}
-            className="fixed z-50 flex flex-col items-end gap-2 select-none right-4 top-14"
+            className="fixed z-50 flex flex-col items-end gap-2 select-none right-4"
+            style={{ top: topOffset ?? 56 }}
         >
 
             {/* Main pill badge */}

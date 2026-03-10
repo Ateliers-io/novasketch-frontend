@@ -3525,8 +3525,8 @@ export default function Whiteboard({
       )}
 
       {/* Top Bar: Board Name + Toolbar */}
-      <div className="fixed top-4 left-[72px] z-50 flex items-center gap-55">
-        <div className="-mt-7 ml-2 shrink-0 hidden lg:block">
+      <div className="fixed top-4 left-0 right-0 z-50 flex items-center justify-center pointer-events-none">
+        <div className="mt-7 absolute left-[80px] top-0 -translate-y-7 pointer-events-auto hidden lg:block">
           <ProjectNameEditor
             sessionId={roomId}
             initialName={syncBoardName || sessionInfo?.name || 'Untitled Board'}
@@ -3535,6 +3535,7 @@ export default function Whiteboard({
             onNameChange={syncSetBoardName}
           />
         </div>
+        <div className="pointer-events-auto">
         <Toolbar
         theme={theme}
         isSessionLocked={isEffectivelyLocked || !canModifySelection()}
@@ -3823,6 +3824,7 @@ export default function Whiteboard({
         }}
         onImageUpload={() => setShowImageUpload(true)}
         />
+        </div>
       </div>
 
       {/* Image Upload Modal */}

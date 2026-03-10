@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
     MousePointer2,
     Pencil,
@@ -229,7 +230,30 @@ const ToolSection = ({ children, label }: { children: React.ReactNode; label: st
 
 const Separator = () => <div className="w-px h-8 mx-1 self-center opacity-70" style={{ background: 'var(--ns-separator)' }} />;
 
-
+/* --- PORTAL DROPDOWN --- */
+function DropdownPortal({
+    triggerRef,
+    children,
+    offsetY = 8,
+}: {
+    triggerRef: React.RefObject<HTMLElement | null>;
+    children: React.ReactNode;
+    offsetY?: number;
+}) {
+    const [pos, setPos] = useState<React.CSSProperties>({ visibility: 'hidden' });
+    useLayoutEffect(() => {
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setPos({
+            position: 'fixed',
+            top: rect.bottom + offsetY,
+            left: rect.left + rect.width / 2,
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+        });
+    }, []);
+    return createPortal(<div style={pos}>{children}</div>, document.body);
+}
 
 export default function Toolbar({
     activeTool, onToolChange,
@@ -332,41 +356,16 @@ export default function Toolbar({
         12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72
     ] as const;
 
-    const getActiveBorderColor = (mode: 'stroke' | 'fill') => {
-        if (activeColorMode === mode) return theme === 'light' ? '#E6EAF0' : '#1F2833';
-        return theme === 'light' ? '#cbd5e1' : '#4b5563';
-    };
-
-    const getActiveBoxShadow = (mode: 'stroke' | 'fill') => {
-        if (activeColorMode !== mode) return 'none';
-        const accent = theme === 'light' ? '#3B82F6' : '#3B82F6';
-        return `0 0 0 2px ${accent}`;
-    };
-
     const toolbarBorderColor = isSessionLocked ? 'rgba(245,158,11,0.3)' : 'var(--ns-toolbar-border)';
     const undoColor = canUndo ? 'var(--ns-toolbar-muted)' : 'var(--ns-disabled)';
     const undoCursor = canUndo ? 'pointer' : 'not-allowed';
     const redoColor = canRedo ? 'var(--ns-toolbar-muted)' : 'var(--ns-disabled)';
     const redoCursor = canRedo ? 'pointer' : 'not-allowed';
-    const strokeOpacity = activeColorMode === 'stroke' ? 1 : 0.6;
-    const fillOpacity = activeColorMode === 'fill' ? 1 : 0.6;
-
-    const getDropdownStyle = (ref: React.RefObject<HTMLDivElement | null>, offsetY = 8): React.CSSProperties => {
-        const rect = ref.current?.getBoundingClientRect();
-        if (!rect) return {};
-        return {
-            position: 'fixed' as const,
-            top: rect.bottom + offsetY,
-            left: rect.left + rect.width / 2,
-            transform: 'translateX(-50%)',
-            animation: 'dropdownFadeIn 150ms ease-out',
-        };
-    };
 
     return (
         <div className="flex-1 min-w-0 relative" data-component="toolbar">
             <div
-                className="rounded-xl overflow-hidden backdrop-blur-2xl transition-all duration-300"
+                className="rounded-xl backdrop-blur-2xl transition-all duration-300"
                 style={{
                     background: 'var(--ns-toolbar-bg)',
                     border: `1px solid ${toolbarBorderColor}`,
@@ -431,41 +430,38 @@ export default function Toolbar({
 
                         {/* Brush Dropdown Panel */}
                         {showBrushMenu && (
-                            <div className="toolbar-dropdown w-[280px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden z-[9999]"
-                                style={{ ...getDropdownStyle(brushMenuRef), animation: 'fadeIn 150ms ease-out' }}>
-                                <div className="px-2 pt-2 pb-1">
-                                    <div className="text-[10px] font-semibold uppercase text-[#4a5b6a] tracking-wider px-2 mb-1">Brush Type</div>
+                            <DropdownPortal triggerRef={brushMenuRef}>
+                                <div className="w-[280px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden"
+                                    style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                    <div className="px-2 pt-2 pb-1">
+                                        <div className="text-[10px] font-semibold uppercase text-[#4a5b6a] tracking-wider px-2 mb-1">Brush Type</div>
+                                    </div>
+                                    <div className="px-1.5 pb-2 max-h-[380px] overflow-y-auto">
+                                        {BRUSH_OPTIONS.map((brush) => (
+                                            <button
+                                                key={brush.type}
+                                                onClick={() => {
+                                                    onBrushTypeChange(brush.type);
+                                                    if (activeTool !== ToolType.PEN && activeTool !== ToolType.HIGHLIGHTER) {
+                                                        onToolChange(ToolType.PEN);
+                                                    }
+                                                    setShowBrushMenu(false);
+                                                }}
+                                                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-100 ${brushType === brush.type
+                                                    ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
+                                                    : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white'
+                                                    }`}
+                                            >
+                                                <div className={`w-[3px] h-6 rounded-full flex-shrink-0 ${brushType === brush.type ? 'bg-[#3B82F6]' : 'bg-transparent'}`} />
+                                                <span className="text-[12px] font-medium min-w-[85px] text-left">{brush.label}</span>
+                                                <div className={`ml-auto ${brushType === brush.type ? 'text-[#3B82F6]' : 'text-[#7a8c9c]'}`}>
+                                                    <BrushPreview brushType={brush.type} />
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="px-1.5 pb-2 max-h-[380px] overflow-y-auto">
-                                    {BRUSH_OPTIONS.map((brush) => (
-                                        <button
-                                            key={brush.type}
-                                            onClick={() => {
-                                                onBrushTypeChange(brush.type);
-                                                if (activeTool !== ToolType.PEN && activeTool !== ToolType.HIGHLIGHTER) {
-                                                    onToolChange(ToolType.PEN);
-                                                }
-                                                setShowBrushMenu(false);
-                                            }}
-                                            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-100 ${brushType === brush.type
-                                                ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
-                                                : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white'
-                                                }`}
-                                        >
-                                            {/* Active bar */}
-                                            <div className={`w-[3px] h-6 rounded-full flex-shrink-0 ${brushType === brush.type ? 'bg-[#3B82F6]' : 'bg-transparent'}`} />
-
-                                            {/* Name */}
-                                            <span className="text-[12px] font-medium min-w-[85px] text-left">{brush.label}</span>
-
-                                            {/* Preview */}
-                                            <div className={`ml-auto ${brushType === brush.type ? 'text-[#3B82F6]' : 'text-[#7a8c9c]'}`}>
-                                                <BrushPreview brushType={brush.type} />
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                            </DropdownPortal>
                         )}
                     </div>
 
@@ -478,29 +474,31 @@ export default function Toolbar({
                             onClick={() => { onToolChange('eraser'); setShowEraserMenu(!showEraserMenu); }} />
 
                         {showEraserMenu && (
-                            <div className="toolbar-dropdown w-44 p-2.5 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-2.5 z-[9999]"
-                                style={{ ...getDropdownStyle(eraserMenuRef), animation: 'fadeIn 150ms ease-out' }}>
-                                <div className="flex gap-1.5 p-0.5 bg-[#0d1117] rounded-lg">
-                                    <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'partial' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
-                                        onClick={() => onEraserModeChange('partial')}>
-                                        <Minus size={13} /> Partial
-                                    </button>
-                                    <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'stroke' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
-                                        onClick={() => onEraserModeChange('stroke')}>
-                                        <Trash2 size={13} /> Stroke
-                                    </button>
-                                </div>
-                                {eraserMode === 'partial' && (
-                                    <div className="space-y-1.5">
-                                        <div className="flex justify-between text-[9px] uppercase font-bold" style={{ color: 'var(--ns-section-label)' }}>
-                                            <span>Size</span><span style={{ color: 'var(--ns-accent)' }}>{eraserSize}px</span>
-                                        </div>
-                                        <input type="range" min={5} max={50} value={eraserSize}
-                                            onChange={(e) => onEraserSizeChange(Number(e.target.value))}
-                                            className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
+                            <DropdownPortal triggerRef={eraserMenuRef}>
+                                <div className="w-44 p-2.5 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-2.5"
+                                    style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                    <div className="flex gap-1.5 p-0.5 bg-[#0d1117] rounded-lg">
+                                        <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'partial' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
+                                            onClick={() => onEraserModeChange('partial')}>
+                                            <Minus size={13} /> Partial
+                                        </button>
+                                        <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'stroke' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
+                                            onClick={() => onEraserModeChange('stroke')}>
+                                            <Trash2 size={13} /> Stroke
+                                        </button>
                                     </div>
-                                )}
-                            </div>
+                                    {eraserMode === 'partial' && (
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between text-[9px] uppercase font-bold" style={{ color: 'var(--ns-section-label)' }}>
+                                                <span>Size</span><span style={{ color: 'var(--ns-accent)' }}>{eraserSize}px</span>
+                                            </div>
+                                            <input type="range" min={5} max={50} value={eraserSize}
+                                                onChange={(e) => onEraserSizeChange(Number(e.target.value))}
+                                                className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
+                                        </div>
+                                    )}
+                                </div>
+                            </DropdownPortal>
                         )}
                     </div>
 
@@ -534,21 +532,23 @@ export default function Toolbar({
                         </button>
                     </ToolSection>
                     {showShapesMenu && (
-                        <div className="toolbar-dropdown p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[9999]"
-                            style={{ ...getDropdownStyle(shapesMenuRef), animation: 'fadeIn 150ms ease-out' }}>
-                            <div className="grid grid-cols-4 gap-1">
-                                {SHAPE_ITEMS.map((shape) => (
-                                    <button
-                                        key={shape.type}
-                                        onClick={() => { onToolChange(shape.type as ActiveTool); setLastShapeTool(shape.type); setShowShapesMenu(false); }}
-                                        title={shape.label}
-                                        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${activeTool === shape.type ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#1e262d] hover:text-white'}`}
-                                    >
-                                        {shape.icon ? <shape.icon size={16} /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>}
-                                    </button>
-                                ))}
+                        <DropdownPortal triggerRef={shapesMenuRef}>
+                            <div className="p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                                style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                <div className="grid grid-cols-4 gap-1">
+                                    {SHAPE_ITEMS.map((shape) => (
+                                        <button
+                                            key={shape.type}
+                                            onClick={() => { onToolChange(shape.type as ActiveTool); setLastShapeTool(shape.type); setShowShapesMenu(false); }}
+                                            title={shape.label}
+                                            className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${activeTool === shape.type ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#1e262d] hover:text-white'}`}
+                                        >
+                                            {shape.icon ? <shape.icon size={16} /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        </DropdownPortal>
                     )}
                 </div>
 
@@ -570,28 +570,30 @@ export default function Toolbar({
                             </ToolSection>
 
                             {showStrokeStyleMenu && (
-                                <div className="toolbar-dropdown w-40 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-1.5 z-[9999]"
-                                    style={{ ...getDropdownStyle(strokeStyleRef), animation: 'fadeIn 150ms ease-out' }}>
-                                    {([
-                                        { style: 'solid' as StrokeStyle, label: 'Solid', dash: undefined },
-                                        { style: 'dashed' as StrokeStyle, label: 'Dashed', dash: '8 4' },
-                                        { style: 'dotted' as StrokeStyle, label: 'Dotted', dash: '2 4' },
-                                    ]).map(({ style, label, dash }) => (
-                                        <button key={style}
-                                            onClick={() => { onStrokeStyleChange(style); setShowStrokeStyleMenu(false); }}
-                                            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all"
-                                            style={{
-                                                background: strokeStyle === style ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.1))' : 'transparent',
-                                                color: strokeStyle === style ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #b0bec5)'
-                                            }}
-                                            onMouseEnter={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                                            onMouseLeave={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #b0bec5)'; } }}
-                                        >
-                                            <svg width="50" height="6" viewBox="0 0 50 6"><line x1="0" y1="3" x2="50" y2="3" stroke="currentColor" strokeWidth="2" strokeDasharray={dash} strokeLinecap="round" /></svg>
-                                            <span className="text-[11px] font-medium">{label}</span>
-                                        </button>
-                                    ))}
-                                </div>
+                                <DropdownPortal triggerRef={strokeStyleRef}>
+                                    <div className="w-40 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-1.5"
+                                        style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                        {([
+                                            { style: 'solid' as StrokeStyle, label: 'Solid', dash: undefined },
+                                            { style: 'dashed' as StrokeStyle, label: 'Dashed', dash: '8 4' },
+                                            { style: 'dotted' as StrokeStyle, label: 'Dotted', dash: '2 4' },
+                                        ]).map(({ style, label, dash }) => (
+                                            <button key={style}
+                                                onClick={() => { onStrokeStyleChange(style); setShowStrokeStyleMenu(false); }}
+                                                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all"
+                                                style={{
+                                                    background: strokeStyle === style ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.1))' : 'transparent',
+                                                    color: strokeStyle === style ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #b0bec5)'
+                                                }}
+                                                onMouseEnter={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                                onMouseLeave={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #b0bec5)'; } }}
+                                            >
+                                                <svg width="50" height="6" viewBox="0 0 50 6"><line x1="0" y1="3" x2="50" y2="3" stroke="currentColor" strokeWidth="2" strokeDasharray={dash} strokeLinecap="round" /></svg>
+                                                <span className="text-[11px] font-medium">{label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </DropdownPortal>
                             )}
                         </div>
                     </>
@@ -613,105 +615,104 @@ export default function Toolbar({
                             </ToolSection>
 
                             {showLineStyleMenu && (
-                                <div className="toolbar-dropdown w-48 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-2 z-[9999] flex flex-col gap-3"
-                                    style={{ ...getDropdownStyle(lineStyleRef), animation: 'fadeIn 150ms ease-out' }}>
+                                <DropdownPortal triggerRef={lineStyleRef}>
+                                    <div className="w-48 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-2 flex flex-col gap-3"
+                                        style={{ animation: 'fadeIn 150ms ease-out' }}>
 
-                                    {/* Line Styles */}
-                                    <div>
-                                        <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Line Style</div>
-                                        <div className="flex gap-1">
-                                            {[
-                                                { type: 'straight', icon: IconStraightLine, title: 'Straight' },
-                                                { type: 'curved', icon: IconCurvedLine, title: 'Curved' },
-                                                { type: 'stepped', icon: IconSteppedLine, title: 'Stepped' },
-                                            ].map((style) => (
-                                                <button key={style.type} title={style.title}
-                                                    onClick={() => onLineTypeChange?.(style.type as any)}
-                                                    className={`flex-1 flex justify-center py-2 rounded-lg transition-all ${lineType === style.type ? 'bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/30' : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white border border-transparent'}`}>
-                                                    <style.icon />
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Arrow Heads */}
-                                    <div>
-                                        <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Arrows</div>
-                                        <div className="flex gap-1">
-                                            {/* Start */}
-                                            <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
-                                                <button onClick={() => onArrowAtStartChange?.(true)} title="Arrow Start"
-                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
-                                                    <IconArrowStart />
-                                                </button>
-                                                <button onClick={() => onArrowAtStartChange?.(false)} title="Line Start"
-                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
-                                                    <IconArrowNone />
-                                                </button>
-                                            </div>
-                                            {/* End */}
-                                            <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
-                                                <button onClick={() => onArrowAtEndChange?.(false)} title="Line End"
-                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
-                                                    <IconArrowNone />
-                                                </button>
-                                                <button onClick={() => onArrowAtEndChange?.(true)} title="Arrow End"
-                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
-                                                    <IconArrowEnd />
-                                                </button>
+                                        {/* Line Styles */}
+                                        <div>
+                                            <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Line Style</div>
+                                            <div className="flex gap-1">
+                                                {[
+                                                    { type: 'straight', icon: IconStraightLine, title: 'Straight' },
+                                                    { type: 'curved', icon: IconCurvedLine, title: 'Curved' },
+                                                    { type: 'stepped', icon: IconSteppedLine, title: 'Stepped' },
+                                                ].map((style) => (
+                                                    <button key={style.type} title={style.title}
+                                                        onClick={() => onLineTypeChange?.(style.type as any)}
+                                                        className={`flex-1 flex justify-center py-2 rounded-lg transition-all ${lineType === style.type ? 'bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/30' : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white border border-transparent'}`}>
+                                                        <style.icon />
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
-                                    </div>
 
-                                </div>
+                                        {/* Arrow Heads */}
+                                        <div>
+                                            <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Arrows</div>
+                                            <div className="flex gap-1">
+                                                {/* Start */}
+                                                <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
+                                                    <button onClick={() => onArrowAtStartChange?.(true)} title="Arrow Start"
+                                                        className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                        <IconArrowStart />
+                                                    </button>
+                                                    <button onClick={() => onArrowAtStartChange?.(false)} title="Line Start"
+                                                        className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                        <IconArrowNone />
+                                                    </button>
+                                                </div>
+                                                {/* End */}
+                                                <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
+                                                    <button onClick={() => onArrowAtEndChange?.(false)} title="Line End"
+                                                        className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                        <IconArrowNone />
+                                                    </button>
+                                                    <button onClick={() => onArrowAtEndChange?.(true)} title="Arrow End"
+                                                        className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                        <IconArrowEnd />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </DropdownPortal>
                             )}
                         </div>
                     </>
                 )}
 
-                <Separator />
-
-                {/* COLOURS */}
                 {!isEraserMode && (
-                    <ToolSection label="Colors">
-                        <div className="flex items-center gap-2 px-1">
-                            {/* Stroke/Fill mode switcher */}
-                            <div className="flex flex-col items-center gap-0.5 cursor-pointer" onClick={() => setActiveColorMode('stroke')} title="Stroke Color">
-                                <div
-                                    className="w-6 h-6 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95"
-                                    style={{
-                                        borderColor: getActiveBorderColor('stroke'),
-                                        opacity: strokeOpacity,
-                                        boxShadow: getActiveBoxShadow('stroke')
-                                    }}
-                                >
-                                    <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
-                                    <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
-                                </div>
-                                <span className={`text-[8px] font-bold uppercase ${activeColorMode === 'stroke' ? 'text-[#3B82F6]' : 'text-gray-500'}`}>S</span>
+                    <>
+                        <Separator />
+                        <ToolSection label="Stroke">
+                            <div
+                                className="w-7 h-7 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                                style={{
+                                    borderColor: activeColorMode === 'stroke' ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                    boxShadow: activeColorMode === 'stroke' ? '0 0 0 2px #3B82F6' : 'none',
+                                }}
+                                onClick={() => setActiveColorMode('stroke')}
+                                title="Stroke Color"
+                            >
+                                <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
+                                <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                             </div>
-                            <div className="flex flex-col items-center gap-0.5 cursor-pointer" onClick={() => setActiveColorMode('fill')} title="Fill Color">
-                                <div
-                                    className="w-6 h-6 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95"
-                                    style={{
-                                        borderColor: getActiveBorderColor('fill'),
-                                        opacity: fillOpacity,
-                                        boxShadow: getActiveBoxShadow('fill')
-                                    }}
-                                >
-                                    {fillColor === 'transparent' ? (
-                                        <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
-                                            <Slash size={10} strokeWidth={2} />
-                                        </div>
-                                    ) : (
-                                        <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
-                                    )}
-                                    <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
-                                </div>
-                                <span className={`text-[8px] font-bold uppercase ${activeColorMode === 'fill' ? 'text-[#3B82F6]' : 'text-gray-500'}`}>F</span>
+                        </ToolSection>
+                        <Separator />
+                        <ToolSection label="Fill">
+                            <div
+                                className="w-7 h-7 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                                style={{
+                                    borderColor: activeColorMode === 'fill' ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                    boxShadow: activeColorMode === 'fill' ? '0 0 0 2px #3B82F6' : 'none',
+                                }}
+                                onClick={() => setActiveColorMode('fill')}
+                                title="Fill Color"
+                            >
+                                {fillColor === 'transparent' ? (
+                                    <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
+                                        <Slash size={10} strokeWidth={2} />
+                                    </div>
+                                ) : (
+                                    <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: fillColor }} />
+                                )}
+                                <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                             </div>
-
-                            {/* Color dropdown */}
+                        </ToolSection>
+                        <Separator />
+                        <ToolSection label="Colors">
                             <div className="relative" ref={colorMenuRef}>
                                 <button
                                     onClick={() => setShowColorMenu(!showColorMenu)}
@@ -734,39 +735,38 @@ export default function Toolbar({
                                     <ChevronDown size={7} className="absolute -bottom-0.5 -right-0.5 opacity-60" style={{ color: 'var(--ns-toolbar-muted)' }} />
                                 </button>
                                 {showColorMenu && (
-                                    <div className="toolbar-dropdown p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[9999]"
-                                        style={{ ...getDropdownStyle(colorMenuRef), animation: 'fadeIn 150ms ease-out' }}>
-                                        <div className="grid grid-cols-3 gap-1.5">
-                                            {/* No fill */}
-                                            <button
-                                                onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); setShowColorMenu(false); }}
-                                                className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all hover:scale-110 ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#3B82F6] border-transparent' : 'border-gray-600 hover:border-gray-400'}`}
-                                                style={{ background: theme === 'light' ? '#f1f5f9' : '#1a2025' }}
-                                                title="No Fill"
-                                            >
-                                                <Slash size={12} className="text-red-400" />
-                                            </button>
-                                            {/* 8 colors */}
-                                            {DROPDOWN_COLORS.map(c => {
-                                                const isSelected = (activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c);
-                                                return (
-                                                    <button
-                                                        key={c}
-                                                        onClick={() => { activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c); setShowColorMenu(false); }}
-                                                        className={`w-7 h-7 rounded-full border transition-all hover:scale-110 ${isSelected ? 'ring-2 ring-[#3B82F6] border-transparent' : 'border-gray-700/50 hover:border-white'}`}
-                                                        style={{ background: c }}
-                                                        title={c}
-                                                    />
-                                                );
-                                            })}
+                                    <DropdownPortal triggerRef={colorMenuRef}>
+                                        <div className="p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                                            style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                <button
+                                                    onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); setShowColorMenu(false); }}
+                                                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all hover:scale-110 ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#3B82F6] border-transparent' : 'border-gray-600 hover:border-gray-400'}`}
+                                                    style={{ background: theme === 'light' ? '#f1f5f9' : '#1a2025' }}
+                                                    title="No Fill"
+                                                >
+                                                    <Slash size={12} className="text-red-400" />
+                                                </button>
+                                                {DROPDOWN_COLORS.map(c => {
+                                                    const isSelected = (activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c);
+                                                    return (
+                                                        <button
+                                                            key={c}
+                                                            onClick={() => { activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c); setShowColorMenu(false); }}
+                                                            className={`w-7 h-7 rounded-full border transition-all hover:scale-110 ${isSelected ? 'ring-2 ring-[#3B82F6] border-transparent' : 'border-gray-700/50 hover:border-white'}`}
+                                                            style={{ background: c }}
+                                                            title={c}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
+                                    </DropdownPortal>
                                 )}
                             </div>
-                        </div>
-                    </ToolSection>
-                )
-                }
+                        </ToolSection>
+                    </>
+                )}
 
                 {/* WIDTH & RADIUS */}
                 {
@@ -848,8 +848,9 @@ export default function Toolbar({
                         </button>
 
                         {showGridMenu && (
-                            <div className="toolbar-dropdown w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] z-[9999] overflow-hidden transition-colors"
-                                style={{ ...getDropdownStyle(gridMenuRef, 12), animation: 'fadeIn 150ms ease-out', background: 'var(--ns-panel-bg, #151a1f)', border: '1px solid var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
+                            <DropdownPortal triggerRef={gridMenuRef} offsetY={12}>
+                            <div className="w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden transition-colors"
+                                style={{ animation: 'fadeIn 150ms ease-out', background: 'var(--ns-panel-bg, #151a1f)', border: '1px solid var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
 
                                 <div className="px-3 py-2 flex justify-between items-center transition-colors border-b" style={{ background: 'var(--ns-toolbar-hover, #1e262d)', borderColor: 'var(--ns-separator, #2a333b)' }}>
                                     <span className="text-[11px] font-bold" style={{ color: 'var(--ns-toolbar-text, #dde3e8)' }}>Grid Options</span>
@@ -964,6 +965,7 @@ export default function Toolbar({
 
                                 </div>
                             </div>
+                            </DropdownPortal>
                         )}
                     </div>
                 </ToolSection>

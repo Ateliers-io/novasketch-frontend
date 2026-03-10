@@ -1356,6 +1356,13 @@ export default function Whiteboard({
           (frame as any).assignedUserIds?.includes(user?.id || '');
         if (hasAccess) {
           setActiveFrameId(frame.id);
+          // Clear the frame's own selection so the bounding box disappears.
+          // Without this, the next click inside the frame would hit the
+          // selection bounding box check in handlePointerDown and enter drag
+          // mode instead of calling findElementAtPoint to select the child.
+          setSelectedShapeIds(new Set());
+          setSelectedLineIds(new Set());
+          setSelectedTextIds(new Set());
           // Also check if a text child is directly under the cursor so we can
           // open it for editing in the same gesture (avoids requiring a second double-click).
           const frameRelX = x - frame.position.x;

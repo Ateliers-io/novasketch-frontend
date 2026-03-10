@@ -1733,6 +1733,30 @@ export default function Whiteboard({
           setSelectedShapeIds(clickedItem.type === 'shape' ? new Set([clickedItem.id]) : new Set());
           setSelectedLineIds(clickedItem.type === 'line' ? new Set([clickedItem.id]) : new Set());
           setSelectedTextIds(clickedItem.type === 'text' ? new Set([clickedItem.id]) : new Set());
+          // When inside an active frame, immediately arm drag so the user can
+          // click-hold-drag the child element in a single gesture.
+          if (activeFrameId) {
+            setIsDraggingSelection(true);
+            lastPointerPosRef.current = { x, y };
+            dragStartRef.current = { x, y };
+            setInitialDragState({
+              shapes: new Map(
+                clickedItem.type === 'shape'
+                  ? shapes.filter(s => s.id === clickedItem.id).map(s => [s.id, s] as [string, Shape])
+                  : []
+              ),
+              lines: new Map(
+                clickedItem.type === 'line'
+                  ? lines.filter(l => l.id === clickedItem.id).map(l => [l.id, l] as [string, StrokeLine])
+                  : []
+              ),
+              texts: new Map(
+                clickedItem.type === 'text'
+                  ? textAnnotations.filter(t => t.id === clickedItem.id).map(t => [t.id, t] as [string, TextAnnotation])
+                  : []
+              ),
+            });
+          }
         }
       } else {
         // Clicked on empty space: start marquee selection
@@ -1746,7 +1770,6 @@ export default function Whiteboard({
       return;
     }
 
-    // ... (Rest of tools)
     // B. TEXT TOOL
     if (activeTool === 'text') {
       // Start new text input
@@ -1926,14 +1949,14 @@ export default function Whiteboard({
     const { x, y } = getPointerPos(e);
     setCursorPos({ x, y });
 
-    // Task 3.1.2: Throttle cursor broadcast to every 50ms (~20 updates/sec)
+    // Throttle cursor broadcast to every 50ms (~20 updates/sec)
     const now = Date.now();
     if (now - lastCursorBroadcastRef.current > 50) {
       updateCursorPosition(x, y);
       lastCursorBroadcastRef.current = now;
     }
 
-    // Task 4.2.4: Hover detection
+    // Hover detection
     if (activeTool === 'select' && !isDraggingSelection && !isDrawing) {
       let hovering = false;
       if (selectionBoundingBox && isPointInBoundingBox({ x, y }, selectionBoundingBox)) {
@@ -1944,7 +1967,7 @@ export default function Whiteboard({
       setIsHoveringSelection(false);
     }
 
-    // Task 4.3: Handle Rotation Logic
+    // Handle Rotation Logic
     if (isRotating && selectionCenter && (initialShapeRotations.size > 0 || initialShapePoints.size > 0)) {
       const { x: centerX, y: centerY } = selectionCenter;
 
@@ -2102,9 +2125,12 @@ export default function Whiteboard({
     if (isEditingArrowEnd) {
       setShapes(prev => prev.map(s => {
         if (s.id === isEditingArrowEnd.id && (isArrow(s) || isLine(s))) {
+          const parentFrame = s.parentId ? shapesRef.current.find(sh => sh.id === s.parentId) : null;
+          const localX = parentFrame ? x - (parentFrame as any).position.x : x;
+          const localY = parentFrame ? y - (parentFrame as any).position.y : y;
           return {
             ...s,
-            [isEditingArrowEnd.end === 'start' ? 'startPoint' : 'endPoint']: { x, y }
+            [isEditingArrowEnd.end === 'start' ? 'startPoint' : 'endPoint']: { x: localX, y: localY }
           };
         }
         return s;
@@ -2115,9 +2141,12 @@ export default function Whiteboard({
     if (isBendingArrow) {
       setShapes(prev => prev.map(s => {
         if (s.id === isBendingArrow && (isArrow(s) || isLine(s))) {
+          const parentFrame = s.parentId ? shapesRef.current.find(sh => sh.id === s.parentId) : null;
+          const localX = parentFrame ? x - (parentFrame as any).position.x : x;
+          const localY = parentFrame ? y - (parentFrame as any).position.y : y;
           return {
             ...s,
-            controlPoint: { x, y }
+            controlPoint: { x: localX, y: localY }
           } as any;
         }
         return s;
@@ -2125,7 +2154,7 @@ export default function Whiteboard({
       return;
     }
 
-    // Task 2: Handle Resizing Logic
+    // Handle Resizing Logic
     if (isResizing && initialResizeState && resizeHandle) {
       const { box } = initialResizeState;
       let newX = box.x;
@@ -2144,7 +2173,6 @@ export default function Whiteboard({
       let targetX = x;
       let targetY = y;
 
-      // Task 5.5.3: Resize Snapping (Polish)
       if (gridConfig.snapEnabled) {
         const size = gridConfig.size;
         const snapType = gridConfig.snapType || 'all';
@@ -3963,14 +3991,18 @@ export default function Whiteboard({
               y: (ls.startPoint.y + ls.endPoint.y) / 2
             };
 
-            const cpX = stagePos.x + cp.x * stageScale;
-            const cpY = stagePos.y + cp.y * stageScale;
+            const parentFrame = ls.parentId ? shapes.find((s: Shape) => s.id === ls.parentId) : null;
+            const frameOffsetX = parentFrame ? (parentFrame as any).position.x : 0;
+            const frameOffsetY = parentFrame ? (parentFrame as any).position.y : 0;
 
-            const stX = stagePos.x + ls.startPoint.x * stageScale;
-            const stY = stagePos.y + ls.startPoint.y * stageScale;
+            const cpX = stagePos.x + (cp.x + frameOffsetX) * stageScale;
+            const cpY = stagePos.y + (cp.y + frameOffsetY) * stageScale;
 
-            const enX = stagePos.x + ls.endPoint.x * stageScale;
-            const enY = stagePos.y + ls.endPoint.y * stageScale;
+            const stX = stagePos.x + (ls.startPoint.x + frameOffsetX) * stageScale;
+            const stY = stagePos.y + (ls.startPoint.y + frameOffsetY) * stageScale;
+
+            const enX = stagePos.x + (ls.endPoint.x + frameOffsetX) * stageScale;
+            const enY = stagePos.y + (ls.endPoint.y + frameOffsetY) * stageScale;
 
             return (
               <svg className="absolute inset-0 z-40 pointer-events-none overflow-visible" width={dimensions.width} height={dimensions.height}>

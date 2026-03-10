@@ -9,25 +9,32 @@ export function getBrushProperties(brush: BrushType, size: number, color: string
             // Standard round cap for consistent, smooth strokes.
             return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
         case BrushType.CALLIGRAPHY:
-            return { lineCap: 'butt', lineJoin: 'miter', tension: 0, opacity: 1, strokeWidth: size * 2 };
+            // Actual rendering: angle-based variable-width polygon via sceneFunc in <Stroke />.
+            // strokeWidth stored for data consistency; sceneFunc derives min/max width from it.
+            return { lineCap: 'butt', lineJoin: 'miter', tension: 0, opacity: 1, strokeWidth: size * 3 };
         case BrushType.CALLIGRAPHY_PEN:
-            return { lineCap: 'square', lineJoin: 'bevel', tension: 0, opacity: 1, strokeWidth: size, globalCompositeOperation: 'source-over' };
+            // Thinner nib variant of calligraphy; also rendered with sceneFunc in <Stroke />.
+            return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 1, strokeWidth: size * 1.2 };
         case BrushType.AIRBRUSH:
-            // Simulates spray paint using shadowBlur.
-            // Note: Heavy GPU usage due to shadow calculations; performance may degrade with many active strokes.
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.5, strokeWidth: size * 1.5, shadowBlur: 10, shadowColor: color };
+            // Actual rendering: scatter-dot spray via sceneFunc in <Stroke />.
+            // strokeWidth drives the spray radius; opacity controls dot density.
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.4, strokeWidth: size * 2.5 };
         case BrushType.OIL_BRUSH:
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.4, opacity: 0.85, strokeWidth: size * 1.8, shadowBlur: 6, shadowColor: color };
+            // Actual rendering: layered semi-transparent Lines via Group in <Stroke />.
+            // No shadowBlur. oil paint is opaque and matte, not glowing.
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.9, strokeWidth: size * 2 };
         case BrushType.CRAYON:
-            // Simulates texture using a dash array, which is significantly more performant than pattern fills.
-            return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 0.75, strokeWidth: size * 1.1, dash: [4, 6] };
+            // Actual rendering: multi-layer textured Lines via Group in <Stroke />.
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.2, opacity: 0.8, strokeWidth: size * 1.5 };
         case BrushType.MARKER:
-            // Uses 'lighter' globalCompositeOperation for additive blending, creating a neon glow effect on overlapping strokes.
-            return { lineCap: 'square', lineJoin: 'miter', tension: 0.2, opacity: 0.4, strokeWidth: size * 3, globalCompositeOperation: 'source-over' };
+            // Wide chisel tip: bold, mostly opaque, flat square cap.
+            return { lineCap: 'square', lineJoin: 'miter', tension: 0.1, opacity: 0.85, strokeWidth: size * 4, globalCompositeOperation: 'source-over' };
         case BrushType.NATURAL_PENCIL:
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.7, strokeWidth: Math.max(1, size * 0.7), dash: [1.5, 3] };
+            // Fine graphite: thin, slightly textured via dash.
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.4, opacity: 0.65, strokeWidth: Math.max(1, size * 0.45), dash: [2, 2] };
         case BrushType.WATERCOLOUR:
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.6, opacity: 0.25, strokeWidth: size * 3, shadowBlur: 15, shadowColor: color };
+            // Very wide, very transparent, highly diffuse wash.
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.8, opacity: 0.1, strokeWidth: size * 6, shadowBlur: 30, shadowColor: color };
         case BrushType.MAGIC_PENCIL:
             // Rendered by perfect-freehand in <Stroke /> as a filled variable-width polygon.
             // These Konva Line props are stored in Yjs for data consistency but are not used directly.

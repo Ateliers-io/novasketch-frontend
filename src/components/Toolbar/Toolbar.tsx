@@ -147,25 +147,77 @@ const BrushPreview = ({ brushType }: { brushType: BrushType }) => {
     const getPath = () => {
         switch (brushType) {
             case BrushType.BRUSH:
-                return <path d="M4 20 Q18 5, 50 14 Q70 20, 96 10" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />;
+                // Smooth tapered gesture stroke
+                return <path d="M4 18 C30 4, 62 22, 96 8" stroke="currentColor" strokeWidth="3.5" fill="none" strokeLinecap="round" />;
             case BrushType.CALLIGRAPHY:
-                return <path d="M4 18 Q14 5, 28 13 Q42 22, 58 8 Q74 2, 96 12" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="butt" />;
+                // Three segments: thick downstroke -> thin upstroke -> thick downstroke
+                return <g>
+                    <path d="M4 7 Q22 22, 42 14" stroke="currentColor" strokeWidth="7" fill="none" strokeLinecap="round" />
+                    <path d="M42 14 Q62 6, 72 9" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                    <path d="M72 9 Q84 17, 96 20" stroke="currentColor" strokeWidth="6" fill="none" strokeLinecap="round" />
+                </g>;
             case BrushType.CALLIGRAPHY_PEN:
-                return <path d="M4 18 Q22 6, 48 14 Q68 20, 96 8" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="square" />;
+                // Flat square nib: thin on diagonal runs, thick on perpendicular
+                return <g>
+                    <path d="M4 20 Q22 8, 40 10" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="square" />
+                    <path d="M40 10 Q56 12, 62 20" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="square" />
+                    <path d="M62 20 Q80 8, 96 8" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="square" />
+                </g>;
             case BrushType.AIRBRUSH:
-                return <g>{Array.from({ length: 25 }, (_, i) => <circle key={i} cx={8 + Math.sin(i * 1.3) * 35 + 40} cy={4 + Math.cos(i * 0.9) * 10 + 10} r={0.6 + (i % 3) * 0.6} fill="currentColor" opacity={0.25} />)}</g>;
+                // Soft spray: scattered particles spread along a diagonal path
+                return <g>{[
+                    [10,14,1.4,0.5],[13,9,0.9,0.35],[16,16,1.1,0.4],[21,11,1.7,0.45],[24,7,0.7,0.3],
+                    [28,15,1.3,0.5],[32,10,0.9,0.4],[35,17,1.1,0.35],[39,12,1.5,0.45],[42,8,0.7,0.35],
+                    [46,14,1.2,0.5],[49,10,1.7,0.4],[52,16,0.9,0.3],[56,9,1.3,0.45],[59,13,0.7,0.4],
+                    [63,8,1.4,0.35],[66,15,0.9,0.5],[70,11,1.1,0.4],[73,17,1.5,0.35],[77,9,0.7,0.45],
+                    [80,13,1.2,0.5],[84,8,0.9,0.4],[87,15,1.4,0.35],[91,11,1.1,0.45],[94,14,0.7,0.3],
+                ].map(([cx, cy, r, op], i) => <circle key={i} cx={cx} cy={cy} r={r} fill="currentColor" opacity={op} />)}</g>;
             case BrushType.OIL_BRUSH:
-                return <path d="M4 15 Q18 6, 38 14 Q55 20, 70 10 Q84 4, 96 12" stroke="currentColor" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.85" />;
+                // Heavy layered bristle strokes giving thick oil-paint body
+                return <g>
+                    <path d="M4 10 C40 18, 60 6, 96 13" stroke="currentColor" strokeWidth="9" fill="none" strokeLinecap="round" opacity="0.2" />
+                    <path d="M4 11 C40 19, 60 7, 96 14" stroke="currentColor" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.4" />
+                    <path d="M4 12 C40 20, 60 8, 96 15" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.85" />
+                    <path d="M4 11 C40 19, 60 7, 96 14" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.5" />
+                </g>;
             case BrushType.CRAYON:
-                return <path d="M4 15 Q14 9, 28 14 Q40 18, 52 12 Q64 6, 78 14 Q90 19, 96 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" strokeDasharray="3 1" opacity="0.7" />;
+                // Rough waxy texture: broken parallel strokes with dash gaps
+                return <g>
+                    <path d="M4 11 Q28 8, 50 13 Q72 18, 96 13" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="9 1.5" opacity="0.55" />
+                    <path d="M4 14 Q28 11, 50 16 Q72 21, 96 16" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeDasharray="7 2.5" opacity="0.5" />
+                    <path d="M5 9 Q28 6, 50 11 Q72 16, 95 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeDasharray="5 4" opacity="0.35" />
+                </g>;
             case BrushType.MARKER:
-                return <path d="M4 14 Q28 7, 50 14 Q78 21, 96 11" stroke="currentColor" strokeWidth="7" fill="none" strokeLinecap="square" opacity="0.55" />;
+                // Wide chisel-tip: very thick semi-transparent band + crisp edge line
+                return <g>
+                    <path d="M4 13 C32 9, 62 17, 96 13" stroke="currentColor" strokeWidth="13" fill="none" strokeLinecap="square" opacity="0.25" />
+                    <path d="M4 13 C32 9, 62 17, 96 13" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="square" opacity="0.75" />
+                </g>;
             case BrushType.NATURAL_PENCIL:
-                return <path d="M4 18 Q18 8, 38 14 Q58 20, 78 10 Q90 6, 96 12" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.9" />;
+                // Very thin delicate line with a faint graphite grain shadow
+                return <g>
+                    <path d="M4 15 C20 11, 42 17, 60 13 C76 9, 86 15, 96 12" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.85" />
+                    <path d="M5 17 C22 13, 44 19, 62 15 C78 11, 88 17, 96 14" stroke="currentColor" strokeWidth="0.5" fill="none" strokeLinecap="round" opacity="0.35" />
+                </g>;
             case BrushType.WATERCOLOUR:
-                return <path d="M4 14 Q22 4, 48 14 Q74 24, 96 10" stroke="currentColor" strokeWidth="8" fill="none" strokeLinecap="round" opacity="0.25" />;
+                // Soft wide transparent wash: multiple overlapping layers
+                return <g>
+                    <path d="M4 13 C32 3, 65 23, 96 13" stroke="currentColor" strokeWidth="18" fill="none" strokeLinecap="round" opacity="0.07" />
+                    <path d="M6 13 C32 5, 65 21, 94 13" stroke="currentColor" strokeWidth="11" fill="none" strokeLinecap="round" opacity="0.1" />
+                    <path d="M8 13 C32 7, 65 19, 92 13" stroke="currentColor" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.16" />
+                    <path d="M10 13 C34 9, 65 17, 90 13" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.45" />
+                </g>;
             case BrushType.MAGIC_PENCIL:
-                return <path d="M4 14 Q22 4, 48 14 Q74 24, 96 10" stroke="none" fill="currentColor" opacity="1" />;
+                // Glittery trail: thin path with star/cross sparkles along it
+                return <g>
+                    <path d="M4 14 C30 6, 65 22, 96 12" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.8" />
+                    {[[20, 8], [35, 18], [50, 8], [65, 18], [80, 8]].map(([cx, cy], i) => (
+                        <g key={i} opacity={0.65}>
+                            <line x1={cx} y1={cy - 3} x2={cx} y2={cy + 3} stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                        </g>
+                    ))}
+                </g>;
         }
     };
     return <svg width="100" height="26" viewBox="0 0 100 26" className="flex-shrink-0">{getPath()}</svg>;

@@ -42,6 +42,11 @@ interface SVGShapeRendererProps {
      * This anchor should be rendered with a glowing turquoise ring.
      */
     snapTargetAnchor?: { shapeId: string; anchorType: AnchorType } | null;
+    /**
+     * ID of the frame currently in edit mode (entered via double-click).
+     * The active frame gets a visual highlight ring so users can see they are inside it.
+     */
+    activeFrameId?: string | null;
 }
 
 // --- CONSTANTS ---
@@ -324,11 +329,13 @@ const SVGTriangle = ({ shape, isSelected, onClick }: { shape: TriangleShape; isS
 const SVGFrame = ({
     shape,
     isSelected,
+    isActiveEditFrame,
     onClick,
     children
 }: {
     shape: FrameShape;
     isSelected?: boolean;
+    isActiveEditFrame?: boolean;
     onClick?: (e: React.MouseEvent) => void;
     children?: React.ReactNode;
 }) => (
@@ -370,6 +377,20 @@ const SVGFrame = ({
                 {shape.name || 'FRAME'}
             </text>
         </g>
+        {/* Edit-mode highlight ring shown when this frame is actively entered */}
+        {isActiveEditFrame && (
+            <rect
+                width={shape.width}
+                height={shape.height}
+                fill="none"
+                stroke={NEON_TURQUOISE}
+                strokeWidth={2}
+                strokeDasharray="6,3"
+                opacity={0.75}
+                className="svg-frame-active-ring"
+                style={{ pointerEvents: 'none' }}
+            />
+        )}
         <g className="frame-children">
             {children}
         </g>
@@ -524,6 +545,7 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
     transform = { x: 0, y: 0, scale: 1 },
     anchorOverlays = [],
     snapTargetAnchor,
+    activeFrameId,
 }) => {
     const sortedShapes = useMemo(() =>
         [...shapes].sort((a, b) => a.zIndex - b.zIndex),
@@ -597,7 +619,13 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                         if (isFrame(shape)) {
                             const children = sortedShapes.filter(s => s.parentId === shape.id);
                             return (
-                                <SVGFrame key={shape.id} shape={shape} isSelected={isSelected} onClick={clickHandler}>
+                                <SVGFrame
+                                    key={shape.id}
+                                    shape={shape}
+                                    isSelected={isSelected}
+                                    isActiveEditFrame={activeFrameId === shape.id}
+                                    onClick={clickHandler}
+                                >
                                     {children.map(child => renderShape(child))}
                                 </SVGFrame>
                             );

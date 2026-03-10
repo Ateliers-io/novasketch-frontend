@@ -110,13 +110,21 @@ function getEllipseBoundingBox(shape: EllipseShape): BoundingBox {
  * Calculates the bounding box for a Line shape
  */
 function getLineBoundingBox(shape: LineShape): BoundingBox {
-    const { startPoint, endPoint, style } = shape;
+    const { startPoint, endPoint, style, controlPoint, lineType } = shape;
     const padding = (style?.strokeWidth || 0) / 2;
+    const xs = [startPoint.x, endPoint.x];
+    const ys = [startPoint.y, endPoint.y];
+    // Include the user-draggable control point in the bounds whenever the line
+    // is curved or stepped — it defines where the curve/elbow actually passes.
+    if (lineType !== 'straight' && controlPoint) {
+        xs.push(controlPoint.x);
+        ys.push(controlPoint.y);
+    }
     return createBoundingBox(
-        Math.min(startPoint.x, endPoint.x) - padding,
-        Math.min(startPoint.y, endPoint.y) - padding,
-        Math.max(startPoint.x, endPoint.x) + padding,
-        Math.max(startPoint.y, endPoint.y) + padding
+        Math.min(...xs) - padding,
+        Math.min(...ys) - padding,
+        Math.max(...xs) + padding,
+        Math.max(...ys) + padding
     );
 }
 
@@ -124,21 +132,24 @@ function getLineBoundingBox(shape: LineShape): BoundingBox {
  * Calculates the bounding box for an Arrow shape
  */
 function getArrowBoundingBox(shape: ArrowShape): BoundingBox {
-    const { startPoint, endPoint, arrowSize, style } = shape;
+    const { startPoint, endPoint, arrowSize, style, controlPoint, lineType } = shape;
     // Include arrow head size in the bounding box calculation
     // Also include stroke width
     const strokePadding = (style?.strokeWidth || 0) / 2;
     const padding = (arrowSize || 10) + strokePadding;
-    const minX = Math.min(startPoint.x, endPoint.x, shape.controlPoint?.x ?? startPoint.x);
-    const minY = Math.min(startPoint.y, endPoint.y, shape.controlPoint?.y ?? startPoint.y);
-    const maxX = Math.max(startPoint.x, endPoint.x, shape.controlPoint?.x ?? startPoint.x);
-    const maxY = Math.max(startPoint.y, endPoint.y, shape.controlPoint?.y ?? startPoint.y);
-
+    const xs = [startPoint.x, endPoint.x];
+    const ys = [startPoint.y, endPoint.y];
+    // Only fold the control point into the bounds when the line is curved/stepped.
+    // Straight lines ignore the control point entirely during rendering.
+    if (lineType !== 'straight' && controlPoint) {
+        xs.push(controlPoint.x);
+        ys.push(controlPoint.y);
+    }
     return createBoundingBox(
-        minX - padding,
-        minY - padding,
-        maxX + padding,
-        maxY + padding
+        Math.min(...xs) - padding,
+        Math.min(...ys) - padding,
+        Math.max(...xs) + padding,
+        Math.max(...ys) + padding
     );
 }
 
@@ -246,16 +257,24 @@ export function getShapeGeometryBoundingBox(shape: Shape): BoundingBox {
         }
         case ShapeType.LINE: {
             const s = shape as LineShape;
-            return createBoundingBox(Math.min(s.startPoint.x, s.endPoint.x), Math.min(s.startPoint.y, s.endPoint.y), Math.max(s.startPoint.x, s.endPoint.x), Math.max(s.startPoint.y, s.endPoint.y));
+            const lxs = [s.startPoint.x, s.endPoint.x];
+            const lys = [s.startPoint.y, s.endPoint.y];
+            if (s.lineType !== 'straight' && s.controlPoint) {
+                lxs.push(s.controlPoint.x);
+                lys.push(s.controlPoint.y);
+            }
+            return createBoundingBox(Math.min(...lxs), Math.min(...lys), Math.max(...lxs), Math.max(...lys));
         }
         case ShapeType.ARROW: {
             const s = shape as ArrowShape;
             const pad = s.arrowSize || 10;
-            const minX = Math.min(s.startPoint.x, s.endPoint.x, s.controlPoint?.x ?? s.startPoint.x);
-            const minY = Math.min(s.startPoint.y, s.endPoint.y, s.controlPoint?.y ?? s.startPoint.y);
-            const maxX = Math.max(s.startPoint.x, s.endPoint.x, s.controlPoint?.x ?? s.startPoint.x);
-            const maxY = Math.max(s.startPoint.y, s.endPoint.y, s.controlPoint?.y ?? s.startPoint.y);
-            return createBoundingBox(minX - pad, minY - pad, maxX + pad, maxY + pad);
+            const axs = [s.startPoint.x, s.endPoint.x];
+            const ays = [s.startPoint.y, s.endPoint.y];
+            if (s.lineType !== 'straight' && s.controlPoint) {
+                axs.push(s.controlPoint.x);
+                ays.push(s.controlPoint.y);
+            }
+            return createBoundingBox(Math.min(...axs) - pad, Math.min(...ays) - pad, Math.max(...axs) + pad, Math.max(...ays) + pad);
         }
         case ShapeType.TRIANGLE: {
             const s = shape as TriangleShape;

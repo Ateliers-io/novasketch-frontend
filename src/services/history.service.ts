@@ -15,15 +15,11 @@ export interface HistorySnapshot {
 
 /**
  * Fetch all timeline snapshots for a session, sorted ascending by time.
+ * Throws on failure so callers can surface error details to the user.
  */
 export async function getSessionHistory(sessionId: string): Promise<HistorySnapshot[]> {
-    try {
-        const res = await api.get(`/history/${sessionId}`);
-        return res.data;
-    } catch (err) {
-        console.error('[HistoryService] Failed to fetch history:', err);
-        return [];
-    }
+    const res = await api.get(`/history/${sessionId}`);
+    return res.data;
 }
 
 /**

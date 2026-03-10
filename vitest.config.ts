@@ -22,6 +22,8 @@
                     '**/*.d.ts',
                     '**/*.config.*',
                     '**/index.ts',
+                    '**/*.example.ts',
+                    '**/*.test.manual.ts',
                 ],
             },
         },

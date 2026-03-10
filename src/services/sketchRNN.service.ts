@@ -38,7 +38,7 @@ function fallbackCompletion(
     
     const dx = lastPoint.x - secondLastPoint.x;
     const dy = lastPoint.y - secondLastPoint.y;
-    const magnitude = Math.sqrt(dx * dx + dy * dy);
+    const magnitude = Math.hypot(dx, dy);
     
     if (magnitude === 0) return inputPoints;
 
@@ -79,7 +79,7 @@ export async function completeSketch(
     }
 
     // If no model loaded, fall back to simple interpolation
-    if (!currentModel || !currentModel.isInitialized()) {
+    if (!currentModel?.isInitialized()) {
         console.warn('[SketchRNN] No model loaded, using fallback interpolation');
         return fallbackCompletion(inputPoints, { temperature, numPoints });
     }
@@ -101,7 +101,6 @@ export async function completeSketch(
         
         // Generate new points
         const generatedDeltas: number[][] = [];
-        let prevPoint = inputPoints[inputPoints.length - 1];
         
         for (let i = 0; i < numPoints; i++) {
             try {
@@ -109,7 +108,7 @@ export async function completeSketch(
                 const sample = currentModel.sample(pdf);
                 
                 if (!sample || sample.length < 3) break;
-                if (isNaN(sample[0]) || isNaN(sample[1])) break;
+                if (Number.isNaN(sample[0]) || Number.isNaN(sample[1])) break;
                 
                 generatedDeltas.push([sample[0], sample[1], sample[2]]);
                 state = currentModel.update(sample, state);
@@ -118,6 +117,7 @@ export async function completeSketch(
                 // Pen-up (sample[2] > 0.9) means the model thinks the stroke is done
                 if (i > 5 && sample[2] > 0.9) break;
             } catch (err) {
+                console.warn('[SketchRNN] Generation step failed:', err);
                 break;
             }
         }

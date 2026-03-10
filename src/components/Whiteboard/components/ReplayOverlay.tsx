@@ -1,5 +1,5 @@
 /**
- * ReplayOverlay — Full-screen timeline replay UI.
+ * ReplayOverlay: Full-screen timeline replay UI.
  *
  * Shows a read-only canvas view with a timeline slider to scrub
  * through historical board snapshots. Supports play/pause, speed
@@ -125,7 +125,7 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
     }, [onApplyToLive, onClose]);
 
     // --- Video Export ---
-    const handleExportVideo = useCallback(() => {
+    const handleExportVideo = useCallback(async () => {
         const engine = engineRef.current;
         const area = canvasAreaRef.current;
         if (!engine || !area || totalSnapshots === 0) return;
@@ -142,20 +142,27 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         if (!ctx) return;
 
         const stream = offscreen.captureStream(30);
-        const recorder = new MediaRecorder(stream, {
-            mimeType: 'video/webm;codecs=vp9',
-        });
+
+        // Try MP4 first, fall back to WebM
+        let mimeType = 'video/webm;codecs=vp9';
+        let extension = 'webm';
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4')) {
+            mimeType = 'video/mp4';
+            extension = 'mp4';
+        }
+
+        const recorder = new MediaRecorder(stream, { mimeType });
 
         recordedChunksRef.current = [];
         recorder.ondataavailable = (e) => {
             if (e.data.size > 0) recordedChunksRef.current.push(e.data);
         };
         recorder.onstop = () => {
-            const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+            const blob = new Blob(recordedChunksRef.current, { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `novasketch-replay-${sessionId}.webm`;
+            a.download = `novasketch-replay-${sessionId}.${extension}`;
             a.click();
             URL.revokeObjectURL(url);
             setIsRecording(false);
@@ -165,58 +172,38 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         recorder.start();
         setIsRecording(true);
 
-        // Render each frame by serializing the SVG to the offscreen canvas
-        engine.seekTo(0);
+        // Render each snapshot synchronously to ensure no blank frames
+        for (let i = 0; i < totalSnapshots; i++) {
+            const state = engine.seekTo(i);
+            setReplayState(state);
+            setCurrentIndex(i);
 
-        const renderFrame = (bgColor: string) => {
+            // Wait for React to render the SVG DOM update
+            await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+            // Serialize current SVG to an image and draw to offscreen canvas
             const svgData = new XMLSerializer().serializeToString(svgEl);
             const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
             const imgUrl = URL.createObjectURL(svgBlob);
+
             const img = new Image();
-            img.onload = () => {
-                ctx.fillStyle = bgColor;
-                ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-                ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
-                URL.revokeObjectURL(imgUrl);
-            };
             img.src = imgUrl;
-        };
+            await img.decode();
 
-        // Override engine callbacks temporarily to also render frames to the offscreen canvas
-        engine.onUpdate({
-            onStateChange: (state: ReplayState) => {
-                setReplayState(state);
-                setTimeout(() => renderFrame(state.bgColor || '#0B0C10'), 50);
-            },
-            onIndexChange: (idx, total) => {
-                setCurrentIndex(idx);
-                setTotalSnapshots(total);
-            },
-            onPlayStateChange: (playing) => {
-                setIsPlaying(playing);
-                if (!playing) {
-                    // Restore normal interactive callbacks
-                    engine.onUpdate({
-                        onStateChange: setReplayState,
-                        onIndexChange: (idx: number, total: number) => {
-                            setCurrentIndex(idx);
-                            setTotalSnapshots(total);
-                        },
-                        onPlayStateChange: (isNowPlaying: boolean) => {
-                            setIsPlaying(isNowPlaying);
-                            if (!isNowPlaying && mediaRecorderRef.current?.state === 'recording') {
-                                mediaRecorderRef.current.stop();
-                            }
-                        },
-                    });
-                    if (recorder.state === 'recording') {
-                        setTimeout(() => recorder.stop(), 200);
-                    }
-                }
-            },
-        });
+            ctx.fillStyle = state?.bgColor || '#0B0C10';
+            ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+            ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
+            URL.revokeObjectURL(imgUrl);
 
-        engine.play();
+            // Hold frame long enough for captureStream to capture (~3 frames at 30fps)
+            await new Promise(r => setTimeout(r, 100));
+        }
+
+        // Allow final frame to be fully captured before stopping
+        await new Promise(r => setTimeout(r, 300));
+        if (recorder.state === 'recording') {
+            recorder.stop();
+        }
     }, [totalSnapshots, sessionId]);
 
     // --- Timestamp formatting ---

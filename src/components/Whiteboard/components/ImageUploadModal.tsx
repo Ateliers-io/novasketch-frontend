@@ -161,8 +161,8 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-[#66FCF1]/10 border border-[#66FCF1]/20">
-                            <ImageIcon size={18} className="text-[#66FCF1]" />
+                        <div className="p-2 rounded-lg bg-[#3B82F6]/10 border border-[#3B82F6]/20">
+                            <ImageIcon size={18} className="text-[#3B82F6]" />
                         </div>
                         <div>
                             <h2 className="text-base font-bold text-white">Insert Image</h2>
@@ -182,7 +182,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                     <button
                         onClick={() => { setActiveTab('upload'); setError(''); }}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'upload'
-                                ? 'bg-[#66FCF1]/15 text-[#66FCF1] border border-[#66FCF1]/30'
+                                ? 'bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/30'
                                 : 'text-[#8b9bb4] hover:text-white hover:bg-white/5 border border-transparent'
                             }`}
                     >
@@ -191,7 +191,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                     <button
                         onClick={() => { setActiveTab('url'); setError(''); }}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'url'
-                                ? 'bg-[#66FCF1]/15 text-[#66FCF1] border border-[#66FCF1]/30'
+                                ? 'bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/30'
                                 : 'text-[#8b9bb4] hover:text-white hover:bg-white/5 border border-transparent'
                             }`}
                     >
@@ -208,19 +208,19 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                             onDragLeave={handleDragLeave}
                             onClick={() => fileInputRef.current?.click()}
                             className={`relative flex flex-col items-center justify-center py-12 rounded-xl border-2 border-dashed cursor-pointer transition-all ${dragOver
-                                    ? 'border-[#66FCF1] bg-[#66FCF1]/10'
-                                    : 'border-white/20 hover:border-[#66FCF1]/50 hover:bg-white/5'
+                                    ? 'border-[#3B82F6] bg-[#3B82F6]/10'
+                                    : 'border-white/20 hover:border-[#3B82F6]/50 hover:bg-white/5'
                                 }`}
                         >
                             {isLoading ? (
-                                <Loader2 size={32} className="text-[#66FCF1] animate-spin" />
+                                <Loader2 size={32} className="text-[#3B82F6] animate-spin" />
                             ) : (
                                 <>
                                     <div className="w-14 h-14 rounded-full bg-[#1F2833] border border-white/10 flex items-center justify-center mb-4">
-                                        <Upload size={24} className="text-[#66FCF1]" />
+                                        <Upload size={24} className="text-[#3B82F6]" />
                                     </div>
                                     <p className="text-sm font-medium text-white mb-1">
-                                        Drop your image here or <span className="text-[#66FCF1]">browse</span>
+                                        Drop your image here or <span className="text-[#3B82F6]">browse</span>
                                     </p>
                                     <p className="text-xs text-[#8b9bb4]">
                                         PNG, JPG, SVG, GIF, WebP — max 10 MB
@@ -248,12 +248,12 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                                         onChange={(e) => setUrlInput(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleUrlInsert()}
                                         placeholder="https://example.com/shape.svg"
-                                        className="flex-1 h-10 bg-[#0B0C10] border border-white/15 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-[#66FCF1] transition-colors placeholder:text-[#5a6d7e]"
+                                        className="flex-1 h-10 bg-[#0B0C10] border border-white/15 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-[#3B82F6] transition-colors placeholder:text-[#5a6d7e]"
                                     />
                                     <button
                                         onClick={handleUrlInsert}
                                         disabled={isLoading || !urlInput.trim()}
-                                        className="h-10 px-5 bg-[#66FCF1] hover:bg-[#45A29E] text-black font-bold text-sm rounded-lg flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="h-10 px-5 bg-[#3B82F6] hover:bg-[#2563EB] text-black font-bold text-sm rounded-lg flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         {isLoading ? (
                                             <Loader2 size={16} className="animate-spin" />
@@ -265,7 +265,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                             </div>
                             <div className="border border-white/10 rounded-lg p-3 bg-white/5">
                                 <p className="text-xs text-[#8b9bb4]">
-                                    <span className="text-[#66FCF1] font-semibold">Tip:</span>{' '}
+                                    <span className="text-[#3B82F6] font-semibold">Tip:</span>{' '}
                                     You can paste URLs for SVG shapes, icons from sites like Flaticon, or any publicly accessible image URL.
                                 </p>
                             </div>

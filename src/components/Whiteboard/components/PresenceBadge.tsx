@@ -146,7 +146,7 @@ const PresenceBadge: React.FC<PresenceBadgeProps> = ({ users }) => {
                     <div
                         className="px-3 py-2 text-xs font-semibold uppercase tracking-widest"
                         style={{
-                            color: '#66FCF1',
+                            color: '#3B82F6',
                             borderBottom: '1px solid rgba(255,255,255,0.06)',
                         }}
                     >

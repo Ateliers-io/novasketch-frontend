@@ -13,7 +13,7 @@ function getToastStyles(status: string | null, isLight: boolean) {
 
     if (status === 'Image copied!') {
         bg = isLight ? 'rgba(42,157,143,0.12)' : 'rgba(102,252,241,0.12)';
-        color = isLight ? '#2A9D8F' : '#66FCF1';
+        color = isLight ? '#3B82F6' : '#3B82F6';
         border = isLight ? 'rgba(42,157,143,0.2)' : 'rgba(102,252,241,0.2)';
     } else if (status === 'Capturing...') {
         bg = isLight ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.12)';

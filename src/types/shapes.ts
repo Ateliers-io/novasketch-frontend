@@ -406,7 +406,7 @@ export function createFrame(
         style: {
             ...DEFAULT_SHAPE_STYLE,
             fill: 'rgba(255, 255, 255, 0.1)',
-            stroke: '#66FCF1',
+            stroke: '#3B82F6',
             strokeWidth: 1,
             hasFill: true,
         },

@@ -85,7 +85,7 @@ import { useAuth } from '../../contexts';
 import { SessionInfo, toggleSessionLock } from '../../services/session.service';
 
 // magical constants.
-const DEFAULT_STROKE_COLOR = '#66FCF1';
+const DEFAULT_STROKE_COLOR = '#3B82F6';
 
 // Helper functions for capturing the canvas to SVG/PNG
 const calculateContentBounds = (shapes: any[], lines: any[], textAnnotations: any[]) => {
@@ -134,7 +134,7 @@ const calculateContentBounds = (shapes: any[], lines: any[], textAnnotations: an
 
 const generateSvgContent = (shapes: any[], lines: any[], textAnnotations: any[], bg: string, w: number, h: number, offX: number, offY: number) => {
   let svg = `<svg width="${w}" height="${h}" viewBox="${offX} ${offY} ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
-  svg += `<defs><marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#66FCF1"/></marker></defs>`;
+  svg += `<defs><marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#3B82F6"/></marker></defs>`;
   svg += `<rect x="${offX}" y="${offY}" width="${w}" height="${h}" fill="${bg}"/>`;
 
   [...shapes].sort((a, b) => a.zIndex - b.zIndex).forEach(shape => {
@@ -1042,7 +1042,7 @@ export default function Whiteboard({
       if (shape) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setStrokeColor(shape.style.stroke);
-        setFillColor(shape.style.hasFill ? shape.style.fill : '#45A29E');
+        setFillColor(shape.style.hasFill ? shape.style.fill : '#2563EB');
         setBrushSize(shape.style.strokeWidth);
       }
     }
@@ -3419,10 +3419,10 @@ export default function Whiteboard({
         '--ns-toolbar-border': theme === 'light' ? '#E6EAF0' : 'rgba(42,51,59,0.8)',
         '--ns-toolbar-text': theme === 'light' ? '#111827' : '#dde3e8',
         '--ns-toolbar-muted': theme === 'light' ? '#2F3A4A' : '#5a6d7e',
-        '--ns-toolbar-hover': theme === 'light' ? 'rgba(32, 201, 195, 0.1)' : '#262e35',
-        '--ns-toolbar-active-bg': theme === 'light' ? 'rgba(32, 201, 195, 0.1)' : 'rgba(45,212,191,0.15)',
-        '--ns-toolbar-active-text': theme === 'light' ? '#20C9C3' : '#2dd4bf',
-        '--ns-toolbar-active-ring': theme === 'light' ? '#20C9C3' : 'rgba(45,212,191,0.40)',
+        '--ns-toolbar-hover': theme === 'light' ? 'rgba(59, 130, 246, 0.1)' : '#262e35',
+        '--ns-toolbar-active-bg': theme === 'light' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59,130,246,0.15)',
+        '--ns-toolbar-active-text': theme === 'light' ? '#3B82F6' : '#3B82F6',
+        '--ns-toolbar-active-ring': theme === 'light' ? '#3B82F6' : 'rgba(59,130,246,0.40)',
         '--ns-toolbar-shadow': theme === 'light' ? '0 4px 12px rgba(0,0,0,0.05)' : '0 8px 32px rgba(0,0,0,0.5)',
         '--ns-separator': theme === 'light' ? '#E6EAF0' : '#2a333b',
         '--ns-section-label': theme === 'light' ? '#64748b' : '#4a5b6a',
@@ -3430,7 +3430,7 @@ export default function Whiteboard({
         '--ns-panel-bg': theme === 'light' ? 'rgba(255, 255, 255, 0.98)' : 'rgba(11,12,16,0.85)',
         '--ns-panel-border': theme === 'light' ? '#E6EAF0' : 'rgba(255,255,255,0.15)',
         '--ns-panel-shadow': theme === 'light' ? '0 4px 12px rgba(0,0,0,0.05)' : '0 4px 20px rgba(0,0,0,0.5)',
-        '--ns-accent': theme === 'light' ? '#20C9C3' : '#66FCF1',
+        '--ns-accent': theme === 'light' ? '#3B82F6' : '#3B82F6',
         '--ns-accent-dim': theme === 'light' ? '#2ED3C6' : 'rgba(255,255,255,0.7)',
       } as React.CSSProperties}
       onMouseMove={handlePointerMove}
@@ -3444,9 +3444,9 @@ export default function Whiteboard({
 
       {/* Loading Overlay */}
       {isLoadingCanvas && (
-        <div className={`absolute inset-0 z-[200] flex items-center justify-center ${theme === 'light' ? 'bg-[#f0f2f5] text-[#45A29E]' : 'bg-[#0B0C10] text-[#66FCF1]'}`}>
+        <div className={`absolute inset-0 z-[200] flex items-center justify-center ${theme === 'light' ? 'bg-[#f0f2f5] text-[#2563EB]' : 'bg-[#0B0C10] text-[#3B82F6]'}`}>
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-[#1F2833] border-t-[#66FCF1] rounded-full animate-spin"></div>
+            <div className="w-12 h-12 border-4 border-[#1F2833] border-t-[#3B82F6] rounded-full animate-spin"></div>
             <p className="font-medium animate-pulse">Loading your masterpiece...</p>
           </div>
         </div>
@@ -3872,7 +3872,7 @@ export default function Whiteboard({
           <g transform={`translate(${stagePos.x}, ${stagePos.y}) scale(${stageScale})`}>
             <defs>
               <pattern id="marquee-pattern" patternUnits="userSpaceOnUse" width="8" height="8">
-                <path d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" stroke="#2dd4bf" strokeWidth="1" opacity="0.5" />
+                <path d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" stroke="#3B82F6" strokeWidth="1" opacity="0.5" />
               </pattern>
             </defs>
             <rect
@@ -3880,7 +3880,7 @@ export default function Whiteboard({
               y={marqueeRect.y}
               width={marqueeRect.width}
               height={marqueeRect.height}
-              fill="#2dd4bf"
+              fill="#3B82F6"
               fillOpacity={0.08}
             />
             <rect
@@ -3889,7 +3889,7 @@ export default function Whiteboard({
               width={marqueeRect.width}
               height={marqueeRect.height}
               fill="none"
-              stroke="#2dd4bf"
+              stroke="#3B82F6"
               strokeWidth={1}
               strokeDasharray="4,4"
             />
@@ -4012,7 +4012,7 @@ export default function Whiteboard({
                   cy={cpY}
                   r={6}
                   fill="#ffffff"
-                  stroke="#2dd4bf"
+                  stroke="#3B82F6"
                   strokeWidth={2}
                   style={{ pointerEvents: 'auto', cursor: 'grab' }}
                   data-bend-handle={ls.id}
@@ -4022,7 +4022,7 @@ export default function Whiteboard({
                   cx={stX}
                   cy={stY}
                   r={6}
-                  fill="#2dd4bf"
+                  fill="#3B82F6"
                   stroke="#ffffff"
                   strokeWidth={2}
                   style={{ pointerEvents: 'auto', cursor: 'pointer' }}
@@ -4034,7 +4034,7 @@ export default function Whiteboard({
                   cx={enX}
                   cy={enY}
                   r={6}
-                  fill="#2dd4bf"
+                  fill="#3B82F6"
                   stroke="#ffffff"
                   strokeWidth={2}
                   style={{ pointerEvents: 'auto', cursor: 'pointer' }}
@@ -4103,13 +4103,13 @@ export default function Whiteboard({
                 <React.Fragment key={`snap-pt-${i}`}>
                   <Line
                     points={[pt.x - crossSize, pt.y, pt.x + crossSize, pt.y]}
-                    stroke="#66FCF1"
+                    stroke="#3B82F6"
                     strokeWidth={1.5 / stageScale}
                     opacity={0.8}
                   />
                   <Line
                     points={[pt.x, pt.y - crossSize, pt.x, pt.y + crossSize]}
-                    stroke="#66FCF1"
+                    stroke="#3B82F6"
                     strokeWidth={1.5 / stageScale}
                     opacity={0.8}
                   />

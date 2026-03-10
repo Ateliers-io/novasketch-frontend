@@ -38,7 +38,7 @@ import {
 // ─── Shared mock helpers ───────────────────────────────────────────
 
 const BASE = {
-    style: { fill: 'none', hasFill: false, stroke: '#66FCF1', strokeWidth: 2 },
+    style: { fill: 'none', hasFill: false, stroke: '#3B82F6', strokeWidth: 2 },
     zIndex: 0,
     opacity: 1,
     visible: true,

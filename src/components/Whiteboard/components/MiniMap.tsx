@@ -281,7 +281,7 @@ const MiniMap: React.FC<MiniMapProps> = ({
                     const my = toMiniY(bbox.minY + dy);
                     const mw = Math.max((bbox.maxX - bbox.minX) * miniScale, 1.5);
                     const mh = Math.max((bbox.maxY - bbox.minY) * miniScale, 1.5);
-                    const color = s.style.stroke || '#66FCF1';
+                    const color = s.style.stroke || '#3B82F6';
                     const fill = s.style.hasFill ? s.style.fill : 'none';
 
                     // Use actual shape primitives for circles/ellipses
@@ -347,7 +347,7 @@ const MiniMap: React.FC<MiniMapProps> = ({
                         <path
                             key={l.id}
                             d={pathData}
-                            stroke={l.color || '#66FCF1'}
+                            stroke={l.color || '#3B82F6'}
                             strokeWidth={Math.max(l.strokeWidth * miniScale, 0.5)}
                             fill="none"
                             opacity={0.7}
@@ -385,7 +385,7 @@ const MiniMap: React.FC<MiniMapProps> = ({
                     width={Math.max(vpMiniW, 2)}
                     height={Math.max(vpMiniH, 2)}
                     fill="rgba(102, 252, 241, 0.08)"
-                    stroke="#66FCF1"
+                    stroke="#3B82F6"
                     strokeWidth={1.5}
                     rx={1}
                     style={{ pointerEvents: 'auto', cursor: 'grab' }}

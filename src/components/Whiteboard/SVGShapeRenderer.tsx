@@ -50,7 +50,7 @@ interface SVGShapeRendererProps {
 }
 
 // --- CONSTANTS ---
-const NEON_TURQUOISE = '#66FCF1';
+const NEON_TURQUOISE = '#3B82F6';
 
 // --- HELPER COMPONENTS ---
 

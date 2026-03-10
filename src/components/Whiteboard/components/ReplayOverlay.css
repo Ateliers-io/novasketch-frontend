@@ -30,7 +30,7 @@
     gap: 10px;
     font-size: 14px;
     font-weight: 600;
-    color: #66FCF1;
+    color: #3B82F6;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }
@@ -187,10 +187,10 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: #66FCF1;
+    background: #3B82F6;
     pointer-events: none;
     z-index: 1;
-    box-shadow: 0 0 8px #66FCF1;
+    box-shadow: 0 0 8px #3B82F6;
 }
 
 .replay-timeline-timestamps {
@@ -203,7 +203,7 @@
 .replay-timeline-timestamps span {
     position: absolute;
     font-size: 11px;
-    color: #66FCF1;
+    color: #3B82F6;
     opacity: 0.7;
     transform: translateX(-50%);
     font-variant-numeric: tabular-nums;
@@ -231,7 +231,7 @@
 
 .replay-timestamp {
     font-size: 12px;
-    color: #66FCF1;
+    color: #3B82F6;
     font-variant-numeric: tabular-nums;
     min-width: 120px;
     text-align: center;
@@ -265,7 +265,7 @@
 .replay-btn-primary {
     background: rgba(102, 252, 241, 0.12);
     border-color: rgba(102, 252, 241, 0.5);
-    color: #66FCF1;
+    color: #3B82F6;
 }
 
 .replay-btn-primary:hover {
@@ -285,7 +285,7 @@
     border-radius: 50%;
     border: 2px solid rgba(102, 252, 241, 0.5);
     background: rgba(102, 252, 241, 0.12);
-    color: #66FCF1;
+    color: #3B82F6;
     font-size: 18px;
     padding: 0;
 }
@@ -293,7 +293,7 @@
 .replay-btn-play:hover {
     background: rgba(102, 252, 241, 0.25);
     box-shadow: 0 0 24px rgba(102, 252, 241, 0.3);
-    border-color: #66FCF1;
+    border-color: #3B82F6;
 }
 
 .replay-btn-danger {
@@ -327,7 +327,7 @@
     padding: 3px 8px;
     border-radius: 4px;
     background: rgba(102, 252, 241, 0.1);
-    color: #66FCF1;
+    color: #3B82F6;
     border: 1px solid rgba(102, 252, 241, 0.25);
 }
 
@@ -339,14 +339,14 @@
     justify-content: center;
     height: 100%;
     gap: 16px;
-    color: #66FCF1;
+    color: #3B82F6;
 }
 
 .replay-spinner {
     width: 36px;
     height: 36px;
     border: 3px solid rgba(102, 252, 241, 0.2);
-    border-top: 3px solid #66FCF1;
+    border-top: 3px solid #3B82F6;
     border-radius: 50%;
     animation: replay-spin 0.8s linear infinite;
 }

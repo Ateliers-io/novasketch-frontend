@@ -119,7 +119,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
                             <div style={{
                                 width: '1px',
                                 height: '6px',
-                                background: '#66FCF1',
+                                background: '#3B82F6',
                                 opacity: 0.6
                             }} />
                         </div>

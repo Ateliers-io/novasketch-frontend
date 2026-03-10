@@ -308,7 +308,7 @@ export default function Toolbar({
 
     const getActiveBoxShadow = (mode: 'stroke' | 'fill') => {
         if (activeColorMode !== mode) return 'none';
-        const accent = theme === 'light' ? '#20C9C3' : '#2dd4bf';
+        const accent = theme === 'light' ? '#3B82F6' : '#3B82F6';
         return `0 0 0 2px ${accent}`;
     };
 
@@ -359,7 +359,7 @@ export default function Toolbar({
                     <ToolButton icon={MousePointer2} label="Select (V)" isActive={activeTool === 'select'} onClick={() => onToolChange('select')} />
                     <ToolButton icon={Hand} label="Hand (H)" isActive={activeTool === ToolType.HAND} onClick={() => onToolChange(ToolType.HAND)} />
                     <button onClick={() => onToolLockChange(!isToolLocked)} title={isToolLocked ? 'Unlock Tool' : 'Lock Tool'}
-                        className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${isToolLocked ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#4a5b6a] hover:bg-[#262e35] hover:text-[#8b9dad]'}`}>
+                        className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${isToolLocked ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#4a5b6a] hover:bg-[#262e35] hover:text-[#8b9dad]'}`}>
                         {isToolLocked ? <Lock size={12} /> : <Unlock size={12} />}
                     </button>
                 </ToolSection>
@@ -376,7 +376,7 @@ export default function Toolbar({
                         <button
                             onClick={() => setShowBrushMenu(!showBrushMenu)}
                             title={`Brush Type: ${BRUSH_OPTIONS.find(b => b.type === brushType)?.label || 'Brush'}`}
-                            className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showBrushMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
+                            className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showBrushMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
                         >
                             <Paintbrush size={16} />
                             <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
@@ -401,18 +401,18 @@ export default function Toolbar({
                                                 setShowBrushMenu(false);
                                             }}
                                             className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-100 ${brushType === brush.type
-                                                ? 'bg-[#2dd4bf]/10 text-[#2dd4bf]'
+                                                ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
                                                 : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white'
                                                 }`}
                                         >
                                             {/* Active bar */}
-                                            <div className={`w-[3px] h-6 rounded-full flex-shrink-0 ${brushType === brush.type ? 'bg-[#2dd4bf]' : 'bg-transparent'}`} />
+                                            <div className={`w-[3px] h-6 rounded-full flex-shrink-0 ${brushType === brush.type ? 'bg-[#3B82F6]' : 'bg-transparent'}`} />
 
                                             {/* Name */}
                                             <span className="text-[12px] font-medium min-w-[85px] text-left">{brush.label}</span>
 
                                             {/* Preview */}
-                                            <div className={`ml-auto ${brushType === brush.type ? 'text-[#2dd4bf]' : 'text-[#7a8c9c]'}`}>
+                                            <div className={`ml-auto ${brushType === brush.type ? 'text-[#3B82F6]' : 'text-[#7a8c9c]'}`}>
                                                 <BrushPreview brushType={brush.type} />
                                             </div>
                                         </button>
@@ -469,7 +469,7 @@ export default function Toolbar({
                     <ToolButton icon={Circle} label="Circle (C)" isActive={activeTool === ToolType.CIRCLE} onClick={() => onToolChange(ToolType.CIRCLE)} />
                     {/* Custom Ellipse */}
                     <button onClick={() => onToolChange(ToolType.ELLIPSE)} title="Ellipse"
-                        className={`relative group flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${activeTool === ToolType.ELLIPSE ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40 shadow-[0_0_8px_rgba(45,212,191,0.15)]' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                        className={`relative group flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${activeTool === ToolType.ELLIPSE ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40 shadow-[0_0_8px_rgba(59,130,246,0.15)]' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>
                     </button>
                     <ToolButton icon={Triangle} label="Triangle" isActive={activeTool === ToolType.TRIANGLE} onClick={() => onToolChange(ToolType.TRIANGLE)} />
@@ -485,7 +485,7 @@ export default function Toolbar({
                         <div className="relative" ref={strokeStyleRef}>
                             <ToolSection label="Style">
                                 <button onClick={() => setShowStrokeStyleMenu(!showStrokeStyleMenu)} title={`Stroke: ${strokeStyle}`}
-                                    className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showStrokeStyleMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                                    className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showStrokeStyleMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                         {strokeStyle === 'solid' && <line x1="3" y1="12" x2="21" y2="12" />}
                                         {strokeStyle === 'dashed' && <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="5 3" />}
@@ -507,8 +507,8 @@ export default function Toolbar({
                                             onClick={() => { onStrokeStyleChange(style); setShowStrokeStyleMenu(false); }}
                                             className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all"
                                             style={{
-                                                background: strokeStyle === style ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.1))' : 'transparent',
-                                                color: strokeStyle === style ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #b0bec5)'
+                                                background: strokeStyle === style ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.1))' : 'transparent',
+                                                color: strokeStyle === style ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #b0bec5)'
                                             }}
                                             onMouseEnter={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
                                             onMouseLeave={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #b0bec5)'; } }}
@@ -530,7 +530,7 @@ export default function Toolbar({
                         <div className="relative" ref={lineStyleRef}>
                             <ToolSection label="Lines">
                                 <button onClick={() => setShowLineStyleMenu(!showLineStyleMenu)} title="Line Options"
-                                    className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showLineStyleMenu ? 'bg-[#2dd4bf]/15 text-[#2dd4bf] ring-1 ring-[#2dd4bf]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                                    className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showLineStyleMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
                                     {lineType === 'curved' && <IconCurvedLine />}
                                     {lineType === 'straight' && <IconStraightLine />}
                                     {lineType === 'stepped' && <IconSteppedLine />}
@@ -553,7 +553,7 @@ export default function Toolbar({
                                             ].map((style) => (
                                                 <button key={style.type} title={style.title}
                                                     onClick={() => onLineTypeChange?.(style.type as any)}
-                                                    className={`flex-1 flex justify-center py-2 rounded-lg transition-all ${lineType === style.type ? 'bg-[#2dd4bf]/10 text-[#2dd4bf] border border-[#2dd4bf]/30' : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white border border-transparent'}`}>
+                                                    className={`flex-1 flex justify-center py-2 rounded-lg transition-all ${lineType === style.type ? 'bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/30' : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white border border-transparent'}`}>
                                                     <style.icon />
                                                 </button>
                                             ))}
@@ -567,22 +567,22 @@ export default function Toolbar({
                                             {/* Start */}
                                             <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
                                                 <button onClick={() => onArrowAtStartChange?.(true)} title="Arrow Start"
-                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtStart ? 'bg-[#1e262d] text-[#2dd4bf]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
                                                     <IconArrowStart />
                                                 </button>
                                                 <button onClick={() => onArrowAtStartChange?.(false)} title="Line Start"
-                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtStart ? 'bg-[#1e262d] text-[#2dd4bf]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
                                                     <IconArrowNone />
                                                 </button>
                                             </div>
                                             {/* End */}
                                             <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
                                                 <button onClick={() => onArrowAtEndChange?.(false)} title="Line End"
-                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtEnd ? 'bg-[#1e262d] text-[#2dd4bf]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
                                                     <IconArrowNone />
                                                 </button>
                                                 <button onClick={() => onArrowAtEndChange?.(true)} title="Arrow End"
-                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtEnd ? 'bg-[#1e262d] text-[#2dd4bf]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
                                                     <IconArrowEnd />
                                                 </button>
                                             </div>
@@ -620,7 +620,7 @@ export default function Toolbar({
                                             {/* hidden native input overlay. allows opening system picker by clicking the bubble. */}
                                             <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                         </div>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${activeColorMode === 'stroke' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Stroke</span>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${activeColorMode === 'stroke' ? 'text-[#3B82F6]' : 'text-gray-500'}`}>Stroke</span>
                                     </div>
 
                                     {/* Fill Bubble */}
@@ -645,7 +645,7 @@ export default function Toolbar({
                                             {/* forcing white hex if transparent, otherwise input[type=color] defaults to black and confuses users. */}
                                             <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                         </div>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${activeColorMode === 'fill' ? 'text-[#2dd4bf]' : 'text-gray-500'}`}>Fill</span>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${activeColorMode === 'fill' ? 'text-[#3B82F6]' : 'text-gray-500'}`}>Fill</span>
                                     </div>
                                 </div>
                             </div>
@@ -659,7 +659,7 @@ export default function Toolbar({
                                 {/* No Fill Button */}
                                 <button
                                     onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); }}
-                                    className={`shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#2dd4bf] border-transparent bg-gray-700' : 'border-gray-600 bg-[#1a2025] hover:bg-gray-700'}`}
+                                    className={`shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all hover:scale-110 shadow-sm ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#3B82F6] border-transparent bg-gray-700' : 'border-gray-600 bg-[#1a2025] hover:bg-gray-700'}`}
                                     title="No Fill"
                                 >
                                     <Slash size={12} className="text-red-400" />
@@ -673,7 +673,7 @@ export default function Toolbar({
                                             key={c}
                                             // simplistic toggle: click to apply to currently active mode (stroke or fill).
                                             onClick={() => activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c)}
-                                            className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#2dd4bf] border-transparent' : ['border-gray-700/50 hover:scale-110', theme === 'light' ? 'hover:border-gray-400' : 'hover:border-white'].join(' ')}`}
+                                            className={`shrink-0 w-6 h-6 rounded-full border transition-transform shadow-sm relative group ${isSelected ? 'ring-2 ring-[#3B82F6] border-transparent' : ['border-gray-700/50 hover:scale-110', theme === 'light' ? 'hover:border-gray-400' : 'hover:border-white'].join(' ')}`}
                                             style={{ background: c }}
                                             title={c}
                                         >
@@ -768,12 +768,12 @@ export default function Toolbar({
                         <button
                             onClick={() => setShowGridMenu(!showGridMenu)}
                             title="Grid Settings"
-                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${showGridMenu || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none') ? 'text-[#2dd4bf] bg-[#2dd4bf]/10' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
+                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${showGridMenu || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none') ? 'text-[#3B82F6] bg-[#3B82F6]/10' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
                         >
                             <Grid3x3 size={18} />
                             {/* Show dot if grid is active */}
                             {(gridConfig.snapEnabled || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none')) && (
-                                <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#2dd4bf] rounded-full" />
+                                <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#3B82F6] rounded-full" />
                             )}
                         </button>
 
@@ -793,7 +793,7 @@ export default function Toolbar({
                                         <button
                                             onClick={() => onGridConfigChange({ ...gridConfig, snapEnabled: !gridConfig.snapEnabled })}
                                             className="relative w-8 h-4 rounded-full transition-colors"
-                                            style={{ background: gridConfig.snapEnabled ? 'var(--ns-accent, #2dd4bf)' : 'var(--ns-separator, #2a333b)' }}
+                                            style={{ background: gridConfig.snapEnabled ? 'var(--ns-accent, #3B82F6)' : 'var(--ns-separator, #2a333b)' }}
                                         >
                                             <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${gridConfig.snapEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
                                         </button>
@@ -813,17 +813,17 @@ export default function Toolbar({
                                                 ].map(opt => (
                                                     <label key={opt.value}
                                                         className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-[11px] transition-colors ${gridConfig.snapType === opt.value
-                                                            ? 'bg-[#2dd4bf]/10 text-[#2dd4bf]'
+                                                            ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
                                                             : 'text-[#8b9dad] hover:bg-[#1e262d] hover:text-white'
                                                             }`}
                                                         onClick={() => onGridConfigChange({ ...gridConfig, snapType: opt.value as GridSnapType })}
                                                     >
                                                         <span className={`w-3 h-3 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${gridConfig.snapType === opt.value
-                                                            ? 'border-[#2dd4bf]'
+                                                            ? 'border-[#3B82F6]'
                                                             : 'border-[#4a5568]'
                                                             }`}>
                                                             {gridConfig.snapType === opt.value && (
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]" />
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
                                                             )}
                                                         </span>
                                                         {opt.label}
@@ -845,8 +845,8 @@ export default function Toolbar({
                                                     <button key={app} onClick={() => onGridConfigChange({ ...gridConfig, appearance: app as GridAppearance })}
                                                         className="px-2 py-1 text-[11px] rounded transition-colors border"
                                                         style={{
-                                                            background: isSel ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.15))' : 'transparent',
-                                                            color: isSel ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #8b9dad)',
+                                                            background: isSel ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.15))' : 'transparent',
+                                                            color: isSel ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #8b9dad)',
                                                             borderColor: isSel ? 'transparent' : 'var(--ns-separator, #2a333b)'
                                                         }}
                                                         onMouseEnter={(e) => { if (!isSel) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
@@ -861,7 +861,7 @@ export default function Toolbar({
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between items-center">
                                             <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Cell Size</span>
-                                            <span className="text-[10px] tabular-nums" style={{ color: 'var(--ns-toolbar-active-text, #2dd4bf)' }}>{gridConfig.size}px</span>
+                                            <span className="text-[10px] tabular-nums" style={{ color: 'var(--ns-toolbar-active-text, #3B82F6)' }}>{gridConfig.size}px</span>
                                         </div>
                                         <div className="relative pt-2 pb-1">
                                             <input type="range" min="10" max="100" step="5" value={gridConfig.size}
@@ -909,13 +909,13 @@ export default function Toolbar({
                                 style={{
                                     background: isLockActive
                                         ? 'rgba(239,68,68,0.1)'
-                                        : 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.1))',
+                                        : 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.1))',
                                     borderColor: isLockActive
                                         ? 'rgba(239,68,68,0.3)'
-                                        : 'var(--ns-toolbar-active-ring, rgba(45,212,191,0.3))',
+                                        : 'var(--ns-toolbar-active-ring, rgba(59,130,246,0.3))',
                                     color: isLockActive
                                         ? '#ef4444'
-                                        : 'var(--ns-toolbar-active-text, #2dd4bf)',
+                                        : 'var(--ns-toolbar-active-text, #3B82F6)',
                                 }}
                                 title={isLockActive ? 'Unlock Session' : 'Lock Session'}
                             >
@@ -966,21 +966,21 @@ export default function Toolbar({
                             <button
                                 onClick={() => onBoldChange(!isBold)}
                                 className="p-1 rounded transition-colors"
-                                style={{ background: isBold ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isBold ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                style={{ background: isBold ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.2))' : 'transparent', color: isBold ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
                                 onMouseEnter={(e) => { if (!isBold) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
                                 onMouseLeave={(e) => { if (!isBold) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
                             ><Bold size={13} /></button>
                             <button
                                 onClick={() => onItalicChange(!isItalic)}
                                 className="p-1 rounded transition-colors"
-                                style={{ background: isItalic ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isItalic ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                style={{ background: isItalic ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.2))' : 'transparent', color: isItalic ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
                                 onMouseEnter={(e) => { if (!isItalic) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
                                 onMouseLeave={(e) => { if (!isItalic) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
                             ><Italic size={13} /></button>
                             <button
                                 onClick={() => onUnderlineChange(!isUnderline)}
                                 className="p-1 rounded transition-colors"
-                                style={{ background: isUnderline ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: isUnderline ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                style={{ background: isUnderline ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.2))' : 'transparent', color: isUnderline ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
                                 onMouseEnter={(e) => { if (!isUnderline) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
                                 onMouseLeave={(e) => { if (!isUnderline) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
                             ><Underline size={13} /></button>
@@ -994,21 +994,21 @@ export default function Toolbar({
                                 <button
                                     onClick={() => onTextAlignChange('left')}
                                     className="p-1 rounded transition-colors"
-                                    style={{ background: textAlign === 'left' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'left' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                    style={{ background: textAlign === 'left' ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.2))' : 'transparent', color: textAlign === 'left' ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
                                     onMouseEnter={(e) => { if (textAlign !== 'left') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
                                     onMouseLeave={(e) => { if (textAlign !== 'left') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
                                 ><AlignLeft size={13} /></button>
                                 <button
                                     onClick={() => onTextAlignChange('center')}
                                     className="p-1 rounded transition-colors"
-                                    style={{ background: textAlign === 'center' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'center' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                    style={{ background: textAlign === 'center' ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.2))' : 'transparent', color: textAlign === 'center' ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
                                     onMouseEnter={(e) => { if (textAlign !== 'center') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
                                     onMouseLeave={(e) => { if (textAlign !== 'center') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
                                 ><AlignCenter size={13} /></button>
                                 <button
                                     onClick={() => onTextAlignChange('right')}
                                     className="p-1 rounded transition-colors"
-                                    style={{ background: textAlign === 'right' ? 'var(--ns-toolbar-active-bg, rgba(45,212,191,0.2))' : 'transparent', color: textAlign === 'right' ? 'var(--ns-toolbar-active-text, #2dd4bf)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
+                                    style={{ background: textAlign === 'right' ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.2))' : 'transparent', color: textAlign === 'right' ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #9ca3af)' }}
                                     onMouseEnter={(e) => { if (textAlign !== 'right') { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
                                     onMouseLeave={(e) => { if (textAlign !== 'right') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #9ca3af)'; } }}
                                 ><AlignRight size={13} /></button>

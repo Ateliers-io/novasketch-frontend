@@ -79,7 +79,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                         width={selectionBoundingBox.width + 8}
                         height={selectionBoundingBox.height + 8}
                         fill="none"
-                        stroke="#2dd4bf"
+                        stroke="#3B82F6"
                         strokeWidth={1.5 / transform.scale}
                         strokeDasharray={`${6 / transform.scale},${4 / transform.scale}`}
                         rx={2}
@@ -112,7 +112,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                         width={10}
                                         height={10}
                                         fill="var(--ns-panel-bg, #ffffff)"
-                                        stroke="#2dd4bf"
+                                        stroke="#3B82F6"
                                         strokeWidth={1.5}
                                         rx={2}
                                         filter="url(#handle-shadow)"
@@ -122,7 +122,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                         cx={corner.x}
                                         cy={corner.y}
                                         r={2}
-                                        fill="#2dd4bf"
+                                        fill="#3B82F6"
                                     />
                                 </g>
                             ))}
@@ -150,7 +150,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                         width={10}
                                         height={10}
                                         fill="var(--ns-panel-bg, #ffffff)"
-                                        stroke="#2dd4bf"
+                                        stroke="#3B82F6"
                                         strokeWidth={1.5}
                                         rx={2}
                                         filter="url(#handle-shadow)"
@@ -167,7 +167,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                         y1={selectionBoundingBox.minY - 4}
                                         x2={selectionBoundingBox.centerX}
                                         y2={selectionBoundingBox.minY - 28}
-                                        stroke="#2dd4bf"
+                                        stroke="#3B82F6"
                                         strokeWidth={1.5}
                                         strokeDasharray="3,2"
                                     />
@@ -177,7 +177,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                         cy={selectionBoundingBox.minY - 32}
                                         r={10}
                                         fill="var(--ns-panel-bg, #ffffff)"
-                                        stroke="#2dd4bf"
+                                        stroke="#3B82F6"
                                         strokeWidth={2}
                                         filter="url(#handle-shadow)"
                                     />
@@ -185,7 +185,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                     <path
                                         d={`M ${selectionBoundingBox.centerX - 4} ${selectionBoundingBox.minY - 35}
                  a 4 4 0 1 1 8 0`}
-                                        stroke="#2dd4bf"
+                                        stroke="#3B82F6"
                                         strokeWidth={1.5}
                                         fill="none"
                                         strokeLinecap="round"
@@ -193,7 +193,7 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                     <path
                                         d={`M ${selectionBoundingBox.centerX + 4} ${selectionBoundingBox.minY - 35}
                  l 2 -2 l 0 4 z`}
-                                        fill="#2dd4bf"
+                                        fill="#3B82F6"
                                     />
                                 </g>
                             )}
@@ -207,8 +207,8 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
                                             onPointerDown={(e) => { e.stopPropagation(); onGroup?.(); }}
                                         >
-                                            <rect x="-45" y="0" width="40" height="24" rx="4" className="svg-action-btn-bg" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
-                                            <text x="-25" y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>GROUP</text>
+                                            <rect x="-45" y="0" width="40" height="24" rx="4" className="svg-action-btn-bg" fill="#0B0C10" stroke="#3B82F6" strokeWidth="1" />
+                                            <text x="-25" y="16" fill="#3B82F6" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>GROUP</text>
                                         </g>
                                     )}
                                     {canUngroup && (
@@ -217,8 +217,8 @@ const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
                                             onPointerDown={(e) => { e.stopPropagation(); onUngroup?.(); }}
                                         >
-                                            <rect x={canGroup ? "5" : "-45"} y="0" width="55" height="24" rx="4" className="svg-action-btn-bg" fill="#0B0C10" stroke="#2dd4bf" strokeWidth="1" />
-                                            <text x={canGroup ? "32.5" : "-17.5"} y="16" fill="#2dd4bf" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>UNGROUP</text>
+                                            <rect x={canGroup ? "5" : "-45"} y="0" width="55" height="24" rx="4" className="svg-action-btn-bg" fill="#0B0C10" stroke="#3B82F6" strokeWidth="1" />
+                                            <text x={canGroup ? "32.5" : "-17.5"} y="16" fill="#3B82F6" fontSize="10" textAnchor="middle" fontWeight="bold" style={{ userSelect: 'none' }}>UNGROUP</text>
                                         </g>
                                     )}
 

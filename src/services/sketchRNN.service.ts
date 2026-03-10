@@ -26,53 +26,6 @@ export interface SketchRNNOptions {
 }
 
 /**
- * Convert canvas points to Sketch-RNN format (delta encoding with pen state)
- * Format: [dx, dy, pen_state] where pen_state: 0=down, 1=up
- */
-function convertToSketchRNNFormat(points: SketchRNNPoint[]): number[][] {
-    if (points.length === 0) return [];
-    
-    const deltas: number[][] = [];
-    for (let i = 1; i < points.length; i++) {
-        const dx = points[i].x - points[i - 1].x;
-        const dy = points[i].y - points[i - 1].y;
-        deltas.push([dx, dy, 0]); // pen down
-    }
-    
-    return deltas;
-}
-
-/**
- * Convert Sketch-RNN output back to absolute canvas coordinates
- */
-function convertFromSketchRNNFormat(
-    basePoints: SketchRNNPoint[],
-    deltas: number[][]
-): SketchRNNPoint[] {
-    if (basePoints.length === 0 || deltas.length === 0) {
-        return basePoints;
-    }
-    
-    const lastPoint = basePoints[basePoints.length - 1];
-    const completedPoints: SketchRNNPoint[] = [...basePoints];
-    
-    let currentX = lastPoint.x;
-    let currentY = lastPoint.y;
-    
-    for (const [dx, dy] of deltas) {
-        currentX += dx;
-        currentY += dy;
-        completedPoints.push({
-            x: currentX,
-            y: currentY,
-            pressure: 0.5
-        });
-    }
-    
-    return completedPoints;
-}
-
-/**
  * Fallback completion when model is unavailable
  */
 function fallbackCompletion(
@@ -90,9 +43,11 @@ function fallbackCompletion(
     if (magnitude === 0) return inputPoints;
 
     const completionPoints: SketchRNNPoint[] = [];
+    const randomArray = new Uint32Array(numPoints);
+    crypto.getRandomValues(randomArray);
     for (let i = 0; i < numPoints; i++) {
         const t = i / numPoints;
-        const noise = (Math.random() - 0.5) * temperature * 10;
+        const noise = (randomArray[i] / 0xFFFFFFFF - 0.5) * temperature * 10;
         completionPoints.push({
             x: lastPoint.x + dx * t * 3 + noise,
             y: lastPoint.y + dy * t * 3 + noise,

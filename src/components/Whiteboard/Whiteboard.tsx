@@ -2001,10 +2001,30 @@ export default function Whiteboard({
         const initRot = initialShapeRotations.get(s.id) || 0;
         if (!initPos) return s;
 
+        // For children inside a frame, compute the parent's global transform
+        // so we can convert local coords -> global for rotation -> local for storage.
+        let parentTx = 0, parentTy = 0, parentSx = 1, parentSy = 1;
+        if (s.parentId) {
+          let curr: string | undefined = s.parentId;
+          const path: Shape[] = [];
+          for (let depth = 0; depth < 5 && curr; depth++) {
+            const p = prev.find(sh => sh.id === curr);
+            if (p) { path.unshift(p); curr = p.parentId; } else break;
+          }
+          for (const p of path) {
+            parentTx += p.position.x * parentSx;
+            parentTy += p.position.y * parentSy;
+            parentSx *= p.transform?.scaleX ?? 1;
+            parentSy *= p.transform?.scaleY ?? 1;
+          }
+        }
+        const toGlobal = (lx: number, ly: number) => ({ x: parentTx + lx * parentSx, y: parentTy + ly * parentSy });
+        const toLocal = (gx: number, gy: number) => ({ x: (gx - parentTx) / parentSx, y: (gy - parentTy) / parentSy });
+
         if (isRectangle(s) || isCircle(s) || isEllipse(s) || isFrame(s) || isImage(s)) {
           // Rigid Body Rotation for Centered Shapes (Rect, Circle, Ellipse, Frame, Image)
 
-          // Calculate Initial Center/Pivot
+          // Calculate Initial Center/Pivot in local coords
           let itemCx = initPos.x;
           let itemCy = initPos.y;
 
@@ -2013,12 +2033,14 @@ export default function Whiteboard({
             itemCy += (s as any).height / 2;
           }
 
-          // Rotate the pivot point around the selection center
-          const newCenter = rotatePoint(itemCx, itemCy);
+          // Convert to global, rotate around selection center, convert back
+          const globalCenter = toGlobal(itemCx, itemCy);
+          const newGlobalCenter = rotatePoint(globalCenter.x, globalCenter.y);
           const newRot = initRot + deltaAngle;
 
-          // Convert back to Top-Left if necessary
-          const newPos = { x: newCenter.x, y: newCenter.y };
+          // Convert back to local coordinates
+          const newLocal = toLocal(newGlobalCenter.x, newGlobalCenter.y);
+          const newPos = { x: newLocal.x, y: newLocal.y };
 
           if (isRectangle(s) || isFrame(s) || isImage(s)) {
             newPos.x -= (s as any).width / 2;
@@ -2031,18 +2053,18 @@ export default function Whiteboard({
             transform: { ...s.transform, rotation: newRot }
           };
         } else if (isLine(s) || isArrow(s)) {
-          // For Lines/Arrows, we rotate the Start and End points physically.
-          // We DO NOT change the transform.rotation, as the geometry rotation covers the "group" rotation.
-          // Existing local rotation (initRot) is preserved.
-
           const points = initialShapePoints.get(s.id);
           if (!points || points.length < 2) return s;
 
-          const p1 = rotatePoint(points[0].x, points[0].y);
-          const p2 = rotatePoint(points[1].x, points[1].y);
+          const g1 = toGlobal(points[0].x, points[0].y);
+          const g2 = toGlobal(points[1].x, points[1].y);
+          const p1 = toLocal(rotatePoint(g1.x, g1.y).x, rotatePoint(g1.x, g1.y).y);
+          const p2 = toLocal(rotatePoint(g2.x, g2.y).x, rotatePoint(g2.x, g2.y).y);
           let p3;
           if (points.length >= 3) {
-            p3 = rotatePoint(points[2].x, points[2].y);
+            const g3 = toGlobal(points[2].x, points[2].y);
+            const rp3 = rotatePoint(g3.x, g3.y);
+            p3 = toLocal(rp3.x, rp3.y);
           }
 
           return {
@@ -2050,19 +2072,23 @@ export default function Whiteboard({
             startPoint: p1,
             endPoint: p2,
             ...(p3 ? { controlPoint: p3 } : {}),
-            transform: { ...s.transform, rotation: initRot } // Keep initial local rotation! 
+            transform: { ...s.transform, rotation: initRot }
           } as Shape;
         } else if (isTriangle(s)) {
           // For Triangles, rotate all points physically.
           const points = initialShapePoints.get(s.id);
           if (!points) return s;
 
-          const newPoints = points.map(p => rotatePoint(p.x, p.y));
+          const newPoints = points.map(p => {
+            const gp = toGlobal(p.x, p.y);
+            const rp = rotatePoint(gp.x, gp.y);
+            return toLocal(rp.x, rp.y);
+          });
 
           return {
             ...s,
             points: newPoints,
-            transform: { ...s.transform, rotation: initRot } // Keep initial local rotation
+            transform: { ...s.transform, rotation: initRot }
           } as TriangleShape;
         }
 
@@ -4304,10 +4330,10 @@ export default function Whiteboard({
         roomId={roomId}
       />
 
-      {/* Task 1.4.3-B: Presence Badge — draggable, shows live collaborators */}
-      <PresenceBadge users={users} />
+      {/* Presence Badge: draggable, shows live collaborators */}
+      <PresenceBadge users={users} topOffset={isEffectivelyLocked ? 88 : 56} />
 
-      {/* Epic 7.6.2: Assign Guests Modal */}
+      {/* Assign Guests Modal */}
       {isAssignGuestsModalOpen && assignGuestsFrameId && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center backdrop-blur-sm p-4">
           <div className="bg-[#12141D] border border-white/10 rounded-xl p-6 shadow-2xl w-full max-w-sm flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
@@ -4361,7 +4387,7 @@ export default function Whiteboard({
         </div>
       )}
 
-      {/* Epic 7.6.3: Guest Assignment Toast Overlay */}
+      {/* Guest Assignment Toast Overlay */}
       {guestToastMessage && (
         <div className="fixed top-20 right-8 z-[120] animate-in slide-in-from-top-4 fade-in duration-300">
           <div className="bg-[#12141D]/90 backdrop-blur-md border border-teal-500/30 px-4 py-3 rounded-lg shadow-xl shadow-teal-500/10 flex items-center gap-3">
@@ -4376,7 +4402,7 @@ export default function Whiteboard({
         </div>
       )}
 
-      {/* Task 1.3.1-B: Username Modal — blocks canvas until name is provided */}
+      {/* Username Modal: blocks canvas until name is provided */}
       {!userName && (
         <UsernameModal
           onSubmit={(name) => {

@@ -13,8 +13,8 @@ export function getBrushProperties(brush: BrushType, size: number, color: string
             // strokeWidth stored for data consistency; sceneFunc derives min/max width from it.
             return { lineCap: 'butt', lineJoin: 'miter', tension: 0, opacity: 1, strokeWidth: size * 3 };
         case BrushType.CALLIGRAPHY_PEN:
-            // Thinner nib variant of calligraphy; also rendered with sceneFunc in <Stroke />.
-            return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 1, strokeWidth: size * 1.2 };
+            // Actual rendering: multi-layer textured Lines via Group in <Stroke />.
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.2, opacity: 0.8, strokeWidth: size * 1.5 };
         case BrushType.AIRBRUSH:
             // Actual rendering: scatter-dot spray via sceneFunc in <Stroke />.
             // strokeWidth drives the spray radius; opacity controls dot density.
@@ -24,8 +24,8 @@ export function getBrushProperties(brush: BrushType, size: number, color: string
             // No shadowBlur. oil paint is opaque and matte, not glowing.
             return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 0.9, strokeWidth: size * 2 };
         case BrushType.CRAYON:
-            // Actual rendering: multi-layer textured Lines via Group in <Stroke />.
-            return { lineCap: 'round', lineJoin: 'round', tension: 0.2, opacity: 0.8, strokeWidth: size * 1.5 };
+            // Thinner nib variant of calligraphy; rendered with angle-based sceneFunc in <Stroke />.
+            return { lineCap: 'butt', lineJoin: 'bevel', tension: 0.1, opacity: 1, strokeWidth: size * 1.2 };
         case BrushType.MARKER:
             // Wide chisel tip: bold, mostly opaque, flat square cap.
             return { lineCap: 'square', lineJoin: 'miter', tension: 0.1, opacity: 0.85, strokeWidth: size * 4, globalCompositeOperation: 'source-over' };

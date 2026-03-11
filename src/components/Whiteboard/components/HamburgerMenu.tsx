@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Konva from 'konva';
 import { jsPDF } from 'jspdf';
-import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2, Sun, Moon, Sparkles, History } from 'lucide-react';
+import { Download, FileDown, FileImage, Users, Lock, Unlock, Trash2, Sun, Moon, Sparkles, History, Home } from 'lucide-react';
 import LiveCollaborationMenu from './LiveCollaborationMenu';
 import AnalyzeWithAI from './AnalyzeWithAI';
 import {
@@ -71,6 +71,9 @@ interface HamburgerMenuProps {
 
     /** Board's room ID passed to LiveCollaborationMenu for the invite link */
     roomId?: string;
+
+    /** Navigate back to the home/dashboard page */
+    onNavigateHome?: () => void;
 }
 
 // ─── Compute bounding box of all content ─────────────────────
@@ -411,6 +414,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
     onCaptureCanvas,
     onOpenReplay,
     roomId,
+    onNavigateHome,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedSubmenus, setExpandedSubmenus] = useState<Record<string, boolean>>({});
@@ -559,6 +563,15 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
         id: 'main-actions',
         title: 'Actions',
         items: [
+            {
+                id: 'return-home',
+                label: 'Return to Home',
+                icon: <Home size={16} />,
+                onClick: () => {
+                    onNavigateHome?.();
+                    setIsOpen(false);
+                }
+            },
             {
                 id: 'theme-toggle',
                 label: 'Theme',
@@ -741,19 +754,6 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                             animation: 'menuSlideIn 0.25s cubic-bezier(0.16,1,0.3,1)',
                         }}
                     >
-                        {/* Header with NovaSketch branding */}
-                        <div
-                            className="px-4 py-3 text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2.5"
-                            style={{
-                                color: palette(theme).accent,
-                                borderBottom: `1px solid ${palette(theme).borderSub}`,
-                                background: theme === 'dark' ? 'rgba(102,252,241,0.03)' : 'rgba(42,157,143,0.03)',
-                            }}
-                        >
-                            <span style={{ fontSize: 14, opacity: 0.8 }}>✦</span>
-                            <span>NovaSketch</span>
-                        </div>
-
                         {/* Scrollable sections */}
                         <div
                             className="py-1.5 overflow-y-auto"

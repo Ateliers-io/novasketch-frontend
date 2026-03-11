@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Stage, Layer, Line } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { Lock } from 'lucide-react';
@@ -276,6 +276,7 @@ export default function Whiteboard({
 }) {
   const { id: boardId } = useParams<{ id: string }>();
   const roomId = boardId || 'default-room';
+  const navigate = useNavigate();
 
   const { user } = useAuth();
 
@@ -4373,6 +4374,7 @@ export default function Whiteboard({
         onCaptureCanvas={handleCaptureCanvas}
         onOpenReplay={() => setShowReplay(true)}
         roomId={roomId}
+        onNavigateHome={() => navigate('/home')}
       />
 
       {/* Presence Badge: draggable, shows live collaborators */}

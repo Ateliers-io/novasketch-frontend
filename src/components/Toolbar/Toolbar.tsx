@@ -1053,6 +1053,7 @@ export default function Toolbar({
                             </ToolSection>
                         </>
                     )}
+
                 </div>
             </div>
 

@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { TimelinePlayer } from './TimelinePlayer';
 import { TimelineScrubber } from './TimelineScrubber';
 import { SVGShapeRenderer } from '../SVGShapeRenderer';
@@ -137,10 +138,6 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         const area = canvasAreaRef.current;
         if (!engine || !area || totalSnapshots === 0) return;
 
-        // Find the SVG element rendered inside the canvas area
-        const svgEl = area.querySelector('svg');
-        if (!svgEl) return;
-
         // Create an offscreen canvas to render SVG frames into
         const offscreen = document.createElement('canvas');
         offscreen.width = 1920;
@@ -148,23 +145,30 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         const ctx = offscreen.getContext('2d');
         if (!ctx) return;
 
-        // Render the first frame before starting the recorder so the
-        // initial capture is not blank.
-        const firstState = engine.seekTo(0);
-        setReplayState(firstState);
-        setCurrentIndex(0);
-        await new Promise(r => setTimeout(r, 250));
+        // Helper: serialise the current live SVG to the offscreen canvas
+        const renderCurrentFrame = async (bgColor: string) => {
+            const svgEl = area.querySelector('svg');
+            if (!svgEl) return;
+            const svgData = new XMLSerializer().serializeToString(svgEl);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const imgUrl = URL.createObjectURL(svgBlob);
+            const img = new Image();
+            img.src = imgUrl;
+            await img.decode();
+            ctx.fillStyle = bgColor || '#0B0C10';
+            ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+            ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
+            URL.revokeObjectURL(imgUrl);
+        };
 
-        const svgData0 = new XMLSerializer().serializeToString(svgEl);
-        const svgBlob0 = new Blob([svgData0], { type: 'image/svg+xml;charset=utf-8' });
-        const imgUrl0 = URL.createObjectURL(svgBlob0);
-        const img0 = new Image();
-        img0.src = imgUrl0;
-        await img0.decode();
-        ctx.fillStyle = firstState?.bgColor || '#0B0C10';
-        ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-        ctx.drawImage(img0, 0, 0, offscreen.width, offscreen.height);
-        URL.revokeObjectURL(imgUrl0);
+        // Render the first frame synchronously so the recorder starts
+        // with real content instead of a blank canvas.
+        const firstState = engine.seekTo(0);
+        flushSync(() => {
+            setReplayState(firstState);
+            setCurrentIndex(0);
+        });
+        await renderCurrentFrame(firstState?.bgColor || '#0B0C10');
 
         const stream = offscreen.captureStream(30);
 
@@ -198,33 +202,21 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
         setIsRecording(true);
 
         // Hold first frame so recorder captures it
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 500));
 
         // Render remaining snapshots
         for (let i = 1; i < totalSnapshots; i++) {
             const state = engine.seekTo(i);
-            setReplayState(state);
-            setCurrentIndex(i);
+            // Flush DOM synchronously so the SVG is up-to-date before serialisation
+            flushSync(() => {
+                setReplayState(state);
+                setCurrentIndex(i);
+            });
 
-            // Give React enough time to flush the SVG DOM update
-            await new Promise(r => setTimeout(r, 200));
+            await renderCurrentFrame(state?.bgColor || '#0B0C10');
 
-            // Serialize current SVG to an image and draw to offscreen canvas
-            const svgData = new XMLSerializer().serializeToString(svgEl);
-            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-            const imgUrl = URL.createObjectURL(svgBlob);
-
-            const img = new Image();
-            img.src = imgUrl;
-            await img.decode();
-
-            ctx.fillStyle = state?.bgColor || '#0B0C10';
-            ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-            ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
-            URL.revokeObjectURL(imgUrl);
-
-            // Hold frame long enough for captureStream to capture (~6 frames at 30fps)
-            await new Promise(r => setTimeout(r, 200));
+            // Hold frame long enough for captureStream to capture (~15 frames at 30fps)
+            await new Promise(r => setTimeout(r, 500));
         }
 
         // Allow final frame to be fully captured before stopping

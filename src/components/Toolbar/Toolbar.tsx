@@ -741,7 +741,7 @@ export default function Toolbar({
                                     onClick={() => setActiveColorMode('stroke')}
                                     title="Stroke Color"
                                 >
-                                    <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
+                                    <div className="absolute inset-0 rounded-full border border-black/20" style={{ background: strokeColor }} />
                                     <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                 </div>
                             </ToolSection>
@@ -761,7 +761,7 @@ export default function Toolbar({
                                             <Slash size={10} strokeWidth={1} />
                                         </div>
                                     ) : (
-                                        <div className="absolute inset-1 rounded-full border border-black/20" style={{ background: fillColor }} />
+                                        <div className="absolute inset-0 rounded-full border border-black/20" style={{ background: fillColor }} />
                                     )}
                                     <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                                 </div>
@@ -785,7 +785,7 @@ export default function Toolbar({
                                                     <Slash size={10} strokeWidth={2} />
                                                 </div>;
                                             }
-                                            return <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: currentColor }} />;
+                                            return <div className="absolute inset-0 rounded-full border border-black/20" style={{ background: currentColor }} />;
                                         })()}
                                         <ChevronDown size={7} className="absolute -bottom-0.5 -right-0.5 opacity-60" style={{ color: 'var(--ns-toolbar-muted)' }} />
                                     </button>

@@ -223,6 +223,49 @@ const renderSvgToBlob = (svg: string, bg: string, w: number, h: number): Promise
   });
 };
 
+// Helper: translate every coordinate field of a standalone shape by (dx, dy).
+function applyDeltaToShape(shape: Shape, dx: number, dy: number): Shape {
+  if (dx === 0 && dy === 0) return shape;
+  const moved: any = { ...shape, position: { x: shape.position.x + dx, y: shape.position.y + dy } };
+  if (moved.type === 'line' || moved.type === 'arrow') {
+    moved.startPoint = { x: moved.startPoint.x + dx, y: moved.startPoint.y + dy };
+    moved.endPoint = { x: moved.endPoint.x + dx, y: moved.endPoint.y + dy };
+    if (moved.controlPoint) {
+      moved.controlPoint = { x: moved.controlPoint.x + dx, y: moved.controlPoint.y + dy };
+    }
+  } else if (moved.type === 'triangle') {
+    moved.points = moved.points.map((p: { x: number; y: number }) => ({ x: p.x + dx, y: p.y + dy }));
+  }
+  return moved as Shape;
+}
+
+// If a standalone (non-frame-child) shape overlaps any frame it is not assigned to,
+// push it out in the direction that requires the least movement.
+function pushShapeOutsideFrames(shape: Shape, allShapes: Shape[]): Shape {
+  if (shape.type === 'frame' || shape.parentId) return shape;
+  const frames = allShapes.filter(s => s.type === 'frame') as FrameShape[];
+  let current: Shape = shape;
+  for (const frame of frames) {
+    const fb = getShapeBoundingBox(frame);
+    const sb = getShapeBoundingBox(current);
+    const overlapX = sb.maxX > fb.minX && sb.minX < fb.maxX;
+    const overlapY = sb.maxY > fb.minY && sb.minY < fb.maxY;
+    if (!overlapX || !overlapY) continue;
+    // Four candidate pushes — pick the one with the smallest magnitude.
+    const candidates = [
+      { dx: fb.minX - sb.maxX, dy: 0 },  // push left of frame
+      { dx: fb.maxX - sb.minX, dy: 0 },  // push right of frame
+      { dx: 0, dy: fb.minY - sb.maxY },  // push above frame
+      { dx: 0, dy: fb.maxY - sb.minY },  // push below frame
+    ];
+    const best = candidates.reduce((a, b) =>
+      Math.abs(a.dx) + Math.abs(a.dy) <= Math.abs(b.dx) + Math.abs(b.dy) ? a : b
+    );
+    current = applyDeltaToShape(current, best.dx, best.dy);
+  }
+  return current;
+}
+
 // Monolithic whiteboard component. needs splitting up.
 export default function Whiteboard({
   initialLocked = false,
@@ -2743,10 +2786,16 @@ export default function Whiteboard({
 
   const handlePointerUp = () => {
     // Task 3.4.1-A: Commit optimistic UI line to the network
-    if (optimisticLineRef.current) {
-      addLine(optimisticLineRef.current);
-      optimisticLineRef.current = null;
-      setOptimisticLine(null);
+    // Apply frame assignment before committing to Yjs (avoids stale-ref race with linesRef).
+    const committedLine = optimisticLineRef.current;
+    optimisticLineRef.current = null;
+    setOptimisticLine(null);
+
+    if (committedLine && (activeTool === ToolType.PEN || activeTool === ToolType.HIGHLIGHTER)) {
+      // Commit stroke in world coordinates (lines rendering does not yet support
+      // frame-relative coordinates — parentId assignment for lines is deferred).
+      addLine(committedLine);
+      addToHistory({ type: 'ADD', objectType: 'line', id: committedLine.id, previousState: null, newState: committedLine, userId: 'local' });
     }
 
     if (isEditingArrowEnd || isBendingArrow) {
@@ -3077,6 +3126,14 @@ export default function Whiteboard({
       }
 
       if (isResizing) {
+        // Push resized standalone shapes outside any frames they now overlap.
+        if (initialResizeState) {
+          const resizedIds = new Set(initialResizeState.shapes.keys());
+          setShapes(prev => prev.map(s => {
+            if (!resizedIds.has(s.id)) return s;
+            return pushShapeOutsideFrames(s, prev);
+          }));
+        }
         setIsResizing(false);
         setResizeHandle(null);
         setInitialResizeState(null);
@@ -3283,6 +3340,12 @@ export default function Whiteboard({
           }
         }
 
+        // If the shape was not placed inside a frame, push it outside any frame
+        // whose boundary it now overlaps.
+        if (!newShape.parentId && !isFrame(newShape)) {
+          newShape = pushShapeOutsideFrames(newShape, shapesRef.current);
+        }
+
         setShapes(prev => [...prev, newShape]);
         addToHistory({ type: 'ADD', objectType: 'shape', id: newShape.id, previousState: null, newState: newShape, userId: 'local' });
 
@@ -3296,27 +3359,6 @@ export default function Whiteboard({
       // Smart Connectors: always clear snap state when shape creation ends
       setConnectorSnapState(null);
       setConnectorAnchorOverlays([]);
-    }
-
-    // Handle Pen/Highlighter Stroke
-    if ((activeTool === ToolType.PEN || activeTool === ToolType.HIGHLIGHTER) && linesRef.current.length > 0) {
-      const lastLine = linesRef.current[linesRef.current.length - 1];
-
-      const cx = lastLine.points[0];
-      const cy = lastLine.points[1];
-      const targetFrame = getTargetFrame(cx, cy);
-
-      let finalLine = lastLine;
-      if (targetFrame) {
-        finalLine = {
-          ...lastLine,
-          parentId: targetFrame.id,
-          points: lastLine.points.map((p, i) => i % 2 === 0 ? p - targetFrame.position.x : p - targetFrame.position.y)
-        };
-        setLines(prev => prev.map(l => l.id === lastLine.id ? finalLine : l));
-      }
-
-      addToHistory({ type: 'ADD', objectType: 'line', id: finalLine.id, previousState: null, newState: finalLine, userId: 'local' });
     }
 
     setDragStart(null);

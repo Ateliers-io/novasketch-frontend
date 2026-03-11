@@ -20,9 +20,101 @@ export interface SketchRNNPoint {
 }
 
 export interface SketchRNNOptions {
-    temperature?: number;  // Controls randomness (0.0-1.0, default 0.65)
+    temperature?: number;  // Controls randomness (0.0-1.0, default 0.25)
     category?: string;     // Model category (e.g., 'cat', 'dog', 'bicycle')
     numPoints?: number;    // Number of points to generate
+}
+
+// ---------------------------------------------------------------------------
+// Coordinate helpers — normalise canvas coords to the range SketchRNN expects
+// ---------------------------------------------------------------------------
+
+/** Target magnitude for normalised input (matches QuickDraw training data). */
+const MODEL_SCALE = 150;
+
+/** Perpendicular distance from `point` to the infinite line through `a`→`b`. */
+function perpendicularDist(
+    point: SketchRNNPoint,
+    a: SketchRNNPoint,
+    b: SketchRNNPoint
+): number {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.hypot(point.x - a.x, point.y - a.y);
+    const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lenSq));
+    return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
+}
+
+/**
+ * Ramer-Douglas-Peucker line simplification.
+ * Reduces dense mouse-event points to meaningful segments so the model
+ * receives a cleaner, sparser stroke.
+ */
+export function simplifyPoints(
+    points: SketchRNNPoint[],
+    epsilon: number = 2.0
+): SketchRNNPoint[] {
+    if (points.length <= 2) return points;
+
+    let maxDist = 0;
+    let maxIdx = 0;
+    const first = points[0];
+    const last = points[points.length - 1];
+
+    for (let i = 1; i < points.length - 1; i++) {
+        const d = perpendicularDist(points[i], first, last);
+        if (d > maxDist) {
+            maxDist = d;
+            maxIdx = i;
+        }
+    }
+
+    if (maxDist > epsilon) {
+        const left = simplifyPoints(points.slice(0, maxIdx + 1), epsilon);
+        const right = simplifyPoints(points.slice(maxIdx), epsilon);
+        return [...left.slice(0, -1), ...right];
+    }
+
+    return [first, last];
+}
+
+/**
+ * Normalise points for the model:
+ *  1. Translate so the first point sits at the origin.
+ *  2. Uniform-scale so the bounding-box fits inside MODEL_SCALE.
+ * Returns the normalised points together with the transform parameters
+ * needed to convert model output back to canvas space.
+ */
+export function normalizeForModel(points: SketchRNNPoint[]): {
+    normalized: SketchRNNPoint[];
+    origin: SketchRNNPoint;
+    scaleFactor: number;
+} {
+    const origin = { x: points[0].x, y: points[0].y };
+
+    // Translate so first point is at (0, 0)
+    const translated = points.map(p => ({
+        x: p.x - origin.x,
+        y: p.y - origin.y,
+        pressure: p.pressure,
+    }));
+
+    // Determine bounding extent
+    let maxAbs = 0;
+    for (const p of translated) {
+        maxAbs = Math.max(maxAbs, Math.abs(p.x), Math.abs(p.y));
+    }
+
+    const scaleFactor = maxAbs > 1 ? MODEL_SCALE / maxAbs : 1;
+
+    const normalized = translated.map(p => ({
+        x: p.x * scaleFactor,
+        y: p.y * scaleFactor,
+        pressure: p.pressure,
+    }));
+
+    return { normalized, origin, scaleFactor };
 }
 
 /**
@@ -69,7 +161,7 @@ export async function completeSketch(
     options: SketchRNNOptions = {}
 ): Promise<SketchRNNPoint[]> {
     const {
-        temperature = 0.45,
+        temperature = 0.25,
         numPoints = 30
     } = options;
 
@@ -85,21 +177,31 @@ export async function completeSketch(
     }
 
     try {
-        // Convert input to line format [[x, y], [x, y], ...]
-        const line: number[][] = inputPoints.map(p => [p.x, p.y]);
-        
-        // Use model's lineToStroke to get proper delta format
+        // 1. Simplify dense mouse-event points into meaningful segments
+        const simplified = simplifyPoints(inputPoints, 2.0);
+        // Defensive guard: simplifyPoints always returns ≥ 2 for ≥ 2 input
+        /* v8 ignore start */
+        if (simplified.length < 2) {
+            return fallbackCompletion(inputPoints, { temperature, numPoints });
+        }
+        /* v8 ignore stop */
+
+        // 2. Normalise: translate to origin & scale to MODEL_SCALE
+        const { normalized, scaleFactor } = normalizeForModel(simplified);
+
+        // 3. Convert to [[x, y], …] then to delta-encoded stroke format
+        const line: number[][] = normalized.map(p => [p.x, p.y]);
         const initialStroke: number[][] = currentModel.lineToStroke(line, [0, 0]);
         
         if (!initialStroke || initialStroke.length === 0) {
             return fallbackCompletion(inputPoints, { temperature, numPoints });
         }
         
-        // Initialize state with the input stroke
+        // 4. Feed normalised input into model state
         let state = currentModel.zeroState();
         state = currentModel.updateStrokes(initialStroke, state);
         
-        // Generate new points
+        // 5. Generate continuation deltas (in normalised model space)
         const generatedDeltas: number[][] = [];
         
         for (let i = 0; i < numPoints; i++) {
@@ -122,14 +224,15 @@ export async function completeSketch(
             }
         }
         
-        // Convert deltas to absolute points
+        // 6. Convert model-space deltas back to canvas-space absolute points.
+        //    Each model delta is divided by scaleFactor to undo the normalisation.
         const result = [...inputPoints];
         let current = inputPoints[inputPoints.length - 1];
         
         for (const [dx, dy] of generatedDeltas) {
             current = {
-                x: current.x + dx,
-                y: current.y + dy,
+                x: current.x + dx / scaleFactor,
+                y: current.y + dy / scaleFactor,
                 pressure: 0.5
             };
             result.push(current);

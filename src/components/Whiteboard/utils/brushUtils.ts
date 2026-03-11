@@ -38,6 +38,10 @@ export function getBrushProperties(brush: BrushType, size: number, color: string
             // Rendered by perfect-freehand in <Stroke /> as a filled variable-width polygon.
             // These Konva Line props are stored in Yjs for data consistency but are not used directly.
             return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
+        case BrushType.SKETCH_RNN:
+            // AI-assisted sketch completion. Rendered like MAGIC_PENCIL via perfect-freehand.
+            // Points are extended by the SketchRNN model after the stroke is committed.
+            return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
         default:
             return { lineCap: 'round', lineJoin: 'round', tension: 0.5, opacity: 1, strokeWidth: size };
     }

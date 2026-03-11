@@ -75,7 +75,11 @@ import ImageUploadModal from './components/ImageUploadModal';
 import ProjectNameEditor from './components/ProjectNameEditor';
 import ReplayOverlay from './components/ReplayOverlay';
 import * as Y from 'yjs';
-
+import { loadSketchRNNModel, completeSketch, isSketchRNNReady } from '../../services/sketchRNN.service';
+// Initialize Sketch-RNN model on module load (lazy, non-blocking)
+loadSketchRNNModel('cat').catch((err) =>
+  console.warn('[Whiteboard] Sketch-RNN init skipped:', err)
+);
 // hardcoded sync endpoint. needs env var override for prod.
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
 
@@ -2797,6 +2801,27 @@ export default function Whiteboard({
       // frame-relative coordinates — parentId assignment for lines is deferred).
       addLine(committedLine);
       addToHistory({ type: 'ADD', objectType: 'line', id: committedLine.id, previousState: null, newState: committedLine, userId: 'local' });
+
+      // Sketch-RNN AI completion: extend the stroke with AI-generated points
+      if (committedLine.brushType === BrushType.SKETCH_RNN) {
+        const flatPts = committedLine.points;
+        const inputPoints: { x: number; y: number }[] = [];
+        for (let i = 0; i + 1 < flatPts.length; i += 2) {
+          inputPoints.push({ x: flatPts[i], y: flatPts[i + 1] });
+        }
+        completeSketch(inputPoints, { temperature: 0.25, numPoints: 30 })
+          .then((completed) => {
+            if (completed.length > inputPoints.length) {
+              const completedFlat: number[] = [];
+              completed.forEach((p) => completedFlat.push(p.x, p.y));
+              const updatedLine = { ...committedLine, points: completedFlat };
+              setLines((prev) =>
+                prev.map((l) => (l.id === committedLine.id ? updatedLine : l))
+              );
+            }
+          })
+          .catch((err) => console.warn('[SketchRNN] Completion failed:', err));
+      }
     }
 
     if (isEditingArrowEnd || isBendingArrow) {

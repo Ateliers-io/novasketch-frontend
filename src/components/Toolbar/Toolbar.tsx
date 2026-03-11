@@ -33,6 +33,7 @@ import {
     Grid3x3,
     ImageIcon,
     LayoutTemplate,
+    Sparkles,
 } from 'lucide-react';
 import { ToolType, BrushType, StrokeStyle } from '../../types/shapes';
 import { GridConfig, GridSnapType, GridAppearance } from '../../types/grid';
@@ -127,6 +128,7 @@ const BRUSH_OPTIONS: { type: BrushType; label: string }[] = [
     { type: BrushType.NATURAL_PENCIL, label: 'Pencil' },
     { type: BrushType.WATERCOLOUR, label: 'Watercolour' },
     { type: BrushType.MAGIC_PENCIL, label: 'Magic Pencil' },
+    { type: BrushType.SKETCH_RNN, label: 'AI Sketch' },
 ];
 
 const SHAPE_ITEMS: { type: ToolType; label: string; icon: any | null }[] = [
@@ -215,6 +217,15 @@ const BrushPreview = ({ brushType }: { brushType: BrushType }) => {
                             <line x1={cx} y1={cy - 3} x2={cx} y2={cy + 3} stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                             <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                         </g>
+                    ))}
+                </g>;
+            case BrushType.SKETCH_RNN:
+                // AI brain-wave: dashed path with sparkle dots indicating AI completion
+                return <g>
+                    <path d="M4 14 C30 8, 50 20, 70 12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.9" />
+                    <path d="M70 12 C78 8, 86 16, 96 10" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeDasharray="3 2" opacity="0.5" />
+                    {[[74, 10], [82, 14], [90, 9]].map(([cx, cy], i) => (
+                        <circle key={i} cx={cx} cy={cy} r="1.5" fill="currentColor" opacity={0.6 - i * 0.1} />
                     ))}
                 </g>;
         }

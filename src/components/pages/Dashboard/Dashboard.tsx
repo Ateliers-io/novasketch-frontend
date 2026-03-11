@@ -454,10 +454,18 @@ export const Dashboard = () => {
                     )}
                 </div>
                 <div className="p-2 border-t border-white/10">
-                    <div className="flex items-center gap-3 p-2 rounded-sm hover:bg-[#1F2833] cursor-pointer transition-colors">
-                        <div className="w-8 h-8 rounded bg-[#1F2833] border border-white/10 flex items-center justify-center text-xs font-bold text-white">{user?.displayName?.[0] || 'U'}</div>
-                        {!isSidebarCollapsed && <div className="flex-1 min-w-0"><div className="text-xs font-medium text-white truncate">{user?.displayName}</div><div className="text-[10px] text-[#66FCF1] truncate font-mono">ONLINE</div></div>}
-                        {!isSidebarCollapsed && <button onClick={handleLogout} className="text-[#8b9bb4] hover:text-[#66FCF1]" title="Log Out"><LogOut size={14} /></button>}
+                    <div
+                        className="flex items-center gap-3 p-2 rounded-sm hover:bg-[#1F2833] cursor-pointer transition-colors group"
+                        onClick={() => navigate('/profile')}
+                        title="View Profile"
+                    >
+                        <div className="w-8 h-8 rounded bg-gradient-to-br from-[#66FCF1]/20 to-indigo-500/20 border border-white/10 flex items-center justify-center text-xs font-bold text-[#66FCF1] overflow-hidden group-hover:border-[#66FCF1]/40 transition-colors">
+                            {user?.avatar ? (
+                                <img src={user.avatar} alt="avatar" className="w-full h-full object-cover rounded" />
+                            ) : (user?.displayName?.[0]?.toUpperCase() || 'U')}
+                        </div>
+                        {!isSidebarCollapsed && <div className="flex-1 min-w-0"><div className="text-xs font-medium text-white truncate group-hover:text-[#66FCF1] transition-colors">{user?.displayName}</div><div className="text-[10px] text-[#66FCF1] truncate font-mono">ONLINE · Profile →</div></div>}
+                        {!isSidebarCollapsed && <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="text-[#8b9bb4] hover:text-red-400 transition-colors" title="Log Out"><LogOut size={14} /></button>}
                     </div>
                 </div>
             </aside>

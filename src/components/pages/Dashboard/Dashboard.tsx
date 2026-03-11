@@ -450,12 +450,6 @@ export const Dashboard = () => {
                             >
                                 <User size={16} /><span>Personal</span>
                             </div>
-                            <div
-                                onClick={() => setProjectFilter('all')}
-                                className={`sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors ${projectFilter === 'all' ? 'bg-[#1F2833] text-[#3B82F6]' : 'text-[#8b9bb4] hover:bg-[#1F2833]/50 hover:text-white'}`}
-                            >
-                                <LayoutGrid size={16} /><span>Show All</span>
-                            </div>
                         </div>
                     )}
                 </div>

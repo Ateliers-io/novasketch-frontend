@@ -8,12 +8,11 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { flushSync } from 'react-dom';
 import { TimelinePlayer } from './TimelinePlayer';
 import { TimelineScrubber } from './TimelineScrubber';
-import { SVGShapeRenderer } from '../SVGShapeRenderer';
 import { ReplayEngine, ReplayState } from '../../../services/replayEngine';
 import { getSessionHistory } from '../../../services/history.service';
+import { preloadImages, renderFrameToCanvas } from '../../../utils/canvasVideoRenderer';
 import { History, Play, Pause, FastForward, Download, X, RotateCcw } from 'lucide-react';
 import './ReplayOverlay.css';
 
@@ -135,40 +134,33 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
     // --- Video Export ---
     const handleExportVideo = useCallback(async () => {
         const engine = engineRef.current;
-        const area = canvasAreaRef.current;
-        if (!engine || !area || totalSnapshots === 0) return;
+        if (!engine || totalSnapshots === 0) return;
 
-        // Create an offscreen canvas to render SVG frames into
+        setIsRecording(true);
+
+        // Collect all snapshot states for image pre-loading
+        const allStates: ReplayState[] = [];
+        for (let i = 0; i < totalSnapshots; i++) {
+            const s = engine.seekTo(i);
+            if (s) allStates.push(s);
+        }
+        // Reset view back to first frame
+        const firstState = allStates[0];
+        setReplayState(firstState);
+        setCurrentIndex(0);
+
+        // Pre-load images used by any snapshot
+        const imageCache = await preloadImages(allStates);
+
+        // Offscreen canvas — pure Canvas 2D, no DOM/SVG involved
         const offscreen = document.createElement('canvas');
         offscreen.width = 1920;
         offscreen.height = 1080;
         const ctx = offscreen.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) { setIsRecording(false); return; }
 
-        // Helper: serialise the current live SVG to the offscreen canvas
-        const renderCurrentFrame = async (bgColor: string) => {
-            const svgEl = area.querySelector('svg');
-            if (!svgEl) return;
-            const svgData = new XMLSerializer().serializeToString(svgEl);
-            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-            const imgUrl = URL.createObjectURL(svgBlob);
-            const img = new Image();
-            img.src = imgUrl;
-            await img.decode();
-            ctx.fillStyle = bgColor || '#0B0C10';
-            ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-            ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height);
-            URL.revokeObjectURL(imgUrl);
-        };
-
-        // Render the first frame synchronously so the recorder starts
-        // with real content instead of a blank canvas.
-        const firstState = engine.seekTo(0);
-        flushSync(() => {
-            setReplayState(firstState);
-            setCurrentIndex(0);
-        });
-        await renderCurrentFrame(firstState?.bgColor || '#0B0C10');
+        // Render first frame so recorder starts with real content
+        renderFrameToCanvas(ctx, firstState, 1920, 1080, imageCache);
 
         const stream = offscreen.captureStream(30);
 
@@ -199,23 +191,18 @@ const ReplayOverlay: React.FC<ReplayOverlayProps> = ({
 
         mediaRecorderRef.current = recorder;
         recorder.start();
-        setIsRecording(true);
 
         // Hold first frame so recorder captures it
         await new Promise(r => setTimeout(r, 500));
 
-        // Render remaining snapshots
-        for (let i = 1; i < totalSnapshots; i++) {
-            const state = engine.seekTo(i);
-            // Flush DOM synchronously so the SVG is up-to-date before serialisation
-            flushSync(() => {
-                setReplayState(state);
-                setCurrentIndex(i);
-            });
+        // Render remaining snapshots directly to canvas
+        for (let i = 1; i < allStates.length; i++) {
+            const state = allStates[i];
+            renderFrameToCanvas(ctx, state, 1920, 1080, imageCache);
+            setReplayState(state);
+            setCurrentIndex(i);
 
-            await renderCurrentFrame(state?.bgColor || '#0B0C10');
-
-            // Hold frame long enough for captureStream to capture (~15 frames at 30fps)
+            // Hold frame for captureStream (~15 frames at 30fps = 500ms)
             await new Promise(r => setTimeout(r, 500));
         }
 

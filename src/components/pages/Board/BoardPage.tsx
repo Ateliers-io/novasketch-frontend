@@ -17,7 +17,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
-import { getSession, joinSession, touchLocalBoard, SessionInfo } from '../../../services/session.service';
+import { getSession, joinSession, upsertLocalBoard, SessionInfo } from '../../../services/session.service';
 import Whiteboard from '../../Whiteboard/Whiteboard';
 import { SessionNotFound } from './SessionNotFound';
 
@@ -44,29 +44,45 @@ export const BoardPage = () => {
             if (cancelled) return;
 
             // Auto-join the canvas (adds user as participant if not already)
-            // This is fire-and-forget — doesn't block rendering
             joinSession(id);
-
-            // Update lastEditedAt in localStorage so the board appears recent
-            touchLocalBoard(id);
 
             if (session) {
                 setSessionInfo(session);
                 setStatus('found');
+
+                // Persist for BOTH the owner and any guest who opens this URL.
+                // This ensures the board appears in everyone's collaborative history.
+                upsertLocalBoard({
+                    sessionId: session.sessionId,
+                    name: session.name || `Board ${id.slice(0, 8)}`,
+                    createdBy: session.createdBy || '',
+                    createdAt: session.createdAt || new Date().toISOString(),
+                    url: `/board/${id}`,
+                    isCollab: true,
+                    lastEditedAt: new Date().toISOString(),
+                    lastAccessedAt: new Date().toISOString(),
+                    role: session.role ?? 'guest',
+                });
             } else {
-                // Backend couldn't confirm the session. This can happen when:
-                //   - User is not authenticated (401)
-                //   - Canvas was created client-side (fallback UUID)
-                //   - Backend is temporarily unreachable
-                //
-                // If the ID looks like a valid UUID, load the whiteboard anyway.
-                // Yjs WebSocket sync creates rooms on-the-fly and doesn't depend
-                // on the REST API. Only show "not found" for clearly invalid IDs.
+                // Backend couldn't confirm (unauthenticated / client-side UUID / offline).
+                // If the ID looks like a valid UUID, load anyway — Yjs syncs on-the-fly.
                 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
                 if (UUID_REGEX.test(id)) {
-                    // Proceed with a minimal session — Yjs will handle data sync
                     setSessionInfo(null);
                     setStatus('found');
+
+                    // Save to localStorage so the guest's Dashboard shows this board.
+                    upsertLocalBoard({
+                        sessionId: id,
+                        name: `Board ${id.slice(0, 8)}`,
+                        createdBy: '',
+                        createdAt: new Date().toISOString(),
+                        url: `/board/${id}`,
+                        isCollab: true,
+                        lastEditedAt: new Date().toISOString(),
+                        lastAccessedAt: new Date().toISOString(),
+                        role: 'guest',
+                    });
                 } else {
                     setSessionInfo(null);
                     setStatus('not-found');

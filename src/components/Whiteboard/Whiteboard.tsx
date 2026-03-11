@@ -738,6 +738,7 @@ export default function Whiteboard({
 
   // Task 5.4.2 + 5.4.3: Animate Viewport Offset back to (0,0) and Zoom to 100%
   const recenterAnimRef = useRef<number | null>(null);
+  const backToContentIndexRef = useRef<number>(0);
 
   const handleRecenter = useCallback(() => {
     // Cancel any in-flight recenter animation
@@ -778,6 +779,120 @@ export default function Whiteboard({
 
     recenterAnimRef.current = requestAnimationFrame(animate);
   }, [stagePos, stageScale]);
+
+    // "Back to Content" — cycles through recently created elements chronologically backwards
+    const handleBackToContent = useCallback(() => {
+      if (recenterAnimRef.current !== null) {
+        cancelAnimationFrame(recenterAnimRef.current);
+        recenterAnimRef.current = null;
+      }
+  
+      const extractTime = (id: string) => {
+        if (!id) return 0;
+        const parts = id.split('-');
+        if (parts.length < 2) return 0;
+        const p = parts[1];
+        return /^\d{13,}$/.test(p) ? parseInt(p, 10) : parseInt(p, 36) || 0;
+      };
+  
+      const allItemWrappers = [
+        ...shapesRef.current.map((s: any) => ({ item: s, time: extractTime(s.id), type: 'shape' })),
+        ...linesRef.current.map((l: any) => ({ item: l, time: extractTime(l.id), type: 'line' })),
+        ...textAnnotationsRef.current.map((t: any) => ({ item: t, time: extractTime(t.id), type: 'text' }))
+      ].sort((a, b) => b.time - a.time); // newest first
+  
+      const visibleItems = allItemWrappers.filter(wrapper => wrapper.item.visible !== false);
+      if (!visibleItems.length) return;
+  
+      // Clamp index if we exceeded max items
+      if (backToContentIndexRef.current >= visibleItems.length) {
+        backToContentIndexRef.current = 0;
+      }
+  
+      const targetWrapper = visibleItems[backToContentIndexRef.current];
+      const s = targetWrapper.item;
+  
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  
+      if (targetWrapper.type === 'shape') {
+        const p = s.position;
+        if (s.width !== undefined) {
+          minX = p.x; minY = p.y;
+          maxX = p.x + s.width; maxY = p.y + s.height;
+        } else if (s.radius !== undefined) {
+          minX = p.x - s.radius; minY = p.y - s.radius;
+          maxX = p.x + s.radius; maxY = p.y + s.radius;
+        } else if (s.radiusX !== undefined) {
+          minX = p.x - s.radiusX; minY = p.y - s.radiusY;
+          maxX = p.x + s.radiusX; maxY = p.y + s.radiusY;
+        } else if (s.startPoint) {
+          minX = Math.min(s.startPoint.x, s.endPoint.x); minY = Math.min(s.startPoint.y, s.endPoint.y);
+          maxX = Math.max(s.startPoint.x, s.endPoint.x); maxY = Math.max(s.startPoint.y, s.endPoint.y);
+        } else if (s.points) {
+          s.points.forEach((pt: any) => {
+            minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y);
+            maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y);
+          });
+        }
+      } else if (targetWrapper.type === 'line') {
+        const pts = s.points;
+        for (let i = 0; i < pts.length; i += 2) {
+          minX = Math.min(minX, pts[i]); minY = Math.min(minY, pts[i + 1]);
+          maxX = Math.max(maxX, pts[i]); maxY = Math.max(maxY, pts[i + 1]);
+        }
+      } else if (targetWrapper.type === 'text') {
+        const tw = s.text.length * (s.fontSize || 18) * 0.6;
+        const th = (s.fontSize || 18) * 1.4;
+        minX = s.x; minY = s.y;
+        maxX = s.x + tw; maxY = s.y + th;
+      }
+  
+      // Fallback if bounds entirely failed to generate
+      if (minX === Infinity) return;
+  
+      // Increment index for the NEXT time the user clicks the button
+      backToContentIndexRef.current += 1;
+
+    const PAD = 80;
+    const contentW = (maxX - minX) + PAD * 2;
+    const contentH = (maxY - minY) + PAD * 2;
+    const contentCX = (minX + maxX) / 2;
+    const contentCY = (minY + maxY) / 2;
+
+    // Fit-to-content scale, capped between 10% and 200%
+    const scaleX = dimensions.width / contentW;
+    const scaleY = dimensions.height / contentH;
+    const targetScale = Math.min(Math.max(Math.min(scaleX, scaleY), 0.1), 2);
+
+    // Target pan so that contentCX/CY sits at screen centre
+    const targetX = dimensions.width / 2 - contentCX * targetScale;
+    const targetY = dimensions.height / 2 - contentCY * targetScale;
+
+    const DURATION = 450;
+    const startX = stagePos.x;
+    const startY = stagePos.y;
+    const startScale = stageScale;
+    const startTime = performance.now();
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / DURATION, 1);
+      const eased = ease(progress);
+      setStagePos({
+        x: startX + (targetX - startX) * eased,
+        y: startY + (targetY - startY) * eased,
+      });
+      setStageScale(startScale + (targetScale - startScale) * eased);
+      if (progress < 1) {
+        recenterAnimRef.current = requestAnimationFrame(animate);
+      } else {
+        recenterAnimRef.current = null;
+      }
+    };
+    recenterAnimRef.current = requestAnimationFrame(animate);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stagePos, stageScale, dimensions]);
 
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
@@ -1526,6 +1641,8 @@ export default function Whiteboard({
   // Core handler for pointer down events. 
   // currently manages multiple interaction modes; candidate for refactoring into smaller handlers.
   const handlePointerDown = (e: KonvaEventObject<PointerEvent> | React.MouseEvent) => {
+    backToContentIndexRef.current = 0; // Reset time-machine sequence on manual interaction
+
     // Task 1.3.1-B: Block canvas interactions until username is set
     if (!userName) return;
 
@@ -1534,6 +1651,7 @@ export default function Whiteboard({
       if (activeTextInput) commitText();
       return;
     }
+
 
     // Panning / Hand Tool (Spacebar or explicit tool)
     if (isPanning || activeTool === ToolType.HAND) {
@@ -4298,8 +4416,12 @@ export default function Whiteboard({
       </div>
 
       {/* Export Tools Overlay - Moved to Hamburger Menu */}
-      {/* Task 5.4.1: Recenter Button */}
-      <RecenterButton onRecenter={handleRecenter} />
+      {/* Task 5.4.1: Recenter Button + Back to Content */}
+      <RecenterButton
+        onRecenter={handleRecenter}
+        onBackToContent={handleBackToContent}
+        showBackToContent={stagePos.x !== 0 || stagePos.y !== 0}
+      />
 
       {/* Task 5.3: Mini-Map */}
       <MiniMap

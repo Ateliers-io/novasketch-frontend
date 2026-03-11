@@ -428,632 +428,632 @@ export default function Toolbar({
                     pointerEvents: isSessionLocked ? 'none' : 'auto',
                 }}
             >
-            <div
-                ref={scrollContainerRef}
-                className="flex items-stretch gap-0.5 px-2 py-1 overflow-x-auto"
-                style={{ scrollbarWidth: 'none', color: 'var(--ns-toolbar-text)' }}
-            >
+                <div
+                    ref={scrollContainerRef}
+                    className="flex items-stretch gap-0.5 px-2 py-1 overflow-x-auto"
+                    style={{ scrollbarWidth: 'none', color: 'var(--ns-toolbar-text)' }}
+                >
 
-                {/* HISTORY */}
-                <ToolSection label="History">
-                    <button onClick={onUndo} disabled={canUndo === false} title="Undo (Ctrl+Z)"
-                        className="flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 active:scale-95"
-                        style={{ color: undoColor, cursor: undoCursor }}
-                        onMouseEnter={(e) => { if (canUndo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = undoColor; }}>
-                        <Undo2 size={14} />
-                    </button>
-                    <button onClick={onRedo} disabled={canRedo === false} title="Redo (Ctrl+Y)"
-                        className="flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 active:scale-95"
-                        style={{ color: redoColor, cursor: redoCursor }}
-                        onMouseEnter={(e) => { if (canRedo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = redoColor; }}>
-                        <Redo2 size={14} />
-                    </button>
-                </ToolSection>
-
-                <Separator />
-
-                {/* SELECTION */}
-                <ToolSection label="Select">
-                    <ToolButton icon={MousePointer2} label="Select (V)" isActive={activeTool === 'select'} onClick={() => onToolChange('select')} />
-                    <ToolButton icon={Hand} label="Hand (H)" isActive={activeTool === ToolType.HAND} onClick={() => onToolChange(ToolType.HAND)} />
-                    <button onClick={() => onToolLockChange(!isToolLocked)} title={isToolLocked ? 'Unlock Tool' : 'Lock Tool'}
-                        className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${isToolLocked ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#4a5b6a] hover:bg-[#262e35] hover:text-[#8b9dad]'}`}>
-                        {isToolLocked ? <Lock size={12} /> : <Unlock size={12} />}
-                    </button>
-                </ToolSection>
-
-                <Separator />
-
-                {/* TOOLS */}
-                <ToolSection label="Tools">
-                    {/* Pen (just activates pen, no dropdown) */}
-                    <ToolButton icon={Pencil} label="Pen (P)" isActive={activeTool === ToolType.PEN} onClick={() => onToolChange(ToolType.PEN)} />
-
-                    {/* Brush Type Dropdown: separate button */}
-                    <div className="relative" ref={brushMenuRef}>
-                        <button
-                            onClick={() => setShowBrushMenu(!showBrushMenu)}
-                            title={`Brush Type: ${BRUSH_OPTIONS.find(b => b.type === brushType)?.label || 'Brush'}`}
-                            className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showBrushMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
-                        >
-                            <Paintbrush size={16} />
-                            <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
+                    {/* HISTORY */}
+                    <ToolSection label="History">
+                        <button onClick={onUndo} disabled={canUndo === false} title="Undo (Ctrl+Z)"
+                            className="flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 active:scale-95"
+                            style={{ color: undoColor, cursor: undoCursor }}
+                            onMouseEnter={(e) => { if (canUndo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = undoColor; }}>
+                            <Undo2 size={14} />
                         </button>
-
-                        {/* Brush Dropdown Panel */}
-                        {showBrushMenu && (
-                            <DropdownPortal triggerRef={brushMenuRef}>
-                                <div className="w-[280px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden"
-                                    style={{ animation: 'fadeIn 150ms ease-out' }}>
-                                    <div className="px-2 pt-2 pb-1">
-                                        <div className="text-[10px] font-semibold uppercase text-[#4a5b6a] tracking-wider px-2 mb-1">Brush Type</div>
-                                    </div>
-                                    <div className="px-1.5 pb-2 max-h-[380px] overflow-y-auto">
-                                        {BRUSH_OPTIONS.map((brush) => (
-                                            <button
-                                                key={brush.type}
-                                                onClick={() => {
-                                                    onBrushTypeChange(brush.type);
-                                                    if (activeTool !== ToolType.PEN && activeTool !== ToolType.HIGHLIGHTER) {
-                                                        onToolChange(ToolType.PEN);
-                                                    }
-                                                    setShowBrushMenu(false);
-                                                }}
-                                                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-100 ${brushType === brush.type
-                                                    ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
-                                                    : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white'
-                                                    }`}
-                                            >
-                                                <div className={`w-[3px] h-6 rounded-full flex-shrink-0 ${brushType === brush.type ? 'bg-[#3B82F6]' : 'bg-transparent'}`} />
-                                                <span className="text-[12px] font-medium min-w-[85px] text-left">{brush.label}</span>
-                                                <div className={`ml-auto ${brushType === brush.type ? 'text-[#3B82F6]' : 'text-[#7a8c9c]'}`}>
-                                                    <BrushPreview brushType={brush.type} />
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </DropdownPortal>
-                        )}
-                    </div>
-
-                    <ToolButton icon={Highlighter} label="Highlighter" isActive={activeTool === ToolType.HIGHLIGHTER} onClick={() => onToolChange(ToolType.HIGHLIGHTER)} />
-                    <ToolButton icon={PaintBucket} label="Fill Bucket (G)" isActive={isFillBucket} onClick={() => onToolChange(ToolType.FILL_BUCKET)} />
-
-                    {/* Eraser with dropdown */}
-                    <div className="relative" ref={eraserMenuRef}>
-                        <ToolButton icon={Eraser} label="Eraser (E)" isActive={isEraserMode} hasDropdown
-                            onClick={() => { onToolChange('eraser'); setShowEraserMenu(!showEraserMenu); }} />
-
-                        {showEraserMenu && (
-                            <DropdownPortal triggerRef={eraserMenuRef}>
-                                <div className="w-44 p-2.5 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-2.5"
-                                    style={{ animation: 'fadeIn 150ms ease-out' }}>
-                                    <div className="flex gap-1.5 p-0.5 bg-[#0d1117] rounded-lg">
-                                        <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'partial' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
-                                            onClick={() => onEraserModeChange('partial')}>
-                                            <Minus size={13} /> Partial
-                                        </button>
-                                        <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'stroke' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
-                                            onClick={() => onEraserModeChange('stroke')}>
-                                            <Trash2 size={13} /> Stroke
-                                        </button>
-                                    </div>
-                                    {eraserMode === 'partial' && (
-                                        <div className="space-y-1.5">
-                                            <div className="flex justify-between text-[9px] uppercase font-bold" style={{ color: 'var(--ns-section-label)' }}>
-                                                <span>Size</span><span style={{ color: 'var(--ns-accent)' }}>{eraserSize}px</span>
-                                            </div>
-                                            <input type="range" min={5} max={50} value={eraserSize}
-                                                onChange={(e) => onEraserSizeChange(Number(e.target.value))}
-                                                className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
-                                        </div>
-                                    )}
-                                </div>
-                            </DropdownPortal>
-                        )}
-                    </div>
-
-                    <ToolButton icon={Type} label="Text (T)" isActive={activeTool === 'text'} onClick={() => onToolChange('text')} />
-                    <ToolButton icon={ImageIcon} label="Image (I)" isActive={activeTool === ToolType.IMAGE} onClick={() => { onToolChange(ToolType.IMAGE); onImageUpload?.(); }} />
-                    <ToolButton icon={LayoutTemplate} label="Frame (F)" isActive={activeTool === ToolType.FRAME} onClick={() => onToolChange(ToolType.FRAME)} />
-                </ToolSection>
-
-                <Separator />
-
-                {/* SHAPES */}
-                <div className="relative -mt-2" ref={shapesMenuRef}>
-                    <ToolSection label="Shapes">
-                        <button
-                            onClick={() => setShowShapesMenu(!showShapesMenu)}
-                            title="Shapes"
-                            className={`mt-0.5 relative flex items-center justify-center -mt-11.5 w-7 h-7 rounded-sm transition-all duration-150 ${isShapeTool || showShapesMenu ? 'shadow-sm' : ''}`}
-                            style={{
-                                background: isShapeTool ? 'var(--ns-toolbar-active-bg)' : showShapesMenu ? 'var(--ns-toolbar-hover)' : 'transparent',
-                                color: isShapeTool ? 'var(--ns-toolbar-active-text)' : 'var(--ns-toolbar-muted)',
-                                boxShadow: isShapeTool ? '0 0 8px var(--ns-toolbar-active-ring)' : 'none',
-                                ...(isShapeTool ? { outline: '1px solid var(--ns-toolbar-active-ring)' } : {}),
-                            }}
-                            onMouseEnter={(e) => { if (!isShapeTool) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
-                            onMouseLeave={(e) => { if (!isShapeTool) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted)'; } }}
-                        >
-                            {(() => {
-                                const activeItem = SHAPE_ITEMS.find(s => s.type === activeTool) || SHAPE_ITEMS.find(s => s.type === lastShapeTool) || SHAPE_ITEMS[0];
-                                return activeItem.icon ? <activeItem.icon size={16} /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>;
-                            })()}
-                            <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
+                        <button onClick={onRedo} disabled={canRedo === false} title="Redo (Ctrl+Y)"
+                            className="flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 active:scale-95"
+                            style={{ color: redoColor, cursor: redoCursor }}
+                            onMouseEnter={(e) => { if (canRedo) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = redoColor; }}>
+                            <Redo2 size={14} />
                         </button>
                     </ToolSection>
-                    {showShapesMenu && (
-                        <DropdownPortal triggerRef={shapesMenuRef}>
-                            <div className="p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
-                                style={{ animation: 'fadeIn 150ms ease-out' }}>
-                                <div className="grid grid-cols-4 gap-1">
-                                    {SHAPE_ITEMS.map((shape) => (
-                                        <button
-                                            key={shape.type}
-                                            onClick={() => { onToolChange(shape.type as ActiveTool); setLastShapeTool(shape.type); setShowShapesMenu(false); }}
-                                            title={shape.label}
-                                            className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${activeTool === shape.type ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#1e262d] hover:text-white'}`}
-                                        >
-                                            {shape.icon ? <shape.icon size={16} /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </DropdownPortal>
-                    )}
-                </div>
 
-                {/* STROKE STYLE (only for shapes) */}
-                {isShapeTool && (
-                    <>
-                        <Separator />
-                        <div className="relative" ref={strokeStyleRef}>
-                            <ToolSection label="Style">
-                                <button onClick={() => setShowStrokeStyleMenu(!showStrokeStyleMenu)} title={`Stroke: ${strokeStyle}`}
-                                    className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showStrokeStyleMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                        {strokeStyle === 'solid' && <line x1="3" y1="12" x2="21" y2="12" />}
-                                        {strokeStyle === 'dashed' && <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="5 3" />}
-                                        {strokeStyle === 'dotted' && <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="2 3" strokeLinecap="round" />}
-                                    </svg>
-                                    <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
-                                </button>
-                            </ToolSection>
+                    <Separator />
 
-                            {showStrokeStyleMenu && (
-                                <DropdownPortal triggerRef={strokeStyleRef}>
-                                    <div className="w-40 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-1.5"
+                    {/* SELECTION */}
+                    <ToolSection label="Select">
+                        <ToolButton icon={MousePointer2} label="Select (V)" isActive={activeTool === 'select'} onClick={() => onToolChange('select')} />
+                        <ToolButton icon={Hand} label="Hand (H)" isActive={activeTool === ToolType.HAND} onClick={() => onToolChange(ToolType.HAND)} />
+                        <button onClick={() => onToolLockChange(!isToolLocked)} title={isToolLocked ? 'Unlock Tool' : 'Lock Tool'}
+                            className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${isToolLocked ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#4a5b6a] hover:bg-[#262e35] hover:text-[#8b9dad]'}`}>
+                            {isToolLocked ? <Lock size={12} /> : <Unlock size={12} />}
+                        </button>
+                    </ToolSection>
+
+                    <Separator />
+
+                    {/* TOOLS */}
+                    <ToolSection label="Tools">
+                        {/* Pen (just activates pen, no dropdown) */}
+                        <ToolButton icon={Pencil} label="Pen (P)" isActive={activeTool === ToolType.PEN} onClick={() => onToolChange(ToolType.PEN)} />
+
+                        {/* Brush Type Dropdown: separate button */}
+                        <div className="relative" ref={brushMenuRef}>
+                            <button
+                                onClick={() => setShowBrushMenu(!showBrushMenu)}
+                                title={`Brush Type: ${BRUSH_OPTIONS.find(b => b.type === brushType)?.label || 'Brush'}`}
+                                className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showBrushMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
+                            >
+                                <Paintbrush size={16} />
+                                <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
+                            </button>
+
+                            {/* Brush Dropdown Panel */}
+                            {showBrushMenu && (
+                                <DropdownPortal triggerRef={brushMenuRef}>
+                                    <div className="w-[280px] bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden"
                                         style={{ animation: 'fadeIn 150ms ease-out' }}>
-                                        {([
-                                            { style: 'solid' as StrokeStyle, label: 'Solid', dash: undefined },
-                                            { style: 'dashed' as StrokeStyle, label: 'Dashed', dash: '8 4' },
-                                            { style: 'dotted' as StrokeStyle, label: 'Dotted', dash: '2 4' },
-                                        ]).map(({ style, label, dash }) => (
-                                            <button key={style}
-                                                onClick={() => { onStrokeStyleChange(style); setShowStrokeStyleMenu(false); }}
-                                                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all"
-                                                style={{
-                                                    background: strokeStyle === style ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.1))' : 'transparent',
-                                                    color: strokeStyle === style ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #b0bec5)'
-                                                }}
-                                                onMouseEnter={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                                                onMouseLeave={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #b0bec5)'; } }}
+                                        <div className="px-2 pt-2 pb-1">
+                                            <div className="text-[10px] font-semibold uppercase text-[#4a5b6a] tracking-wider px-2 mb-1">Brush Type</div>
+                                        </div>
+                                        <div className="px-1.5 pb-2 max-h-[380px] overflow-y-auto">
+                                            {BRUSH_OPTIONS.map((brush) => (
+                                                <button
+                                                    key={brush.type}
+                                                    onClick={() => {
+                                                        onBrushTypeChange(brush.type);
+                                                        if (activeTool !== ToolType.PEN && activeTool !== ToolType.HIGHLIGHTER) {
+                                                            onToolChange(ToolType.PEN);
+                                                        }
+                                                        setShowBrushMenu(false);
+                                                    }}
+                                                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-100 ${brushType === brush.type
+                                                        ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
+                                                        : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white'
+                                                        }`}
+                                                >
+                                                    <div className={`w-[3px] h-6 rounded-full flex-shrink-0 ${brushType === brush.type ? 'bg-[#3B82F6]' : 'bg-transparent'}`} />
+                                                    <span className="text-[12px] font-medium min-w-[85px] text-left">{brush.label}</span>
+                                                    <div className={`ml-auto ${brushType === brush.type ? 'text-[#3B82F6]' : 'text-[#7a8c9c]'}`}>
+                                                        <BrushPreview brushType={brush.type} />
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </DropdownPortal>
+                            )}
+                        </div>
+
+                        <ToolButton icon={Highlighter} label="Highlighter" isActive={activeTool === ToolType.HIGHLIGHTER} onClick={() => onToolChange(ToolType.HIGHLIGHTER)} />
+                        <ToolButton icon={PaintBucket} label="Fill Bucket (G)" isActive={isFillBucket} onClick={() => onToolChange(ToolType.FILL_BUCKET)} />
+
+                        {/* Eraser with dropdown */}
+                        <div className="relative" ref={eraserMenuRef}>
+                            <ToolButton icon={Eraser} label="Eraser (E)" isActive={isEraserMode} hasDropdown
+                                onClick={() => { onToolChange('eraser'); setShowEraserMenu(!showEraserMenu); }} />
+
+                            {showEraserMenu && (
+                                <DropdownPortal triggerRef={eraserMenuRef}>
+                                    <div className="w-44 p-2.5 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col gap-2.5"
+                                        style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                        <div className="flex gap-1.5 p-0.5 bg-[#0d1117] rounded-lg">
+                                            <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'partial' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
+                                                onClick={() => onEraserModeChange('partial')}>
+                                                <Minus size={13} /> Partial
+                                            </button>
+                                            <button className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium rounded-md ${eraserMode === 'stroke' ? 'bg-[#1e262d] text-white shadow-sm' : 'text-[#5a6d7e] hover:text-white'}`}
+                                                onClick={() => onEraserModeChange('stroke')}>
+                                                <Trash2 size={13} /> Stroke
+                                            </button>
+                                        </div>
+                                        {eraserMode === 'partial' && (
+                                            <div className="space-y-1.5">
+                                                <div className="flex justify-between text-[9px] uppercase font-bold" style={{ color: 'var(--ns-section-label)' }}>
+                                                    <span>Size</span><span style={{ color: 'var(--ns-accent)' }}>{eraserSize}px</span>
+                                                </div>
+                                                <input type="range" min={5} max={50} value={eraserSize}
+                                                    onChange={(e) => onEraserSizeChange(Number(e.target.value))}
+                                                    className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </DropdownPortal>
+                            )}
+                        </div>
+
+                        <ToolButton icon={Type} label="Text (T)" isActive={activeTool === 'text'} onClick={() => onToolChange('text')} />
+                        <ToolButton icon={ImageIcon} label="Image (I)" isActive={activeTool === ToolType.IMAGE} onClick={() => { onToolChange(ToolType.IMAGE); onImageUpload?.(); }} />
+                        <ToolButton icon={LayoutTemplate} label="Frame (F)" isActive={activeTool === ToolType.FRAME} onClick={() => onToolChange(ToolType.FRAME)} />
+                    </ToolSection>
+
+                    <Separator />
+
+                    {/* SHAPES */}
+                    <div className="relative -mt-2" ref={shapesMenuRef}>
+                        <ToolSection label="Shapes">
+                            <button
+                                onClick={() => setShowShapesMenu(!showShapesMenu)}
+                                title="Shapes"
+                                className={`mt-0.5 relative flex items-center justify-center -mt-11.5 w-7 h-7 rounded-sm transition-all duration-150 ${isShapeTool || showShapesMenu ? 'shadow-sm' : ''}`}
+                                style={{
+                                    background: isShapeTool ? 'var(--ns-toolbar-active-bg)' : showShapesMenu ? 'var(--ns-toolbar-hover)' : 'transparent',
+                                    color: isShapeTool ? 'var(--ns-toolbar-active-text)' : 'var(--ns-toolbar-muted)',
+                                    boxShadow: isShapeTool ? '0 0 8px var(--ns-toolbar-active-ring)' : 'none',
+                                    ...(isShapeTool ? { outline: '1px solid var(--ns-toolbar-active-ring)' } : {}),
+                                }}
+                                onMouseEnter={(e) => { if (!isShapeTool) { e.currentTarget.style.background = 'var(--ns-toolbar-hover)'; e.currentTarget.style.color = 'var(--ns-toolbar-text)'; } }}
+                                onMouseLeave={(e) => { if (!isShapeTool) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted)'; } }}
+                            >
+                                {(() => {
+                                    const activeItem = SHAPE_ITEMS.find(s => s.type === activeTool) || SHAPE_ITEMS.find(s => s.type === lastShapeTool) || SHAPE_ITEMS[0];
+                                    return activeItem.icon ? <activeItem.icon size={16} /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>;
+                                })()}
+                                <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
+                            </button>
+                        </ToolSection>
+                        {showShapesMenu && (
+                            <DropdownPortal triggerRef={shapesMenuRef}>
+                                <div className="p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                                    style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                    <div className="grid grid-cols-4 gap-1">
+                                        {SHAPE_ITEMS.map((shape) => (
+                                            <button
+                                                key={shape.type}
+                                                onClick={() => { onToolChange(shape.type as ActiveTool); setLastShapeTool(shape.type); setShowShapesMenu(false); }}
+                                                title={shape.label}
+                                                className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${activeTool === shape.type ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#1e262d] hover:text-white'}`}
                                             >
-                                                <svg width="50" height="6" viewBox="0 0 50 6"><line x1="0" y1="3" x2="50" y2="3" stroke="currentColor" strokeWidth="2" strokeDasharray={dash} strokeLinecap="round" /></svg>
-                                                <span className="text-[11px] font-medium">{label}</span>
+                                                {shape.icon ? <shape.icon size={16} /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="6" /></svg>}
                                             </button>
                                         ))}
                                     </div>
-                                </DropdownPortal>
-                            )}
-                        </div>
-                    </>
-                )}
+                                </div>
+                            </DropdownPortal>
+                        )}
+                    </div>
 
-                {/* LINE & ARROW STYLES */}
-                {(activeTool === ToolType.LINE || activeTool === ToolType.ARROW || (hasSelection && onLineTypeChange)) && (
-                    <>
-                        <Separator />
-                        <div className="relative" ref={lineStyleRef}>
-                            <ToolSection label="Lines">
-                                <button onClick={() => setShowLineStyleMenu(!showLineStyleMenu)} title="Line Options"
-                                    className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showLineStyleMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
-                                    {lineType === 'curved' && <IconCurvedLine />}
-                                    {lineType === 'straight' && <IconStraightLine />}
-                                    {lineType === 'stepped' && <IconSteppedLine />}
-                                    <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
-                                </button>
-                            </ToolSection>
+                    {/* STROKE STYLE (only for shapes) */}
+                    {isShapeTool && (
+                        <>
+                            <Separator />
+                            <div className="relative" ref={strokeStyleRef}>
+                                <ToolSection label="Style">
+                                    <button onClick={() => setShowStrokeStyleMenu(!showStrokeStyleMenu)} title={`Stroke: ${strokeStyle}`}
+                                        className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showStrokeStyleMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            {strokeStyle === 'solid' && <line x1="3" y1="12" x2="21" y2="12" />}
+                                            {strokeStyle === 'dashed' && <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="5 3" />}
+                                            {strokeStyle === 'dotted' && <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="2 3" strokeLinecap="round" />}
+                                        </svg>
+                                        <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
+                                    </button>
+                                </ToolSection>
 
-                            {showLineStyleMenu && (
-                                <DropdownPortal triggerRef={lineStyleRef}>
-                                    <div className="w-48 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-2 flex flex-col gap-3"
-                                        style={{ animation: 'fadeIn 150ms ease-out' }}>
-
-                                        {/* Line Styles */}
-                                        <div>
-                                            <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Line Style</div>
-                                            <div className="flex gap-1">
-                                                {[
-                                                    { type: 'straight', icon: IconStraightLine, title: 'Straight' },
-                                                    { type: 'curved', icon: IconCurvedLine, title: 'Curved' },
-                                                    { type: 'stepped', icon: IconSteppedLine, title: 'Stepped' },
-                                                ].map((style) => (
-                                                    <button key={style.type} title={style.title}
-                                                        onClick={() => onLineTypeChange?.(style.type as any)}
-                                                        className={`flex-1 flex justify-center py-2 rounded-lg transition-all ${lineType === style.type ? 'bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/30' : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white border border-transparent'}`}>
-                                                        <style.icon />
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Arrow Heads */}
-                                        <div>
-                                            <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Arrows</div>
-                                            <div className="flex gap-1">
-                                                {/* Start */}
-                                                <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
-                                                    <button onClick={() => onArrowAtStartChange?.(true)} title="Arrow Start"
-                                                        className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
-                                                        <IconArrowStart />
-                                                    </button>
-                                                    <button onClick={() => onArrowAtStartChange?.(false)} title="Line Start"
-                                                        className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
-                                                        <IconArrowNone />
-                                                    </button>
-                                                </div>
-                                                {/* End */}
-                                                <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
-                                                    <button onClick={() => onArrowAtEndChange?.(false)} title="Line End"
-                                                        className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
-                                                        <IconArrowNone />
-                                                    </button>
-                                                    <button onClick={() => onArrowAtEndChange?.(true)} title="Arrow End"
-                                                        className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
-                                                        <IconArrowEnd />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                    </div>
-                                </DropdownPortal>
-                            )}
-                        </div>
-                    </>
-                )}
-
-                {!isEraserMode && (
-                    <>
-                        <Separator />
-                        <ToolSection label="Stroke">
-                            <div
-                                className="w-7 h-7 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-                                style={{
-                                    borderColor: activeColorMode === 'stroke' ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
-                                    boxShadow: activeColorMode === 'stroke' ? '0 0 0 2px #3B82F6' : 'none',
-                                }}
-                                onClick={() => setActiveColorMode('stroke')}
-                                title="Stroke Color"
-                            >
-                                <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
-                                <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
-                            </div>
-                        </ToolSection>
-                        <Separator />
-                        <ToolSection label="Fill">
-                            <div
-                                className="w-7 h-7 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-                                style={{
-                                    borderColor: activeColorMode === 'fill' ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
-                                    boxShadow: activeColorMode === 'fill' ? '0 0 0 2px #3B82F6' : 'none',
-                                }}
-                                onClick={() => setActiveColorMode('fill')}
-                                title="Fill Color"
-                            >
-                                {fillColor === 'transparent' ? (
-                                    <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
-                                        <Slash size={10} strokeWidth={1} />
-                                    </div>
-                                ) : (
-                                    <div className="absolute inset-1 rounded-full border border-black/20" style={{ background: fillColor }} />
-                                )}
-                                <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
-                            </div>
-                        </ToolSection>
-                        <Separator />
-                        <ToolSection label="Colors">
-                            <div className="relative" ref={colorMenuRef}>
-                                <button
-                                    onClick={() => setShowColorMenu(!showColorMenu)}
-                                    className="w-7 h-7 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95"
-                                    style={{
-                                        borderColor: showColorMenu ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
-                                        boxShadow: showColorMenu ? '0 0 0 2px #3B82F6' : 'none',
-                                    }}
-                                    title="Color Palette"
-                                >
-                                    {(() => {
-                                        const currentColor = activeColorMode === 'stroke' ? strokeColor : fillColor;
-                                        if (currentColor === 'transparent') {
-                                            return <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
-                                                <Slash size={10} strokeWidth={2} />
-                                            </div>;
-                                        }
-                                        return <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: currentColor }} />;
-                                    })()}
-                                    <ChevronDown size={7} className="absolute -bottom-0.5 -right-0.5 opacity-60" style={{ color: 'var(--ns-toolbar-muted)' }} />
-                                </button>
-                                {showColorMenu && (
-                                    <DropdownPortal triggerRef={colorMenuRef}>
-                                        <div className="p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                                {showStrokeStyleMenu && (
+                                    <DropdownPortal triggerRef={strokeStyleRef}>
+                                        <div className="w-40 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-1.5"
                                             style={{ animation: 'fadeIn 150ms ease-out' }}>
-                                            <div className="grid grid-cols-3 gap-1.5">
-                                                <button
-                                                    onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); setShowColorMenu(false); }}
-                                                    className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all hover:scale-110 ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#3B82F6] border-transparent' : 'border-gray-600 hover:border-gray-400'}`}
-                                                    style={{ background: theme === 'light' ? '#f1f5f9' : '#1a2025' }}
-                                                    title="No Fill"
+                                            {([
+                                                { style: 'solid' as StrokeStyle, label: 'Solid', dash: undefined },
+                                                { style: 'dashed' as StrokeStyle, label: 'Dashed', dash: '8 4' },
+                                                { style: 'dotted' as StrokeStyle, label: 'Dotted', dash: '2 4' },
+                                            ]).map(({ style, label, dash }) => (
+                                                <button key={style}
+                                                    onClick={() => { onStrokeStyleChange(style); setShowStrokeStyleMenu(false); }}
+                                                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all"
+                                                    style={{
+                                                        background: strokeStyle === style ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.1))' : 'transparent',
+                                                        color: strokeStyle === style ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #b0bec5)'
+                                                    }}
+                                                    onMouseEnter={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                                    onMouseLeave={(e) => { if (strokeStyle !== style) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #b0bec5)'; } }}
                                                 >
-                                                    <Slash size={12} className="text-red-400" />
+                                                    <svg width="50" height="6" viewBox="0 0 50 6"><line x1="0" y1="3" x2="50" y2="3" stroke="currentColor" strokeWidth="2" strokeDasharray={dash} strokeLinecap="round" /></svg>
+                                                    <span className="text-[11px] font-medium">{label}</span>
                                                 </button>
-                                                {DROPDOWN_COLORS.map(c => {
-                                                    const isSelected = (activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c);
-                                                    return (
-                                                        <button
-                                                            key={c}
-                                                            onClick={() => { activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c); setShowColorMenu(false); }}
-                                                            className={`w-7 h-7 rounded-full border transition-all hover:scale-110 ${isSelected ? 'ring-2 ring-[#3B82F6] border-transparent' : 'border-gray-700/50 hover:border-white'}`}
-                                                            style={{ background: c }}
-                                                            title={c}
-                                                        />
-                                                    );
-                                                })}
-                                            </div>
+                                            ))}
                                         </div>
                                     </DropdownPortal>
                                 )}
                             </div>
-                        </ToolSection>
-                    </>
-                )}
-
-                {/* WIDTH & RADIUS */}
-                {
-                    (isDrawMode || isFillBucket || (hasSelection && cornerRadius !== undefined)) && (
-                        <>
-                            <Separator />
-                            <ToolSection label="Properties">
-                                <div className="flex gap-4 px-1">
-                                    {/* Size Slider */}
-                                    <div className="flex flex-col gap-0.5 w-[72px]">
-                                        <div className="flex justify-between text-[10px] font-mono mb-1" style={{ color: 'var(--ns-section-label)' }}>
-                                            <span>SIZE</span>
-                                            <span className="font-bold" style={{ color: 'var(--ns-accent)' }}>{brushSize}px</span>
-                                        </div>
-                                        <input type="range" min={1} max={50} value={brushSize}
-                                            onChange={(e) => onBrushSizeChange(Number(e.target.value))}
-                                            className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
-                                    </div>
-
-                                    {/* Corner Radius Slider (Contextual) */}
-                                    {(activeTool === ToolType.RECTANGLE || (hasSelection && cornerRadius !== undefined)) && (
-                                        <div className="flex flex-col gap-0.5 w-[72px] animate-fadeIn">
-                                            <div className="flex justify-between text-[10px] font-mono mb-1" style={{ color: 'var(--ns-section-label)' }}>
-                                                <span>ROUNDNESS</span>
-                                                <span className="font-bold text-[#a855f7]">{Math.round(cornerRadius || 0)}</span>
-                                            </div>
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max="50"
-                                                value={cornerRadius || 0}
-                                                onChange={(e) => onCornerRadiusChange?.(Number(e.target.value))}
-                                                className="w-full cursor-pointer" style={{ accentColor: '#a855f7' }}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </ToolSection>
                         </>
-                    )
-                }
+                    )}
 
-
-
-                {/* LAYERS */}
-                {
-                    hasSelection && (
+                    {/* LINE & ARROW STYLES */}
+                    {(activeTool === ToolType.LINE || activeTool === ToolType.ARROW || (hasSelection && onLineTypeChange)) && (
                         <>
                             <Separator />
-                            <ToolSection label="Layers">
-                                <ToolButton icon={ArrowUp} label="Bring Forward" isActive={false} onClick={onBringForward} />
-                                <ToolButton icon={ArrowDown} label="Send Backward" isActive={false} onClick={onSendBackward} />
-                                {onDeleteSelected && (
-                                    <button onClick={onDeleteSelected} title="Delete (Del)"
-                                        className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 text-[#f87171] hover:bg-[#f87171]/10">
-                                        <Trash2 size={15} />
+                            <div className="relative" ref={lineStyleRef}>
+                                <ToolSection label="Lines">
+                                    <button onClick={() => setShowLineStyleMenu(!showLineStyleMenu)} title="Line Options"
+                                        className={`relative flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-150 ${showLineStyleMenu ? 'bg-[#3B82F6]/15 text-[#3B82F6] ring-1 ring-[#3B82F6]/40' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}>
+                                        {lineType === 'curved' && <IconCurvedLine />}
+                                        {lineType === 'straight' && <IconStraightLine />}
+                                        {lineType === 'stepped' && <IconSteppedLine />}
+                                        <ChevronDown size={8} className="absolute bottom-0 right-0 opacity-60" />
                                     </button>
+                                </ToolSection>
+
+                                {showLineStyleMenu && (
+                                    <DropdownPortal triggerRef={lineStyleRef}>
+                                        <div className="w-48 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-2 flex flex-col gap-3"
+                                            style={{ animation: 'fadeIn 150ms ease-out' }}>
+
+                                            {/* Line Styles */}
+                                            <div>
+                                                <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Line Style</div>
+                                                <div className="flex gap-1">
+                                                    {[
+                                                        { type: 'straight', icon: IconStraightLine, title: 'Straight' },
+                                                        { type: 'curved', icon: IconCurvedLine, title: 'Curved' },
+                                                        { type: 'stepped', icon: IconSteppedLine, title: 'Stepped' },
+                                                    ].map((style) => (
+                                                        <button key={style.type} title={style.title}
+                                                            onClick={() => onLineTypeChange?.(style.type as any)}
+                                                            className={`flex-1 flex justify-center py-2 rounded-lg transition-all ${lineType === style.type ? 'bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/30' : 'text-[#b0bec5] hover:bg-[#1e262d] hover:text-white border border-transparent'}`}>
+                                                            <style.icon />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Arrow Heads */}
+                                            <div>
+                                                <div className="text-[10px] uppercase font-bold text-[#8b9dad] mb-1.5 px-1 tracking-wider">Arrows</div>
+                                                <div className="flex gap-1">
+                                                    {/* Start */}
+                                                    <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
+                                                        <button onClick={() => onArrowAtStartChange?.(true)} title="Arrow Start"
+                                                            className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                            <IconArrowStart />
+                                                        </button>
+                                                        <button onClick={() => onArrowAtStartChange?.(false)} title="Line Start"
+                                                            className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtStart ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                            <IconArrowNone />
+                                                        </button>
+                                                    </div>
+                                                    {/* End */}
+                                                    <div className="flex-1 flex gap-0.5 p-1 bg-[#0d1117] rounded-lg">
+                                                        <button onClick={() => onArrowAtEndChange?.(false)} title="Line End"
+                                                            className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${!arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                            <IconArrowNone />
+                                                        </button>
+                                                        <button onClick={() => onArrowAtEndChange?.(true)} title="Arrow End"
+                                                            className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${arrowAtEnd ? 'bg-[#1e262d] text-[#3B82F6]' : 'text-[#5a6d7e] hover:text-white'}`}>
+                                                            <IconArrowEnd />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </DropdownPortal>
                                 )}
+                            </div>
+                        </>
+                    )}
+
+                    {!isEraserMode && (
+                        <>
+                            <Separator />
+                            <ToolSection label="Stroke">
+                                <div
+                                className="w-5 h-5 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                                    style={{
+                                        borderColor: activeColorMode === 'stroke' ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                        boxShadow: activeColorMode === 'stroke' ? '0 0 0 2px #3B82F6' : 'none',
+                                    }}
+                                    onClick={() => setActiveColorMode('stroke')}
+                                    title="Stroke Color"
+                                >
+                                    <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: strokeColor }} />
+                                    <input type="color" value={strokeColor} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                                </div>
+                            </ToolSection>
+                            <Separator />
+                            <ToolSection label="Fill">
+                                <div
+                                    className="w-5 h-5 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+                                    style={{
+                                        borderColor: activeColorMode === 'fill' ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                        boxShadow: activeColorMode === 'fill' ? '0 0 0 2px #3B82F6' : 'none',
+                                    }}
+                                    onClick={() => setActiveColorMode('fill')}
+                                    title="Fill Color"
+                                >
+                                    {fillColor === 'transparent' ? (
+                                        <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
+                                            <Slash size={10} strokeWidth={1} />
+                                        </div>
+                                    ) : (
+                                        <div className="absolute inset-1 rounded-full border border-black/20" style={{ background: fillColor }} />
+                                    )}
+                                    <input type="color" value={fillColor === 'transparent' ? '#ffffff' : fillColor} onChange={(e) => { setActiveColorMode('fill'); onFillColorChange(e.target.value); }} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                                </div>
+                            </ToolSection>
+                            <Separator />
+                            <ToolSection label="Colors">
+                                <div className="relative" ref={colorMenuRef}>
+                                    <button
+                                        onClick={() => setShowColorMenu(!showColorMenu)}
+                                        className="w-5 h-5 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95"
+                                        style={{
+                                            borderColor: showColorMenu ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                            boxShadow: showColorMenu ? '0 0 0 2px #3B82F6' : 'none',
+                                        }}
+                                        title="Color Palette"
+                                    >
+                                        {(() => {
+                                            const currentColor = activeColorMode === 'stroke' ? strokeColor : fillColor;
+                                            if (currentColor === 'transparent') {
+                                                return <div className={`absolute inset-0 flex items-center justify-center text-red-500 rounded-full ${theme === 'light' ? 'bg-gray-100' : 'bg-[#1e262d]'}`}>
+                                                    <Slash size={10} strokeWidth={2} />
+                                                </div>;
+                                            }
+                                            return <div className="absolute inset-0.5 rounded-full border border-black/20" style={{ background: currentColor }} />;
+                                        })()}
+                                        <ChevronDown size={7} className="absolute -bottom-0.5 -right-0.5 opacity-60" style={{ color: 'var(--ns-toolbar-muted)' }} />
+                                    </button>
+                                    {showColorMenu && (
+                                        <DropdownPortal triggerRef={colorMenuRef}>
+                                            <div className="p-2 bg-[#151a1f] border border-[#2a333b] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                                                style={{ animation: 'fadeIn 150ms ease-out' }}>
+                                                <div className="grid grid-cols-3 gap-1.5">
+                                                    <button
+                                                        onClick={() => { setActiveColorMode('fill'); onFillColorChange('transparent'); setShowColorMenu(false); }}
+                                                        className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all hover:scale-110 ${fillColor === 'transparent' && activeColorMode === 'fill' ? 'ring-2 ring-[#3B82F6] border-transparent' : 'border-gray-600 hover:border-gray-400'}`}
+                                                        style={{ background: theme === 'light' ? '#f1f5f9' : '#1a2025' }}
+                                                        title="No Fill"
+                                                    >
+                                                        <Slash size={12} className="text-red-400" />
+                                                    </button>
+                                                    {DROPDOWN_COLORS.map(c => {
+                                                        const isSelected = (activeColorMode === 'stroke' && strokeColor === c) || (activeColorMode === 'fill' && fillColor === c);
+                                                        return (
+                                                            <button
+                                                                key={c}
+                                                                onClick={() => { activeColorMode === 'stroke' ? onColorChange(c) : onFillColorChange(c); setShowColorMenu(false); }}
+                                                                className={`w-7 h-7 rounded-full border transition-all hover:scale-110 ${isSelected ? 'ring-2 ring-[#3B82F6] border-transparent' : 'border-gray-700/50 hover:border-white'}`}
+                                                                style={{ background: c }}
+                                                                title={c}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </DropdownPortal>
+                                    )}
+                                </div>
                             </ToolSection>
                         </>
-                    )
-                }
+                    )}
 
-                <Separator />
-
-                {/* GRID */}
-                <ToolSection label="View">
-                    <div className="relative" ref={gridMenuRef}>
-                        <button
-                            onClick={() => setShowGridMenu(!showGridMenu)}
-                            title="Grid Settings"
-                            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${showGridMenu || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none') ? 'text-[#3B82F6] bg-[#3B82F6]/10' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
-                        >
-                            <Grid3x3 size={18} />
-                            {/* Show dot if grid is active */}
-                            {(gridConfig.snapEnabled || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none')) && (
-                                <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#3B82F6] rounded-full" />
-                            )}
-                        </button>
-
-                        {showGridMenu && (
-                            <DropdownPortal triggerRef={gridMenuRef} offsetY={12}>
-                            <div className="w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden transition-colors"
-                                style={{ animation: 'fadeIn 150ms ease-out', background: 'var(--ns-panel-bg, #151a1f)', border: '1px solid var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
-
-                                <div className="px-3 py-2 flex justify-between items-center transition-colors border-b" style={{ background: 'var(--ns-toolbar-hover, #1e262d)', borderColor: 'var(--ns-separator, #2a333b)' }}>
-                                    <span className="text-[11px] font-bold" style={{ color: 'var(--ns-toolbar-text, #dde3e8)' }}>Grid Options</span>
-                                </div>
-
-                                <div className="p-3 space-y-3 max-h-[400px] overflow-y-auto">
-
-                                    {/* Snap Toggle */}
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Snap to Grid</span>
-                                        <button
-                                            onClick={() => onGridConfigChange({ ...gridConfig, snapEnabled: !gridConfig.snapEnabled })}
-                                            className="relative w-8 h-4 rounded-full transition-colors"
-                                            style={{ background: gridConfig.snapEnabled ? 'var(--ns-accent, #3B82F6)' : 'var(--ns-separator, #2a333b)' }}
-                                        >
-                                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${gridConfig.snapEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
-                                        </button>
-                                    </div>
-
-                                    {/* Snap Type */}
-                                    {gridConfig.snapEnabled && (
-                                        <div className="space-y-1.5">
-                                            <div className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Grid Snapping</div>
-                                            <div className="flex flex-col gap-1">
-                                                {[
-                                                    { value: 'none', label: 'None' },
-                                                    { value: 'horizontal_lines', label: 'Horizontal Lines' },
-                                                    { value: 'vertical_lines', label: 'Vertical Lines' },
-                                                    { value: 'lines', label: 'Lines' },
-                                                    { value: 'points', label: 'Points' },
-                                                ].map(opt => (
-                                                    <label key={opt.value}
-                                                        className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-[11px] transition-colors ${gridConfig.snapType === opt.value
-                                                            ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
-                                                            : 'text-[#8b9dad] hover:bg-[#1e262d] hover:text-white'
-                                                            }`}
-                                                        onClick={() => onGridConfigChange({ ...gridConfig, snapType: opt.value as GridSnapType })}
-                                                    >
-                                                        <span className={`w-3 h-3 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${gridConfig.snapType === opt.value
-                                                            ? 'border-[#3B82F6]'
-                                                            : 'border-[#4a5568]'
-                                                            }`}>
-                                                            {gridConfig.snapType === opt.value && (
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
-                                                            )}
-                                                        </span>
-                                                        {opt.label}
-                                                    </label>
-                                                ))}
+                    {/* WIDTH & RADIUS */}
+                    {
+                        (isDrawMode || isFillBucket || (hasSelection && cornerRadius !== undefined)) && (
+                            <>
+                                <Separator />
+                                <ToolSection label="Properties">
+                                    <div className="flex gap-4 px-1">
+                                        {/* Size Slider */}
+                                        <div className="flex flex-col gap-0.5 w-[56px]">
+                                            <div className="flex justify-between text-[10px] font-mono mb-1" style={{ color: 'var(--ns-section-label)' }}>
+                                                <span>SIZE</span>
+                                                <span className="font-bold" style={{ color: 'var(--ns-accent)' }}>{brushSize}px</span>
                                             </div>
+                                            <input type="range" min={1} max={50} value={brushSize}
+                                                onChange={(e) => onBrushSizeChange(Number(e.target.value))}
+                                                className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }} />
                                         </div>
-                                    )}
 
-                                    <div className="w-full h-px" style={{ background: 'var(--ns-separator, #2a333b)' }} />
-
-                                    {/* Appearance */}
-                                    <div className="space-y-1.5">
-                                        <div className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Appearance</div>
-                                        <div className="grid grid-cols-2 gap-1.5">
-                                            {['dots', 'lines', 'crosses', 'none'].map(app => {
-                                                const isSel = gridConfig.appearance === app;
-                                                return (
-                                                    <button key={app} onClick={() => onGridConfigChange({ ...gridConfig, appearance: app as GridAppearance })}
-                                                        className="px-2 py-1 text-[11px] rounded transition-colors border"
-                                                        style={{
-                                                            background: isSel ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.15))' : 'transparent',
-                                                            color: isSel ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #8b9dad)',
-                                                            borderColor: isSel ? 'transparent' : 'var(--ns-separator, #2a333b)'
-                                                        }}
-                                                        onMouseEnter={(e) => { if (!isSel) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
-                                                        onMouseLeave={(e) => { if (!isSel) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #8b9dad)'; } }}
-                                                    >{app === 'none' ? 'Hidden' : app}</button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* Size Slider */}
-                                    <div className="space-y-1.5">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Cell Size</span>
-                                            <span className="text-[10px] tabular-nums" style={{ color: 'var(--ns-toolbar-active-text, #3B82F6)' }}>{gridConfig.size}px</span>
-                                        </div>
-                                        <div className="relative pt-2 pb-1">
-                                            <input type="range" min="10" max="100" step="5" value={gridConfig.size}
-                                                onChange={(e) => onGridConfigChange({ ...gridConfig, size: Number(e.target.value) })}
-                                                className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Color Picker */}
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Color</span>
-                                            <div className="relative">
-                                                <div
-                                                    className="w-6 h-6 rounded-full border-2 cursor-pointer transition-shadow hover:shadow-md"
-                                                    style={{ backgroundColor: gridConfig.color, borderColor: 'var(--ns-separator, #2a333b)' }}
-                                                    onClick={() => gridColorRef.current?.click()}
-                                                />
+                                        {/* Corner Radius Slider (Contextual) */}
+                                        {(activeTool === ToolType.RECTANGLE || (hasSelection && cornerRadius !== undefined)) && (
+                                            <div className="flex flex-col gap-0.5 w-[56px] animate-fadeIn">
+                                                <div className="flex justify-between text-[10px] font-mono mb-1" style={{ color: 'var(--ns-section-label)' }}>
+                                                    <span>ROUNDNESS</span>
+                                                    <span className="font-bold text-[#a855f7]">{Math.round(cornerRadius || 0)}</span>
+                                                </div>
                                                 <input
-                                                    ref={gridColorRef}
-                                                    type="color"
-                                                    value={gridConfig.color}
-                                                    onChange={(e) => onGridConfigChange({ ...gridConfig, color: e.target.value })}
-                                                    className="absolute inset-0 opacity-0 w-0 h-0 pointer-events-none"
+                                                    type="range"
+                                                    min="0"
+                                                    max="50"
+                                                    value={cornerRadius || 0}
+                                                    onChange={(e) => onCornerRadiusChange?.(Number(e.target.value))}
+                                                    className="w-full cursor-pointer" style={{ accentColor: '#a855f7' }}
                                                 />
                                             </div>
+                                        )}
+                                    </div>
+                                </ToolSection>
+                            </>
+                        )
+                    }
+
+
+
+                    {/* LAYERS */}
+                    {
+                        hasSelection && (
+                            <>
+                                <Separator />
+                                <ToolSection label="Layers">
+                                    <ToolButton icon={ArrowUp} label="Bring Forward" isActive={false} onClick={onBringForward} />
+                                    <ToolButton icon={ArrowDown} label="Send Backward" isActive={false} onClick={onSendBackward} />
+                                    {onDeleteSelected && (
+                                        <button onClick={onDeleteSelected} title="Delete (Del)"
+                                            className="flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 text-[#f87171] hover:bg-[#f87171]/10">
+                                            <Trash2 size={15} />
+                                        </button>
+                                    )}
+                                </ToolSection>
+                            </>
+                        )
+                    }
+
+                    <Separator />
+
+                    {/* GRID */}
+                    <ToolSection label="View">
+                        <div className="relative" ref={gridMenuRef}>
+                            <button
+                                onClick={() => setShowGridMenu(!showGridMenu)}
+                                title="Grid Settings"
+                                className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-150 ${showGridMenu || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none') ? 'text-[#3B82F6] bg-[#3B82F6]/10' : 'text-[#8b9dad] hover:bg-[#262e35] hover:text-white'}`}
+                            >
+                                <Grid3x3 size={18} />
+                                {/* Show dot if grid is active */}
+                                {(gridConfig.snapEnabled || (gridConfig.appearance !== 'dots' && gridConfig.appearance as any !== 'none')) && (
+                                    <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#3B82F6] rounded-full" />
+                                )}
+                            </button>
+
+                            {showGridMenu && (
+                                <DropdownPortal triggerRef={gridMenuRef} offsetY={12}>
+                                    <div className="w-[220px] rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden transition-colors"
+                                        style={{ animation: 'fadeIn 150ms ease-out', background: 'var(--ns-panel-bg, #151a1f)', border: '1px solid var(--ns-panel-border, #2a333b)', boxShadow: 'var(--ns-panel-shadow)' }}>
+
+                                        <div className="px-3 py-2 flex justify-between items-center transition-colors border-b" style={{ background: 'var(--ns-toolbar-hover, #1e262d)', borderColor: 'var(--ns-separator, #2a333b)' }}>
+                                            <span className="text-[11px] font-bold" style={{ color: 'var(--ns-toolbar-text, #dde3e8)' }}>Grid Options</span>
+                                        </div>
+
+                                        <div className="p-3 space-y-3 max-h-[400px] overflow-y-auto">
+
+                                            {/* Snap Toggle */}
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Snap to Grid</span>
+                                                <button
+                                                    onClick={() => onGridConfigChange({ ...gridConfig, snapEnabled: !gridConfig.snapEnabled })}
+                                                    className="relative w-8 h-4 rounded-full transition-colors"
+                                                    style={{ background: gridConfig.snapEnabled ? 'var(--ns-accent, #3B82F6)' : 'var(--ns-separator, #2a333b)' }}
+                                                >
+                                                    <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${gridConfig.snapEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                </button>
+                                            </div>
+
+                                            {/* Snap Type */}
+                                            {gridConfig.snapEnabled && (
+                                                <div className="space-y-1.5">
+                                                    <div className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Grid Snapping</div>
+                                                    <div className="flex flex-col gap-1">
+                                                        {[
+                                                            { value: 'none', label: 'None' },
+                                                            { value: 'horizontal_lines', label: 'Horizontal Lines' },
+                                                            { value: 'vertical_lines', label: 'Vertical Lines' },
+                                                            { value: 'lines', label: 'Lines' },
+                                                            { value: 'points', label: 'Points' },
+                                                        ].map(opt => (
+                                                            <label key={opt.value}
+                                                                className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-[11px] transition-colors ${gridConfig.snapType === opt.value
+                                                                    ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
+                                                                    : 'text-[#8b9dad] hover:bg-[#1e262d] hover:text-white'
+                                                                    }`}
+                                                                onClick={() => onGridConfigChange({ ...gridConfig, snapType: opt.value as GridSnapType })}
+                                                            >
+                                                                <span className={`w-3 h-3 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${gridConfig.snapType === opt.value
+                                                                    ? 'border-[#3B82F6]'
+                                                                    : 'border-[#4a5568]'
+                                                                    }`}>
+                                                                    {gridConfig.snapType === opt.value && (
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
+                                                                    )}
+                                                                </span>
+                                                                {opt.label}
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="w-full h-px" style={{ background: 'var(--ns-separator, #2a333b)' }} />
+
+                                            {/* Appearance */}
+                                            <div className="space-y-1.5">
+                                                <div className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Appearance</div>
+                                                <div className="grid grid-cols-2 gap-1.5">
+                                                    {['dots', 'lines', 'crosses', 'none'].map(app => {
+                                                        const isSel = gridConfig.appearance === app;
+                                                        return (
+                                                            <button key={app} onClick={() => onGridConfigChange({ ...gridConfig, appearance: app as GridAppearance })}
+                                                                className="px-2 py-1 text-[11px] rounded transition-colors border"
+                                                                style={{
+                                                                    background: isSel ? 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.15))' : 'transparent',
+                                                                    color: isSel ? 'var(--ns-toolbar-active-text, #3B82F6)' : 'var(--ns-toolbar-muted, #8b9dad)',
+                                                                    borderColor: isSel ? 'transparent' : 'var(--ns-separator, #2a333b)'
+                                                                }}
+                                                                onMouseEnter={(e) => { if (!isSel) { e.currentTarget.style.background = 'var(--ns-toolbar-hover, #1e262d)'; e.currentTarget.style.color = 'var(--ns-toolbar-text, #fff)'; } }}
+                                                                onMouseLeave={(e) => { if (!isSel) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ns-toolbar-muted, #8b9dad)'; } }}
+                                                            >{app === 'none' ? 'Hidden' : app}</button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {/* Size Slider */}
+                                            <div className="space-y-1.5">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Cell Size</span>
+                                                    <span className="text-[10px] tabular-nums" style={{ color: 'var(--ns-toolbar-active-text, #3B82F6)' }}>{gridConfig.size}px</span>
+                                                </div>
+                                                <div className="relative pt-2 pb-1">
+                                                    <input type="range" min="10" max="100" step="5" value={gridConfig.size}
+                                                        onChange={(e) => onGridConfigChange({ ...gridConfig, size: Number(e.target.value) })}
+                                                        className="w-full cursor-pointer" style={{ accentColor: 'var(--ns-accent)' }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Color Picker */}
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Color</span>
+                                                    <div className="relative">
+                                                        <div
+                                                            className="w-6 h-6 rounded-full border-2 cursor-pointer transition-shadow hover:shadow-md"
+                                                            style={{ backgroundColor: gridConfig.color, borderColor: 'var(--ns-separator, #2a333b)' }}
+                                                            onClick={() => gridColorRef.current?.click()}
+                                                        />
+                                                        <input
+                                                            ref={gridColorRef}
+                                                            type="color"
+                                                            value={gridConfig.color}
+                                                            onChange={(e) => onGridConfigChange({ ...gridConfig, color: e.target.value })}
+                                                            className="absolute inset-0 opacity-0 w-0 h-0 pointer-events-none"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                         </div>
                                     </div>
+                                </DropdownPortal>
+                            )}
+                        </div>
+                    </ToolSection>
 
-                                </div>
-                            </div>
-                            </DropdownPortal>
-                        )}
-                    </div>
-                </ToolSection>
-
-                {/* Lock Session Button: only visible if user owns the board */}
-                {isOwner && onToggleLock && (
-                    <>
-                        <Separator />
-                        <ToolSection label={isLockActive ? 'LOCKED' : 'UNLOCKED'}>
-                            <button
-                                onClick={() => onToggleLock()}
-                                className="px-1 py-0.75 ph-1 rounded-lg transition-all duration-200 border group"
-                                style={{
-                                    background: isLockActive
-                                        ? 'rgba(239,68,68,0.1)'
-                                        : 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.1))',
-                                    borderColor: isLockActive
-                                        ? 'rgba(239,68,68,0.3)'
-                                        : 'var(--ns-toolbar-active-ring, rgba(59,130,246,0.3))',
-                                    color: isLockActive
-                                        ? '#ef4444'
-                                        : 'var(--ns-toolbar-active-text, #3B82F6)',
-                                }}
-                                title={isLockActive ? 'Unlock Session' : 'Lock Session'}
-                            >
-                                <span key={isLockActive ? 'locked' : 'unlocked'} className="inline-flex" style={{ animation: 'lockBounce 0.35s ease-out' }}>
-                                    {isLockActive ? <Lock size={18} /> : <Unlock size={18} />}
-                                </span>
-                            </button>
-                        </ToolSection>
-                    </>
-                )}
-            </div>
+                    {/* Lock Session Button: only visible if user owns the board */}
+                    {isOwner && onToggleLock && (
+                        <>
+                            <Separator />
+                            <ToolSection label={isLockActive ? 'LOCKED' : 'UNLOCKED'}>
+                                <button
+                                    onClick={() => onToggleLock()}
+                                    className="px-1 py-0.75 ph-1 rounded-lg transition-all duration-200 border group"
+                                    style={{
+                                        background: isLockActive
+                                            ? 'rgba(239,68,68,0.1)'
+                                            : 'var(--ns-toolbar-active-bg, rgba(59,130,246,0.1))',
+                                        borderColor: isLockActive
+                                            ? 'rgba(239,68,68,0.3)'
+                                            : 'var(--ns-toolbar-active-ring, rgba(59,130,246,0.3))',
+                                        color: isLockActive
+                                            ? '#ef4444'
+                                            : 'var(--ns-toolbar-active-text, #3B82F6)',
+                                    }}
+                                    title={isLockActive ? 'Unlock Session' : 'Lock Session'}
+                                >
+                                    <span key={isLockActive ? 'locked' : 'unlocked'} className="inline-flex" style={{ animation: 'lockBounce 0.35s ease-out' }}>
+                                        {isLockActive ? <Lock size={18} /> : <Unlock size={18} />}
+                                    </span>
+                                </button>
+                            </ToolSection>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Floating Text Formatting Toolbar */}

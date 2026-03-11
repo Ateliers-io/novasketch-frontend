@@ -60,7 +60,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
     if (!isOwner) {
         return (
             <div className={`flex items-center px-4 py-2 rounded-xl backdrop-blur-md font-semibold text-sm shadow-sm transition-colors border max-w-[200px] sm:max-w-xs overflow-hidden text-ellipsis`}
-                style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.18)' }}>
+                style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(102,252,241,0.2)' : 'rgba(59,130,246,0.18)' }}>
                 {name}
             </div>
         );
@@ -79,7 +79,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
                     style={{
                         backgroundColor: isDark ? '#12141D' : '#fff',
                         color: textColor,
-                        borderColor: isDark ? '#3B82F6' : '#3B82F6'
+                        borderColor: isDark ? '#66FCF1' : '#3B82F6'
                     }}
                 />
             </div>
@@ -89,7 +89,7 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
     return (
         <div
             className={`group flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-md font-semibold text-sm shadow-sm cursor-pointer border transition-all hover:scale-[1.02] active:scale-95 max-w-[200px] sm:max-w-xs`}
-            style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.18)' }}
+            style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(102,252,241,0.2)' : 'rgba(59,130,246,0.18)' }}
             onClick={() => {
                 setTempName(name);
                 setIsEditing(true);

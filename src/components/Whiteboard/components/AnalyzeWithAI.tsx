@@ -13,11 +13,11 @@ function getToastStyles(status: string | null, isLight: boolean) {
 
     if (status === 'Image copied!') {
         bg = isLight ? 'rgba(42,157,143,0.12)' : 'rgba(102,252,241,0.12)';
-        color = isLight ? '#3B82F6' : '#3B82F6';
+        color = isLight ? '#3B82F6' : '#66FCF1';
         border = isLight ? 'rgba(42,157,143,0.2)' : 'rgba(102,252,241,0.2)';
     } else if (status === 'Capturing...') {
-        bg = isLight ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.12)';
-        color = isLight ? '#3b82f6' : '#60a5fa';
+        bg = isLight ? 'rgba(59,130,246,0.08)' : 'rgba(102,252,241,0.12)';
+        color = isLight ? '#3b82f6' : '#66FCF1';
     }
 
     return { bg, color, border };

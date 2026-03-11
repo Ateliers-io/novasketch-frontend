@@ -253,7 +253,7 @@ const LIGHT = {
     accentGlow: 'rgba(42,157,143,0.12)',
     text: '#1E293B',         // Dark teal-charcoal  (readable, NovaSketch-branded)
     textMuted: '#5B7F82',    // Softer teal-gray
-    textSection: 'rgba(42,157,143,0.65)',
+    textSection: 'rgba(59,130,246,0.8)',
     shadow: '0 8px 32px rgba(42,157,143,0.08), 0 2px 12px rgba(0,0,0,0.06)',
     btnShadow: '0 2px 12px rgba(42,157,143,0.18)',
     btnBorder: 'rgba(42,157,143,0.35)',
@@ -267,7 +267,7 @@ const DARK = {
     bgSub: 'rgba(11,12,16,0.50)',
     border: 'rgba(102,252,241,0.2)',
     borderSub: 'rgba(102,252,241,0.05)',
-    accent: '#3B82F6',
+    accent: '#66FCF1',
     accentGlow: 'rgba(102,252,241,0.08)',
     text: '#c5c6c7',
     textMuted: '#a0a0a0',
@@ -302,7 +302,7 @@ function getMenuItemHoverColor(theme: string, id: string, isLocked: boolean) {
 function getMenuIconClass(theme: string, id: string, isLocked: boolean) {
     if (id === 'lock-session' && isLocked) return 'text-amber-400 group-hover:text-amber-300';
     if (id === 'clear-canvas') return 'text-red-400 group-hover:text-red-300';
-    return theme === 'dark' ? 'text-[#3B82F6] group-hover:text-white' : 'text-[#3B82F6] group-hover:text-[#1E293B]';
+    return theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#3B82F6] group-hover:text-[#1E293B]';
 }
 
 const HamburgerMenuItemRender: React.FC<{
@@ -382,7 +382,7 @@ const HamburgerMenuItemRender: React.FC<{
                             onMouseLeave={handleSubMouseLeave}
                         >
                             {sub.icon && (
-                                <span className={`flex-shrink-0 w-4 flex justify-center transition-colors ${theme === 'dark' ? 'text-[#3B82F6] group-hover:text-white' : 'text-[#3B82F6] group-hover:text-[#1E293B]'}`}>
+                                <span className={`flex-shrink-0 w-4 flex justify-center transition-colors ${theme === 'dark' ? 'text-[#66FCF1] group-hover:text-white' : 'text-[#3B82F6] group-hover:text-[#1E293B]'}`}>
                                     {sub.icon}
                                 </span>
                             )}
@@ -611,7 +611,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                                 boxShadow: theme === 'dark' ? '0 1px 6px rgba(102,252,241,0.3)' : 'none',
                             }}
                         >
-                            <Moon size={13} color={theme === 'dark' ? '#3B82F6' : '#b0b8b9'} strokeWidth={2.5} />
+                            <Moon size={13} color={theme === 'dark' ? '#66FCF1' : '#b0b8b9'} strokeWidth={2.5} />
                         </div>
                     </div>
                 )
@@ -672,7 +672,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
             {/* Hamburger button — premium glassmorphism style */}
             <button
                 onClick={() => setIsOpen(prev => !prev)}
-                className="group relative flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50"
+                className="group relative flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#66FCF1]/50"
                 style={{
                     background: isOpen
                         ? palette(theme).bgPanel

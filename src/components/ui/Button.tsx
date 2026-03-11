@@ -41,16 +41,16 @@ export const Button = ({
   // 3. Variant Config (The "Graphite & Turquoise" Look)
   const variants = {
     primary: `
-      bg-[#3B82F6] text-[#0f1316] border border-transparent 
-      hover:bg-[#5eead4] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]
+      bg-[#66FCF1] text-[#0f1316] border border-transparent 
+      hover:bg-[#5eead4] hover:shadow-[0_0_20px_rgba(102,252,241,0.4)]
     `,
     secondary: `
       bg-[#1a2026] text-[#eceef0] border border-[#262e35]
-      hover:border-[#3B82F6]/50 hover:bg-[#262e35] hover:text-white
+      hover:border-[#66FCF1]/50 hover:bg-[#262e35] hover:text-white
     `,
     ghost: `
       bg-transparent text-[#7e909e] 
-      hover:text-[#3B82F6] hover:bg-[#3B82F6]/10
+      hover:text-[#66FCF1] hover:bg-[#66FCF1]/10
     `,
     danger: `
       bg-[#f43f5e] text-white border border-transparent
@@ -68,7 +68,7 @@ export const Button = ({
     sizes[size],
     variants[variant],
     fullWidth ? 'w-full' : '',
-    glow && variant === 'primary' ? 'shadow-[0_0_15px_rgba(59,130,246,0.5)]' : '',
+    glow && variant === 'primary' ? 'shadow-[0_0_15px_rgba(102,252,241,0.5)]' : '',
     className,
   ].join(' ');
 

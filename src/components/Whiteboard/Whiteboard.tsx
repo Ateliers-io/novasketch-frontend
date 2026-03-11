@@ -3498,6 +3498,8 @@ export default function Whiteboard({
     return 'cursor-crosshair';
   };
 
+  const accentColor = theme === 'light' ? '#3B82F6' : '#66FCF1';
+
   return (
     <div
       ref={containerRef}
@@ -3513,9 +3515,9 @@ export default function Whiteboard({
         '--ns-toolbar-text': theme === 'light' ? '#111827' : '#dde3e8',
         '--ns-toolbar-muted': theme === 'light' ? '#2F3A4A' : '#5a6d7e',
         '--ns-toolbar-hover': theme === 'light' ? 'rgba(59, 130, 246, 0.1)' : '#262e35',
-        '--ns-toolbar-active-bg': theme === 'light' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59,130,246,0.15)',
-        '--ns-toolbar-active-text': theme === 'light' ? '#3B82F6' : '#3B82F6',
-        '--ns-toolbar-active-ring': theme === 'light' ? '#3B82F6' : 'rgba(59,130,246,0.40)',
+        '--ns-toolbar-active-bg': theme === 'light' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(102,252,241,0.15)',
+        '--ns-toolbar-active-text': theme === 'light' ? '#3B82F6' : '#66FCF1',
+        '--ns-toolbar-active-ring': theme === 'light' ? '#3B82F6' : 'rgba(102,252,241,0.40)',
         '--ns-toolbar-shadow': theme === 'light' ? '0 4px 12px rgba(0,0,0,0.05)' : '0 8px 32px rgba(0,0,0,0.5)',
         '--ns-separator': theme === 'light' ? '#E6EAF0' : '#2a333b',
         '--ns-section-label': theme === 'light' ? '#64748b' : '#4a5b6a',
@@ -3523,7 +3525,7 @@ export default function Whiteboard({
         '--ns-panel-bg': theme === 'light' ? 'rgba(255, 255, 255, 0.98)' : 'rgba(11,12,16,0.85)',
         '--ns-panel-border': theme === 'light' ? '#E6EAF0' : 'rgba(255,255,255,0.15)',
         '--ns-panel-shadow': theme === 'light' ? '0 4px 12px rgba(0,0,0,0.05)' : '0 4px 20px rgba(0,0,0,0.5)',
-        '--ns-accent': theme === 'light' ? '#3B82F6' : '#3B82F6',
+        '--ns-accent': theme === 'light' ? '#3B82F6' : '#66FCF1',
         '--ns-accent-dim': theme === 'light' ? '#2ED3C6' : 'rgba(255,255,255,0.7)',
       } as React.CSSProperties}
       onMouseMove={handlePointerMove}
@@ -3537,9 +3539,9 @@ export default function Whiteboard({
 
       {/* Loading Overlay */}
       {isLoadingCanvas && (
-        <div className={`absolute inset-0 z-[200] flex items-center justify-center ${theme === 'light' ? 'bg-[#f0f2f5] text-[#2563EB]' : 'bg-[#0B0C10] text-[#3B82F6]'}`}>
+        <div className={`absolute inset-0 z-[200] flex items-center justify-center ${theme === 'light' ? 'bg-[#f0f2f5] text-[#2563EB]' : 'bg-[#0B0C10] text-[#66FCF1]'}`}>
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-[#1F2833] border-t-[#3B82F6] rounded-full animate-spin"></div>
+            <div className={`w-12 h-12 border-4 border-[#1F2833] rounded-full animate-spin ${theme === 'light' ? 'border-t-[#3B82F6]' : 'border-t-[#66FCF1]'}`}></div>
             <p className="font-medium animate-pulse">Loading your masterpiece...</p>
           </div>
         </div>
@@ -3963,6 +3965,7 @@ export default function Whiteboard({
           anchorOverlays={connectorAnchorOverlays}
           snapTargetAnchor={connectorSnapState?.end ? { shapeId: connectorSnapState.end.shapeId, anchorType: connectorSnapState.end.anchorType } : null}
           activeFrameId={activeFrameId}
+          theme={theme}
         />
       </div>
 
@@ -3977,7 +3980,7 @@ export default function Whiteboard({
           <g transform={`translate(${stagePos.x}, ${stagePos.y}) scale(${stageScale})`}>
             <defs>
               <pattern id="marquee-pattern" patternUnits="userSpaceOnUse" width="8" height="8">
-                <path d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" stroke="#3B82F6" strokeWidth="1" opacity="0.5" />
+                <path d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" stroke={accentColor} strokeWidth="1" opacity="0.5" />
               </pattern>
             </defs>
             <rect
@@ -3985,7 +3988,7 @@ export default function Whiteboard({
               y={marqueeRect.y}
               width={marqueeRect.width}
               height={marqueeRect.height}
-              fill="#3B82F6"
+              fill={accentColor}
               fillOpacity={0.08}
             />
             <rect
@@ -3994,7 +3997,7 @@ export default function Whiteboard({
               width={marqueeRect.width}
               height={marqueeRect.height}
               fill="none"
-              stroke="#3B82F6"
+              stroke={accentColor}
               strokeWidth={1}
               strokeDasharray="4,4"
             />
@@ -4118,7 +4121,7 @@ export default function Whiteboard({
                     cy={cpY}
                     r={6}
                     fill="#ffffff"
-                    stroke="#3B82F6"
+                    stroke={accentColor}
                     strokeWidth={2}
                     style={{ pointerEvents: 'auto', cursor: 'grab' }}
                     data-bend-handle={ls.id}
@@ -4129,7 +4132,7 @@ export default function Whiteboard({
                   cx={stX}
                   cy={stY}
                   r={6}
-                  fill="#3B82F6"
+                  fill={accentColor}
                   stroke="#ffffff"
                   strokeWidth={2}
                   style={{ pointerEvents: 'auto', cursor: 'pointer' }}
@@ -4141,7 +4144,7 @@ export default function Whiteboard({
                   cx={enX}
                   cy={enY}
                   r={6}
-                  fill="#3B82F6"
+                  fill={accentColor}
                   stroke="#ffffff"
                   strokeWidth={2}
                   style={{ pointerEvents: 'auto', cursor: 'pointer' }}
@@ -4210,13 +4213,13 @@ export default function Whiteboard({
                 <React.Fragment key={`snap-pt-${i}`}>
                   <Line
                     points={[pt.x - crossSize, pt.y, pt.x + crossSize, pt.y]}
-                    stroke="#3B82F6"
+                    stroke={accentColor}
                     strokeWidth={1.5 / stageScale}
                     opacity={0.8}
                   />
                   <Line
                     points={[pt.x, pt.y - crossSize, pt.x, pt.y + crossSize]}
-                    stroke="#3B82F6"
+                    stroke={accentColor}
                     strokeWidth={1.5 / stageScale}
                     opacity={0.8}
                   />

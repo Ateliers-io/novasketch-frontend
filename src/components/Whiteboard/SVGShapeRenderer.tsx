@@ -47,10 +47,12 @@ interface SVGShapeRendererProps {
      * The active frame gets a visual highlight ring so users can see they are inside it.
      */
     activeFrameId?: string | null;
+    theme?: 'light' | 'dark';
 }
 
 // --- CONSTANTS ---
-const NEON_TURQUOISE = '#3B82F6';
+const NEON_TURQUOISE_LIGHT = '#3B82F6';
+const NEON_TURQUOISE_DARK = '#66FCF1';
 
 // --- HELPER COMPONENTS ---
 
@@ -331,13 +333,15 @@ const SVGFrame = ({
     isSelected,
     isActiveEditFrame,
     onClick,
-    children
+    children,
+    accentColor
 }: {
     shape: FrameShape;
     isSelected?: boolean;
     isActiveEditFrame?: boolean;
     onClick?: (e: React.MouseEvent) => void;
     children?: React.ReactNode;
+    accentColor?: string;
 }) => (
     <ShapeWrapper
         shape={shape}
@@ -383,7 +387,7 @@ const SVGFrame = ({
                 width={shape.width}
                 height={shape.height}
                 fill="none"
-                stroke={NEON_TURQUOISE}
+                stroke={accentColor || NEON_TURQUOISE_DARK}
                 strokeWidth={2}
                 strokeDasharray="6,3"
                 opacity={0.75}
@@ -429,7 +433,8 @@ const SVGImage = ({ shape, isSelected, onClick }: { shape: ImageShape; isSelecte
 const ConnectorAnchors: React.FC<{
     anchorOverlays: { shape: Shape; anchors: AnchorPoint[] }[];
     snapTargetAnchor?: { shapeId: string; anchorType: AnchorType } | null;
-}> = ({ anchorOverlays, snapTargetAnchor }) => {
+    accentColor?: string;
+}> = ({ anchorOverlays, snapTargetAnchor, accentColor }) => {
     if (!anchorOverlays || anchorOverlays.length === 0) return null;
 
     return (
@@ -462,7 +467,7 @@ const ConnectorAnchors: React.FC<{
                                         cy={y}
                                         r={9}
                                         fill="none"
-                                        stroke={NEON_TURQUOISE}
+                                        stroke={accentColor || NEON_TURQUOISE_DARK}
                                         strokeWidth={2}
                                         className="connector-snap-ring"
                                         filter="url(#neon-bloom)"
@@ -472,7 +477,7 @@ const ConnectorAnchors: React.FC<{
                                         cx={x}
                                         cy={y}
                                         r={4}
-                                        fill={NEON_TURQUOISE}
+                                        fill={accentColor || NEON_TURQUOISE_DARK}
                                         stroke="none"
                                         className="connector-snap-dot"
                                     />
@@ -546,7 +551,9 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
     anchorOverlays = [],
     snapTargetAnchor,
     activeFrameId,
+    theme = 'dark',
 }) => {
+    const NEON_TURQUOISE = theme === 'light' ? NEON_TURQUOISE_LIGHT : NEON_TURQUOISE_DARK;
     const sortedShapes = useMemo(() =>
         [...shapes].sort((a, b) => a.zIndex - b.zIndex),
         [shapes]);
@@ -625,6 +632,7 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                                     isSelected={isSelected}
                                     isActiveEditFrame={activeFrameId === shape.id}
                                     onClick={clickHandler}
+                                    accentColor={NEON_TURQUOISE}
                                 >
                                     {children.map(child => renderShape(child))}
                                 </SVGFrame>
@@ -649,6 +657,7 @@ export const SVGShapeRenderer: React.FC<SVGShapeRendererProps> = ({
                 <ConnectorAnchors
                     anchorOverlays={anchorOverlays}
                     snapTargetAnchor={snapTargetAnchor}
+                    accentColor={NEON_TURQUOISE}
                 />
             </g>
         </svg>

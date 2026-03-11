@@ -41,14 +41,14 @@ export const SessionNotFound = ({ boardId }: SessionNotFoundProps) => {
             {/* Background Glow Effects */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-red-500 rounded-full mix-blend-overlay filter blur-[180px] opacity-[0.04]" />
-                <div className="absolute bottom-1/3 right-1/4 w-[350px] h-[350px] bg-[#3B82F6] rounded-full mix-blend-overlay filter blur-[150px] opacity-[0.04]" />
+                <div className="absolute bottom-1/3 right-1/4 w-[350px] h-[350px] bg-[#66FCF1] rounded-full mix-blend-overlay filter blur-[150px] opacity-[0.04]" />
             </div>
 
             {/* Floating Grid Background */}
             <div
                 className="absolute inset-0 opacity-[0.03] pointer-events-none"
                 style={{
-                    backgroundImage: 'radial-gradient(circle, #3B82F6 1px, transparent 1px)',
+                    backgroundImage: 'radial-gradient(circle, #66FCF1 1px, transparent 1px)',
                     backgroundSize: '32px 32px',
                 }}
             />
@@ -92,10 +92,10 @@ export const SessionNotFound = ({ boardId }: SessionNotFoundProps) => {
                 </div>
 
                 {/* Hint */}
-                <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-[#3B82F6]/5 border border-[#3B82F6]/10 mb-10 text-left w-full">
-                    <Sparkles className="w-4 h-4 text-[#3B82F6] flex-shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-[#66FCF1]/5 border border-[#66FCF1]/10 mb-10 text-left w-full">
+                    <Sparkles className="w-4 h-4 text-[#66FCF1] flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-[#8b9bb4] leading-relaxed">
-                        <span className="text-[#3B82F6] font-medium">Tip:</span>{' '}
+                        <span className="text-[#66FCF1] font-medium">Tip:</span>{' '}
                         Make sure you've copied the full board link. Board IDs look like{' '}
                         <span className="font-mono text-gray-400">a1b2c3d4-e5f6-...</span>
                     </p>
@@ -104,7 +104,7 @@ export const SessionNotFound = ({ boardId }: SessionNotFoundProps) => {
                 {/* Action Button */}
                 <button
                     onClick={() => navigate(isAuthenticated ? '/home' : '/')}
-                    className="group h-12 px-8 rounded-xl bg-[#3B82F6] hover:bg-white text-black font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#3B82F6]/20"
+                    className="group h-12 px-8 rounded-xl bg-[#66FCF1] hover:bg-white text-black font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#66FCF1]/20"
                 >
                     {isAuthenticated ? (
                         <>
@@ -122,7 +122,7 @@ export const SessionNotFound = ({ boardId }: SessionNotFoundProps) => {
                 {/* Back Link */}
                 <button
                     onClick={() => navigate(-1)}
-                    className="mt-8 text-sm text-[#2563EB] hover:text-[#3B82F6] transition-colors flex items-center gap-1.5"
+                    className="mt-8 text-sm text-[#2563EB] hover:text-[#66FCF1] transition-colors flex items-center gap-1.5"
                 >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     Go back

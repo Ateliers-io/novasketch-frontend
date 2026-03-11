@@ -166,6 +166,79 @@
   --tw-ring-color: rgba(59, 130, 246, 0.40) !important;
 }
 
+/* ── Dark-mode accent → turquoise ── */
+[data-ns-theme="dark"] .text-\[\#3B82F6\] {
+  color: #66FCF1 !important;
+}
+
+[data-ns-theme="dark"] .bg-\[\#3B82F6\] {
+  background-color: #66FCF1 !important;
+}
+
+[data-ns-theme="dark"] .bg-\[\#3B82F6\]\/15 {
+  background-color: rgba(102, 252, 241, 0.15) !important;
+}
+
+[data-ns-theme="dark"] .bg-\[\#3B82F6\]\/10 {
+  background-color: rgba(102, 252, 241, 0.10) !important;
+}
+
+[data-ns-theme="dark"] .bg-\[\#3B82F6\]\/5 {
+  background-color: rgba(102, 252, 241, 0.05) !important;
+}
+
+[data-ns-theme="dark"] .ring-\[\#3B82F6\]\/40 {
+  --tw-ring-color: rgba(102, 252, 241, 0.40) !important;
+}
+
+[data-ns-theme="dark"] .ring-\[\#3B82F6\] {
+  --tw-ring-color: #66FCF1 !important;
+}
+
+[data-ns-theme="dark"] .ring-2.ring-\[\#3B82F6\] {
+  --tw-ring-color: #66FCF1 !important;
+}
+
+[data-ns-theme="dark"] .border-\[\#3B82F6\] {
+  border-color: #66FCF1 !important;
+}
+
+[data-ns-theme="dark"] .border-\[\#3B82F6\]\/30 {
+  border-color: rgba(102, 252, 241, 0.30) !important;
+}
+
+[data-ns-theme="dark"] .shadow-\[\#3B82F6\]\/20 {
+  --tw-shadow-color: rgba(102, 252, 241, 0.20) !important;
+}
+
+[data-ns-theme="dark"] .hover\:text-\[\#3B82F6\]:hover {
+  color: #66FCF1 !important;
+}
+
+[data-ns-theme="dark"] .hover\:border-\[\#3B82F6\]\/50:hover {
+  border-color: rgba(102, 252, 241, 0.50) !important;
+}
+
+[data-ns-theme="dark"] .hover\:bg-\[\#3B82F6\]\/10:hover {
+  background-color: rgba(102, 252, 241, 0.10) !important;
+}
+
+[data-ns-theme="dark"] .hover\:bg-\[\#3B82F6\]\/20:hover {
+  background-color: rgba(102, 252, 241, 0.20) !important;
+}
+
+[data-ns-theme="dark"] .focus\:border-\[\#3B82F6\]:focus {
+  border-color: #66FCF1 !important;
+}
+
+[data-ns-theme="dark"] .focus-visible\:ring-\[\#3B82F6\]\/50:focus-visible {
+  --tw-ring-color: rgba(102, 252, 241, 0.50) !important;
+}
+
+[data-ns-theme="dark"] .selection\:bg-\[\#3B82F6\] ::selection {
+  background-color: #66FCF1 !important;
+}
+
 /* ── Separator lines ── */
 [data-ns-theme="light"] .bg-\[\#2a333b\] {
   background-color: #E6EAF0 !important;

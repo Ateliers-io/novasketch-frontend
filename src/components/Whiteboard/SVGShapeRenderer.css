@@ -1,6 +1,6 @@
 /* --- ENGINEERING PALETTE --- */
 :root {
-    --neon-primary: #3B82F6;
+    --neon-primary: var(--ns-accent, #3B82F6);
     --neon-secondary: #2563EB;
     --graphite-surface: #1F2833;
     --alert-coral: #fb7185;
@@ -46,7 +46,7 @@
 }
 
 .action-button:hover rect {
-    fill: #3B82F6;
+    fill: var(--ns-accent, #3B82F6);
 }
 
 .action-button:hover text {

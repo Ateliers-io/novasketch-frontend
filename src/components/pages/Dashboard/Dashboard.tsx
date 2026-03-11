@@ -84,11 +84,11 @@ interface NotificationsPanelProps {
 const NotificationsPanel = ({ notifications, onMarkRead, onDismiss, onClose }: NotificationsPanelProps) => {
     const getIcon = (type: string) => {
         switch (type) {
-            case 'invite': return <UserPlus size={16} className="text-[#3B82F6]" />;
+            case 'invite': return <UserPlus size={16} className="text-[#66FCF1]" />;
             case 'comment': return <MessageSquare size={16} className="text-pink-400" />;
             case 'update': return <Share2 size={16} className="text-indigo-400" />;
             case 'alert': return <AlertCircle size={16} className="text-amber-400" />;
-            default: return <Bell size={16} className="text-[#3B82F6]" />;
+            default: return <Bell size={16} className="text-[#66FCF1]" />;
         }
     };
 
@@ -96,7 +96,7 @@ const NotificationsPanel = ({ notifications, onMarkRead, onDismiss, onClose }: N
         <div className="absolute right-0 top-12 w-80 bg-[#1F2833] border border-white/10 rounded-lg shadow-2xl z-50 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Bell size={14} className="text-[#3B82F6]" />
+                    <Bell size={14} className="text-[#66FCF1]" />
                     Notifications
                 </h3>
                 <button onClick={onClose} className="p-1 rounded hover:bg-white/10 text-[#8b9bb4] hover:text-white">
@@ -110,7 +110,7 @@ const NotificationsPanel = ({ notifications, onMarkRead, onDismiss, onClose }: N
                     notifications.map((notif) => (
                         <div
                             key={notif.id}
-                            className={`flex gap-3 p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? 'bg-[#3B82F6]/5' : ''
+                            className={`flex gap-3 p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? 'bg-[#66FCF1]/5' : ''
                                 }`}
                             onClick={() => onMarkRead(notif.id)}
                         >
@@ -126,9 +126,9 @@ const NotificationsPanel = ({ notifications, onMarkRead, onDismiss, onClose }: N
                                     </button>
                                 </div>
                                 <p className="text-xs text-[#8b9bb4] truncate mt-0.5">{notif.message}</p>
-                                <p className="text-[10px] text-[#2563EB] mt-1">{notif.time}</p>
+                                <p className="text-[10px] text-[#66FCF1] mt-1">{notif.time}</p>
                             </div>
-                            {!notif.read && <div className="w-2 h-2 rounded-full bg-[#3B82F6] flex-shrink-0 mt-1.5" />}
+                            {!notif.read && <div className="w-2 h-2 rounded-full bg-[#66FCF1] flex-shrink-0 mt-1.5" />}
                         </div>
                     ))
                 )}
@@ -162,7 +162,7 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: {
         const shapes = [];
         for (let i = 0; i < 4; i++) {
             const isRect = previewType === 'rects' || (previewType === 'mixed' && i % 2 === 0);
-            const style = { fill: 'transparent', stroke: i === 0 ? '#3B82F6' : '#2563EB', strokeWidth: 1.5, opacity: i === 0 ? 1 : 0.4 };
+            const style = { fill: 'transparent', stroke: i === 0 ? '#66FCF1' : '#66FCF1', strokeWidth: 1.5, opacity: i === 0 ? 1 : 0.4 };
             if (isRect) shapes.push(<rect key={i} className="live-shape" x={40 + i * 25} y={30 + i * 12} width={24} height={18} rx={2} {...style} />);
             else shapes.push(<circle key={i} className="live-shape" cx={50 + i * 20} cy={40 + i * 12} r={10} {...style} />);
         }
@@ -179,14 +179,14 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: {
             onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, project.sessionId); }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className={`group relative flex flex-col bg-[#1F2833] border rounded-lg overflow-hidden cursor-pointer transition-all ${isSelected ? 'border-[#3B82F6] ring-1 ring-[#3B82F6]' : 'border-white/10 hover:border-[#3B82F6]/50'}`}
+            className={`group relative flex flex-col bg-[#1F2833] border rounded-lg overflow-hidden cursor-pointer transition-all ${isSelected ? 'border-[#66FCF1] ring-1 ring-[#66FCF1]' : 'border-white/10 hover:border-[#66FCF1]/50'}`}
         >
             <div className="relative h-32 bg-[#0B0C10] w-full overflow-hidden border-b border-white/5">
                 {thumbnailData ? (
                     <img src={thumbnailData} alt="Board thumbnail" className="absolute inset-0 w-full h-full object-contain opacity-80" />
                 ) : (
                     <>
-                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#2563EB 1px, transparent 1px), linear-gradient(90deg, #2563EB 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#66FCF1 1px, transparent 1px), linear-gradient(90deg, #66FCF1 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
                         <svg ref={previewRef} className="absolute inset-0 w-full h-full p-4 pointer-events-none" viewBox="0 0 200 120">{renderShapes()}</svg>
                     </>
                 )}
@@ -197,13 +197,13 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: {
                     {project.isCollab ? 'TEAM' : 'PERSONAL'}
                 </div>
                 {project.role && project.role !== 'owner' && (
-                    <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-[#0B0C10]/80 backdrop-blur border border-[#2563EB]/50 rounded-sm">
-                        <span className="text-[9px] font-mono font-bold text-[#2563EB] uppercase">{project.role}</span>
+                    <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-[#0B0C10]/80 backdrop-blur border border-[#66FCF1]/50 rounded-sm">
+                        <span className="text-[9px] font-mono font-bold text-[#66FCF1] uppercase">{project.role}</span>
                     </div>
                 )}
             </div>
             <div className="p-3 flex flex-col gap-1">
-                <h3 className={`text-sm font-medium truncate transition-colors ${isSelected ? 'text-[#3B82F6]' : 'text-white group-hover:text-[#3B82F6]'}`}>{project.name}</h3>
+                <h3 className={`text-sm font-medium truncate transition-colors ${isSelected ? 'text-[#66FCF1]' : 'text-white group-hover:text-[#66FCF1]'}`}>{project.name}</h3>
                 <div className="flex items-center justify-between text-[10px] font-mono text-[#8b9bb4]">
                     <div className="flex items-center gap-1"><Clock size={10} /><span>{formatRelativeTime(project.lastEditedAt)}</span></div>
                     <span>#{shortId}</span>
@@ -221,20 +221,20 @@ const ProjectRow = ({ project, isSelected, onSelect, onOpen, onContextMenu }: { 
             onClick={(e) => { e.stopPropagation(); onSelect(project.sessionId); }}
             onDoubleClick={(e) => { e.stopPropagation(); onOpen(project.sessionId); }}
             onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, project.sessionId); }}
-            className={`group flex items-center gap-4 p-3 rounded-md cursor-pointer border transition-all ${isSelected ? 'bg-[#3B82F6]/10 border-[#3B82F6]/30' : 'bg-[#1F2833]/30 border-transparent hover:bg-[#1F2833]'}`}
+            className={`group flex items-center gap-4 p-3 rounded-md cursor-pointer border transition-all ${isSelected ? 'bg-[#66FCF1]/10 border-[#66FCF1]/30' : 'bg-[#1F2833]/30 border-transparent hover:bg-[#1F2833]'}`}
         >
-            <div className={`w-8 h-8 rounded flex items-center justify-center border ${isSelected ? 'border-[#3B82F6] bg-[#3B82F6]/20' : 'border-white/10 bg-[#0B0C10]'}`}>
-                {previewType === 'rects' ? <Grid3X3 size={14} className={isSelected ? 'text-[#3B82F6]' : 'text-[#2563EB]'} /> : <Circle size={14} className={isSelected ? 'text-[#3B82F6]' : 'text-[#2563EB]'} />}
+            <div className={`w-8 h-8 rounded flex items-center justify-center border ${isSelected ? 'border-[#66FCF1] bg-[#66FCF1]/20' : 'border-white/10 bg-[#0B0C10]'}`}>
+                {previewType === 'rects' ? <Grid3X3 size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#66FCF1]'} /> : <Circle size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#66FCF1]'} />}
             </div>
             <div className="flex-1 min-w-0">
-                <h3 className={`text-sm font-medium truncate ${isSelected ? 'text-[#3B82F6]' : 'text-white'}`}>{project.name}</h3>
+                <h3 className={`text-sm font-medium truncate ${isSelected ? 'text-[#66FCF1]' : 'text-white'}`}>{project.name}</h3>
             </div>
             <div className={`px-2 py-0.5 rounded text-[10px] font-bold ${project.isCollab ? 'bg-pink-500/20 text-pink-400' : 'bg-indigo-500/20 text-indigo-400'
                 }`}>
                 {project.isCollab ? 'TEAM' : 'PERSONAL'}
             </div>
             <div className="hidden md:flex items-center gap-6 text-xs text-[#8b9bb4] font-mono">
-                {project.role && <span className="text-[#2563EB] uppercase">{project.role}</span>}
+                {project.role && <span className="text-[#66FCF1] uppercase">{project.role}</span>}
                 <span>{formatRelativeTime(project.lastEditedAt)}</span>
             </div>
         </div>
@@ -406,18 +406,18 @@ export const Dashboard = () => {
     }, []);
 
     return (
-        <div className="flex h-screen w-full bg-[#0B0C10] text-[#C5C6C7] font-sans overflow-hidden selection:bg-[#3B82F6] selection:text-[#0B0C10]"
-            style={{ cursor: 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724%27 height=%2724%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%233B82F6%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z%27/%3E%3Cpath d=%27M13 13l6 6%27/%3E%3C/svg%3E") 0 0, auto' }}
+        <div className="flex h-screen w-full bg-[#0B0C10] text-[#C5C6C7] font-sans overflow-hidden selection:bg-[#66FCF1] selection:text-[#0B0C10]"
+            style={{ cursor: 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724%27 height=%2724%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%2366FCF1%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z%27/%3E%3Cpath d=%27M13 13l6 6%27/%3E%3C/svg%3E") 0 0, auto' }}
             onContextMenu={(e) => e.preventDefault()}>
 
             {/* SIDEBAR */}
             <aside className={`flex flex-col border-r border-white/10 bg-[#0B0C10] transition-all duration-300 z-20 ${isSidebarCollapsed ? 'w-14' : 'w-60'}`}>
                 <div className="h-12 flex items-center px-3 border-b border-white/10">
-                    <div className="flex items-center gap-2 text-[#3B82F6] overflow-hidden">
+                    <div className="flex items-center gap-2 text-[#66FCF1] overflow-hidden">
                         <div className="min-w-[20px]"><Sparkles size={20} /></div>
                         {!isSidebarCollapsed && <span className="font-bold tracking-tight text-white whitespace-nowrap">NovaSketch</span>}
                     </div>
-                    <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="ml-auto p-1 rounded hover:bg-[#1F2833] text-[#2563EB]">
+                    <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="ml-auto p-1 rounded hover:bg-[#1F2833] text-[#66FCF1]">
                         {isSidebarCollapsed ? <Menu size={14} /> : <ChevronLeft size={14} />}
                     </button>
                 </div>
@@ -426,18 +426,18 @@ export const Dashboard = () => {
                         onClick={() => { setSidebarView('all'); setProjectFilter('all'); }}
                         className={`sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors ${sidebarView === 'all' && projectFilter === 'all' ? 'bg-[#1F2833] text-white' : 'text-[#8b9bb4] hover:bg-[#1F2833]/50 hover:text-white'}`}
                     >
-                        <FolderOpen size={16} className={sidebarView === 'all' && projectFilter === 'all' ? 'text-[#3B82F6]' : ''} />{!isSidebarCollapsed && <span>All Projects</span>}
+                        <FolderOpen size={16} className={sidebarView === 'all' && projectFilter === 'all' ? 'text-[#66FCF1]' : ''} />{!isSidebarCollapsed && <span>All Projects</span>}
                     </div>
                     <div
                         onClick={() => { setSidebarView('recent'); setProjectFilter('all'); }}
                         className={`sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors ${sidebarView === 'recent' ? 'bg-[#1F2833] text-white' : 'text-[#8b9bb4] hover:bg-[#1F2833]/50 hover:text-white'}`}
                     >
-                        <Clock size={16} className={sidebarView === 'recent' ? 'text-[#3B82F6]' : ''} />{!isSidebarCollapsed && <span>Recent</span>}
+                        <Clock size={16} className={sidebarView === 'recent' ? 'text-[#66FCF1]' : ''} />{!isSidebarCollapsed && <span>Recent</span>}
                     </div>
 
                     {!isSidebarCollapsed && (
                         <div className="mt-6 pt-4 border-t border-white/10">
-                            <div className="px-2 mb-2 text-[10px] font-bold text-[#2563EB] uppercase tracking-wider">Filter by Type</div>
+                            <div className="px-2 mb-2 text-[10px] font-bold text-[#66FCF1] uppercase tracking-wider">Filter by Type</div>
                             <div
                                 onClick={() => setProjectFilter('collab')}
                                 className={`sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors ${projectFilter === 'collab' ? 'bg-pink-500/10 text-pink-400' : 'text-[#8b9bb4] hover:bg-[#1F2833]/50 hover:text-white'}`}
@@ -456,8 +456,8 @@ export const Dashboard = () => {
                 <div className="p-2 border-t border-white/10">
                     <div className="flex items-center gap-3 p-2 rounded-sm hover:bg-[#1F2833] cursor-pointer transition-colors">
                         <div className="w-8 h-8 rounded bg-[#1F2833] border border-white/10 flex items-center justify-center text-xs font-bold text-white">{user?.displayName?.[0] || 'U'}</div>
-                        {!isSidebarCollapsed && <div className="flex-1 min-w-0"><div className="text-xs font-medium text-white truncate">{user?.displayName}</div><div className="text-[10px] text-[#2563EB] truncate font-mono">ONLINE</div></div>}
-                        {!isSidebarCollapsed && <button onClick={handleLogout} className="text-[#8b9bb4] hover:text-[#3B82F6]" title="Log Out"><LogOut size={14} /></button>}
+                        {!isSidebarCollapsed && <div className="flex-1 min-w-0"><div className="text-xs font-medium text-white truncate">{user?.displayName}</div><div className="text-[10px] text-[#66FCF1] truncate font-mono">ONLINE</div></div>}
+                        {!isSidebarCollapsed && <button onClick={handleLogout} className="text-[#8b9bb4] hover:text-[#66FCF1]" title="Log Out"><LogOut size={14} /></button>}
                     </div>
                 </div>
             </aside>
@@ -470,7 +470,7 @@ export const Dashboard = () => {
                     <div className="flex items-center gap-2 text-sm text-[#8b9bb4]">
                         <span className="text-white font-medium">{sidebarView === 'recent' ? 'Recent Projects' : 'Dashboard'}</span>
                         {sidebarView === 'recent' && (
-                            <span className="text-[10px] font-mono text-[#2563EB] bg-[#1F2833] px-2 py-0.5 rounded">
+                            <span className="text-[10px] font-mono text-[#66FCF1] bg-[#1F2833] px-2 py-0.5 rounded">
                                 {sortOrder === 'newest' ? 'Newest First' : 'Oldest First'}
                             </span>
                         )}
@@ -486,7 +486,7 @@ export const Dashboard = () => {
                             <button
                                 onClick={handleJoinBoard}
                                 disabled={!joinBoardId.trim()}
-                                className="h-full px-3 text-[10px] font-bold bg-[#2563EB]/20 text-[#3B82F6] hover:bg-[#2563EB]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-l border-white/10"
+                                className="h-full px-3 text-[10px] font-bold bg-[#66FCF1]/20 text-[#66FCF1] hover:bg-[#66FCF1]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-l border-white/10"
                             >
                                 JOIN
                             </button>
@@ -494,13 +494,13 @@ export const Dashboard = () => {
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="relative group w-64 hidden md:block">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-[#2563EB]" size={14} />
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-[#66FCF1]" size={14} />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search projects..."
-                                className="w-full h-8 bg-[#1F2833] border border-white/10 rounded-sm pl-8 pr-8 text-xs text-white focus:outline-none focus:border-[#3B82F6] transition-all placeholder:text-[#8b9bb4]"
+                                className="w-full h-8 bg-[#1F2833] border border-white/10 rounded-sm pl-8 pr-8 text-xs text-white focus:outline-none focus:border-[#66FCF1] transition-all placeholder:text-[#8b9bb4]"
                             />
                             {searchQuery ? (
                                 <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8b9bb4] hover:text-white">
@@ -514,7 +514,7 @@ export const Dashboard = () => {
                         {/* Sort Toggle */}
                         <button
                             onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
-                            className="flex items-center gap-1.5 px-2 py-1.5 rounded text-[#8b9bb4] hover:text-[#3B82F6] hover:bg-[#1F2833] transition-all text-xs font-mono"
+                            className="flex items-center gap-1.5 px-2 py-1.5 rounded text-[#8b9bb4] hover:text-[#66FCF1] hover:bg-[#1F2833] transition-all text-xs font-mono"
                             title={`Sort: ${sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}`}
                         >
                             {sortOrder === 'newest' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
@@ -525,7 +525,7 @@ export const Dashboard = () => {
                         <div className="relative">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setShowNotifications(!showNotifications); }}
-                                className="relative p-2 rounded hover:bg-[#1F2833] text-[#8b9bb4] hover:text-[#3B82F6] transition-colors"
+                                className="relative p-2 rounded hover:bg-[#1F2833] text-[#8b9bb4] hover:text-[#66FCF1] transition-colors"
                             >
                                 <Bell size={18} />
                                 {unreadCount > 0 && (
@@ -545,8 +545,8 @@ export const Dashboard = () => {
                         </div>
 
                         <div className="flex items-center gap-2 border-l border-white/10 pl-4">
-                            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-[#1F2833] text-[#3B82F6]' : 'text-[#8b9bb4] hover:text-white'}`}><LayoutGrid size={16} /></button>
-                            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-[#1F2833] text-[#3B82F6]' : 'text-[#8b9bb4] hover:text-white'}`}><ListIcon size={16} /></button>
+                            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-[#1F2833] text-[#66FCF1]' : 'text-[#8b9bb4] hover:text-white'}`}><LayoutGrid size={16} /></button>
+                            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-[#1F2833] text-[#66FCF1]' : 'text-[#8b9bb4] hover:text-white'}`}><ListIcon size={16} /></button>
                         </div>
                     </div>
                 </header>
@@ -558,7 +558,7 @@ export const Dashboard = () => {
                         {/* LOADING STATE */}
                         {isLoadingProjects && (
                             <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                <Loader2 size={32} className="text-[#3B82F6] animate-spin" />
+                                <Loader2 size={32} className="text-[#66FCF1] animate-spin" />
                                 <p className="text-sm text-[#8b9bb4] font-mono">Loading your projects...</p>
                             </div>
                         )}
@@ -567,7 +567,7 @@ export const Dashboard = () => {
                         {!isLoadingProjects && projects.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 gap-6">
                                 <div className="w-16 h-16 rounded-2xl bg-[#1F2833] border border-white/10 flex items-center justify-center">
-                                    <FolderOpen size={28} className="text-[#2563EB]" />
+                                    <FolderOpen size={28} className="text-[#66FCF1]" />
                                 </div>
                                 <div className="text-center">
                                     <h3 className="text-lg font-bold text-white mb-1">No projects yet</h3>
@@ -576,7 +576,7 @@ export const Dashboard = () => {
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
                                     disabled={isCreatingBoard}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-[#3B82F6] hover:bg-[#2563EB] text-black font-bold text-sm rounded-lg transition-all disabled:opacity-50"
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-[#66FCF1] hover:bg-[#45A29E] text-black font-bold text-sm rounded-lg transition-all disabled:opacity-50"
                                 >
                                     {isCreatingBoard ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                                     Create New Board
@@ -587,7 +587,7 @@ export const Dashboard = () => {
                         {/* SEARCH NO RESULTS STATE */}
                         {!isLoadingProjects && projects.length > 0 && filteredProjects.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                <Search size={28} className="text-[#2563EB]" />
+                                <Search size={28} className="text-[#66FCF1]" />
                                 <div className="text-center">
                                     <h3 className="text-lg font-bold text-white mb-1">No matching projects</h3>
                                     <p className="text-sm text-[#8b9bb4]">
@@ -597,7 +597,7 @@ export const Dashboard = () => {
                                 {searchQuery && (
                                     <button
                                         onClick={() => setSearchQuery('')}
-                                        className="text-xs text-[#3B82F6] hover:underline"
+                                        className="text-xs text-[#66FCF1] hover:underline"
                                     >
                                         Clear search
                                     </button>
@@ -610,8 +610,8 @@ export const Dashboard = () => {
                             <section>
                                 <div className="flex items-end justify-between mb-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-[#3B82F6]/10 border border-[#3B82F6]/20">
-                                            <Clock size={18} className="text-[#3B82F6]" />
+                                        <div className="p-2 rounded-lg bg-[#66FCF1]/10 border border-[#66FCF1]/20">
+                                            <Clock size={18} className="text-[#66FCF1]" />
                                         </div>
                                         <div>
                                             <h2 className="text-xl font-bold text-white">Recent Projects</h2>
@@ -624,7 +624,7 @@ export const Dashboard = () => {
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleCreateBoard(); }}
                                         disabled={isCreatingBoard}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-[#3B82F6]/10 hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 text-[#3B82F6] text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-[#66FCF1]/10 hover:bg-[#66FCF1]/20 border border-[#66FCF1]/30 text-[#66FCF1] text-xs font-bold rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isCreatingBoard ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}NEW BOARD
                                     </button>
@@ -796,10 +796,10 @@ export const Dashboard = () => {
                         style={{ top: contextMenu.y, left: contextMenu.x }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="px-3 py-2 text-xs font-mono text-[#2563EB] border-b border-white/5 mb-1">ID: {contextMenu.id.length > 12 ? `${contextMenu.id.slice(0, 8)}...` : contextMenu.id}</div>
-                        <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] flex items-center gap-2"><Edit2 size={14} /> Rename</button>
-                        <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] flex items-center gap-2"><Copy size={14} /> Duplicate</button>
-                        <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] flex items-center gap-2" onClick={() => {
+                        <div className="px-3 py-2 text-xs font-mono text-[#66FCF1] border-b border-white/5 mb-1">ID: {contextMenu.id.length > 12 ? `${contextMenu.id.slice(0, 8)}...` : contextMenu.id}</div>
+                        <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#66FCF1]/10 hover:text-[#66FCF1] flex items-center gap-2"><Edit2 size={14} /> Rename</button>
+                        <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#66FCF1]/10 hover:text-[#66FCF1] flex items-center gap-2"><Copy size={14} /> Duplicate</button>
+                        <button className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-[#66FCF1]/10 hover:text-[#66FCF1] flex items-center gap-2" onClick={() => {
                             navigator.clipboard.writeText(`${window.location.origin}/board/${contextMenu.id}`);
                             setContextMenu(null);
                         }}><Share2 size={14} /> Copy Link</button>

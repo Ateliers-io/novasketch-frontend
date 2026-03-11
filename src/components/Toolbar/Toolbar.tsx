@@ -746,8 +746,8 @@ export default function Toolbar({
                                 <div
                                 className="w-5 h-5 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
                                     style={{
-                                        borderColor: activeColorMode === 'stroke' ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
-                                        boxShadow: activeColorMode === 'stroke' ? '0 0 0 2px #3B82F6' : 'none',
+                                        borderColor: activeColorMode === 'stroke' ? (theme === 'light' ? '#3B82F6' : '#66FCF1') : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                        boxShadow: activeColorMode === 'stroke' ? `0 0 0 2px ${theme === 'light' ? '#3B82F6' : '#66FCF1'}` : 'none',
                                     }}
                                     onClick={() => setActiveColorMode('stroke')}
                                     title="Stroke Color"
@@ -761,8 +761,8 @@ export default function Toolbar({
                                 <div
                                     className="w-5 h-5 rounded-full border-2 relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
                                     style={{
-                                        borderColor: activeColorMode === 'fill' ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
-                                        boxShadow: activeColorMode === 'fill' ? '0 0 0 2px #3B82F6' : 'none',
+                                        borderColor: activeColorMode === 'fill' ? (theme === 'light' ? '#3B82F6' : '#66FCF1') : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                        boxShadow: activeColorMode === 'fill' ? `0 0 0 2px ${theme === 'light' ? '#3B82F6' : '#66FCF1'}` : 'none',
                                     }}
                                     onClick={() => setActiveColorMode('fill')}
                                     title="Fill Color"
@@ -784,8 +784,8 @@ export default function Toolbar({
                                         onClick={() => setShowColorMenu(!showColorMenu)}
                                         className="w-5 h-5 rounded-full border-2 cursor-pointer relative shadow-sm transition-all duration-200 hover:scale-110 active:scale-95"
                                         style={{
-                                            borderColor: showColorMenu ? '#3B82F6' : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
-                                            boxShadow: showColorMenu ? '0 0 0 2px #3B82F6' : 'none',
+                                            borderColor: showColorMenu ? (theme === 'light' ? '#3B82F6' : '#66FCF1') : (theme === 'light' ? '#cbd5e1' : '#4b5563'),
+                                            boxShadow: showColorMenu ? `0 0 0 2px ${theme === 'light' ? '#3B82F6' : '#66FCF1'}` : 'none',
                                         }}
                                         title="Color Palette"
                                     >

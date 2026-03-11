@@ -76,7 +76,7 @@ const ShareLinkSection: React.FC<{
     let btnBorder = isLight ? '1px solid #E6EAF0' : 'none';
 
     if (copied) {
-        btnBg = isLight ? '#3B82F6' : '#2563EB';
+        btnBg = isLight ? '#3B82F6' : '#66FCF1';
         btnColor = isLight ? '#ffffff' : '#0B0C10';
         btnBorder = isLight ? '1px solid transparent' : 'none';
     }
@@ -206,7 +206,7 @@ const StartSessionButton: React.FC<{
             onClick={onStart}
             className="w-full py-2.5 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
             style={{
-                backgroundColor: isLight ? '#3B82F6' : '#3B82F6',
+                backgroundColor: isLight ? '#3B82F6' : '#66FCF1',
                 color: isLight ? '#ffffff' : '#0B0C10',
                 boxShadow: isLight ? '0 4px 12px rgba(42,157,143,0.3)' : '0 0 10px rgba(102,252,241,0.2)'
             }}

@@ -343,6 +343,14 @@ export default function Whiteboard({
     localStorage.setItem('novasketch-theme', theme);
   }, [theme]);
 
+  // Sync data-ns-theme to document.body so that portal-rendered dropdowns
+  // (which live in document.body outside the whiteboard div) also receive
+  // the [data-ns-theme] CSS overrides defined in index.css.
+  useEffect(() => {
+    document.body.setAttribute('data-ns-theme', theme);
+    return () => { document.body.removeAttribute('data-ns-theme'); };
+  }, [theme]);
+
   // syncing everything with yjs.
   // this hook does all the heavy lifting for real-time collab.
   const {

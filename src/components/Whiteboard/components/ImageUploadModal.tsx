@@ -144,12 +144,24 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center" onClick={handleClose}>
+        <div 
+            role="button" 
+            tabIndex={0} 
+            className="fixed inset-0 z-[9999] flex items-center justify-center" 
+            onClick={handleClose}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleClose();
+                }
+            }}
+        >
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
             {/* Modal */}
             <div
+                role="presentation"
                 className="relative w-[480px] max-w-[90vw] rounded-2xl overflow-hidden"
                 style={{
                     background: 'linear-gradient(145deg, #1a1f2e, #0f1318)',
@@ -157,6 +169,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                     boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 40px rgba(102,252,241,0.05)',
                 }}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
             >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
@@ -203,10 +216,18 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({ isOpen, onClose, on
                 <div className="px-6 py-5">
                     {activeTab === 'upload' ? (
                         <div
+                            role="button"
+                            tabIndex={0}
                             onDrop={handleDrop}
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                             onClick={() => fileInputRef.current?.click()}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    fileInputRef.current?.click();
+                                }
+                            }}
                             className={`relative flex flex-col items-center justify-center py-12 rounded-xl border-2 border-dashed cursor-pointer transition-all ${dragOver
                                     ? 'border-[#3B82F6] bg-[#3B82F6]/10'
                                     : 'border-white/20 hover:border-[#3B82F6]/50 hover:bg-white/5'

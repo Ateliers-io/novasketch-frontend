@@ -264,7 +264,7 @@ function pushShapeOutsideFrames(shape: Shape, allShapes: Shape[]): Shape {
     ];
     const best = candidates.reduce((a, b) =>
       Math.abs(a.dx) + Math.abs(a.dy) <= Math.abs(b.dx) + Math.abs(b.dy) ? a : b
-    );
+    , candidates[0]);
     current = applyDeltaToShape(current, best.dx, best.dy);
   }
   return current;
@@ -2494,6 +2494,7 @@ export default function Whiteboard({
                 else scale = Math.max(scaleX, scaleY);
 
                 return { ...s, position: { x: finalX, y: finalY }, radius: (initS as CircleShape).radius * scale } as Shape;
+              } else if (isLine(initS) || isArrow(initS)) {
                 const ls = initS as LineShape;
                 return {
                   ...s,

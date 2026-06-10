@@ -162,7 +162,7 @@ const ProjectCard = ({ project, isSelected, onSelect, onOpen, onContextMenu }: {
         const shapes = [];
         for (let i = 0; i < 4; i++) {
             const isRect = previewType === 'rects' || (previewType === 'mixed' && i % 2 === 0);
-            const style = { fill: 'transparent', stroke: i === 0 ? '#66FCF1' : '#66FCF1', strokeWidth: 1.5, opacity: i === 0 ? 1 : 0.4 };
+            const style = { fill: 'transparent', stroke: '#66FCF1', strokeWidth: 1.5, opacity: i === 0 ? 1 : 0.4 };
             if (isRect) shapes.push(<rect key={i} className="live-shape" x={40 + i * 25} y={30 + i * 12} width={24} height={18} rx={2} {...style} />);
             else shapes.push(<circle key={i} className="live-shape" cx={50 + i * 20} cy={40 + i * 12} r={10} {...style} />);
         }
@@ -224,7 +224,7 @@ const ProjectRow = ({ project, isSelected, onSelect, onOpen, onContextMenu }: { 
             className={`group flex items-center gap-4 p-3 rounded-md cursor-pointer border transition-all ${isSelected ? 'bg-[#66FCF1]/10 border-[#66FCF1]/30' : 'bg-[#1F2833]/30 border-transparent hover:bg-[#1F2833]'}`}
         >
             <div className={`w-8 h-8 rounded flex items-center justify-center border ${isSelected ? 'border-[#66FCF1] bg-[#66FCF1]/20' : 'border-white/10 bg-[#0B0C10]'}`}>
-                {previewType === 'rects' ? <Grid3X3 size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#66FCF1]'} /> : <Circle size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#66FCF1]'} />}
+                {previewType === 'rects' ? <Grid3X3 size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#8b9bb4]'} /> : <Circle size={14} className={isSelected ? 'text-[#66FCF1]' : 'text-[#8b9bb4]'} />}
             </div>
             <div className="flex-1 min-w-0">
                 <h3 className={`text-sm font-medium truncate ${isSelected ? 'text-[#66FCF1]' : 'text-white'}`}>{project.name}</h3>
@@ -423,13 +423,31 @@ export const Dashboard = () => {
                 </div>
                 <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-2">
                     <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => { setSidebarView('all'); setProjectFilter('all'); }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSidebarView('all');
+                                setProjectFilter('all');
+                            }
+                        }}
                         className={`sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors ${sidebarView === 'all' && projectFilter === 'all' ? 'bg-[#1F2833] text-white' : 'text-[#8b9bb4] hover:bg-[#1F2833]/50 hover:text-white'}`}
                     >
                         <FolderOpen size={16} className={sidebarView === 'all' && projectFilter === 'all' ? 'text-[#66FCF1]' : ''} />{!isSidebarCollapsed && <span>All Projects</span>}
                     </div>
                     <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => { setSidebarView('recent'); setProjectFilter('all'); }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSidebarView('recent');
+                                setProjectFilter('all');
+                            }
+                        }}
                         className={`sidebar-el flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors ${sidebarView === 'recent' ? 'bg-[#1F2833] text-white' : 'text-[#8b9bb4] hover:bg-[#1F2833]/50 hover:text-white'}`}
                     >
                         <Clock size={16} className={sidebarView === 'recent' ? 'text-[#66FCF1]' : ''} />{!isSidebarCollapsed && <span>Recent</span>}
@@ -455,8 +473,16 @@ export const Dashboard = () => {
                 </div>
                 <div className="p-2 border-t border-white/10">
                     <div
+                        role="button"
+                        tabIndex={0}
                         className="flex items-center gap-3 p-2 rounded-sm hover:bg-[#1F2833] cursor-pointer transition-colors group"
                         onClick={() => navigate('/profile')}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                navigate('/profile');
+                            }
+                        }}
                         title="View Profile"
                     >
                         <div className="w-8 h-8 rounded bg-gradient-to-br from-[#66FCF1]/20 to-indigo-500/20 border border-white/10 flex items-center justify-center text-xs font-bold text-[#66FCF1] overflow-hidden group-hover:border-[#66FCF1]/40 transition-colors">
@@ -696,7 +722,16 @@ export const Dashboard = () => {
                                         {viewMode === 'grid' ? (
                                             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
                                                 <div
+                                                    role="button"
+                                                    tabIndex={0}
                                                     onClick={(e) => { e.stopPropagation(); handleCreateBoard(true); }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter" || e.key === " ") {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleCreateBoard(true);
+                                                        }
+                                                    }}
                                                     className={`group border border-dashed border-white/20 hover:border-pink-500 rounded-lg p-4 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-[#1F2833]/50 transition-all min-h-[200px] ${isCreatingBoard ? 'opacity-50 pointer-events-none' : ''}`}
                                                 >
                                                     <div className="w-10 h-10 rounded-full bg-[#1F2833] flex items-center justify-center group-hover:scale-110 transition-transform border border-white/10 group-hover:border-pink-500">

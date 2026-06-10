@@ -88,11 +88,20 @@ export const ProjectNameEditor: React.FC<ProjectNameEditorProps> = ({ sessionId,
 
     return (
         <div
+            role="button"
+            tabIndex={0}
             className={`group flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-md font-semibold text-sm shadow-sm cursor-pointer border transition-all hover:scale-[1.02] active:scale-95 max-w-[200px] sm:max-w-xs`}
             style={{ backgroundColor: bgColor, color: textColor, borderColor: isDark ? 'rgba(102,252,241,0.2)' : 'rgba(59,130,246,0.18)' }}
             onClick={() => {
                 setTempName(name);
                 setIsEditing(true);
+            }}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setTempName(name);
+                    setIsEditing(true);
+                }
             }}
             title="Edit project name"
         >

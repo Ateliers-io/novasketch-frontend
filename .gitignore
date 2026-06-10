@@ -7,7 +7,7 @@ node_modules/
 # Package Manager (pnpm)
 # ===============================
 .pnpm-store/
-.pnpm-debug.log
+.pnpm-debug.log 
 
 # ===============================
 # Environment variables

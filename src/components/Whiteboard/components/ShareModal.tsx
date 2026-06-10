@@ -34,7 +34,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, session
     const bgColor = isDark ? '#12141D' : '#F8FAFB';
     const textColor = isDark ? '#fff' : '#1E293B';
     const borderColor = isDark ? 'rgba(102,252,241,0.2)' : 'rgba(69,162,158,0.2)';
-    const accentColor = isDark ? '#3B82F6' : '#3B82F6';
+    const accentColor = '#3B82F6';
 
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">

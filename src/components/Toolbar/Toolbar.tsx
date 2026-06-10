@@ -1014,9 +1014,17 @@ export default function Toolbar({
                                                     <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ns-section-label, #8b9dad)' }}>Color</span>
                                                     <div className="relative">
                                                         <div
+                                                            role="button"
+                                                            tabIndex={0}
                                                             className="w-6 h-6 rounded-full border-2 cursor-pointer transition-shadow hover:shadow-md"
                                                             style={{ backgroundColor: gridConfig.color, borderColor: 'var(--ns-separator, #2a333b)' }}
                                                             onClick={() => gridColorRef.current?.click()}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "Enter" || e.key === " ") {
+                                                                    e.preventDefault();
+                                                                    gridColorRef.current?.click();
+                                                                }
+                                                            }}
                                                         />
                                                         <input
                                                             ref={gridColorRef}
